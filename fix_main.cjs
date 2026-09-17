@@ -1,4 +1,6 @@
-import {StrictMode} from 'react';
+const fs = require('fs');
+
+const code = `import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
@@ -7,7 +9,7 @@ import './index.css';
 // This also cleans up any malformed GitHub Pages URLs.
 (function() {
   const path = window.location.pathname;
-  const match = path.match(/(\/subject\/.*|\/test\/.*|\/reports|\/recent|\/settings)$/);
+  const match = path.match(/(\\/subject\\/.*|\\/test\\/.*|\\/reports|\\/recent|\\/settings)$/);
   let base = path;
   if (match) {
     base = path.slice(0, path.length - match[1].length);
@@ -29,3 +31,7 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+`;
+
+fs.writeFileSync('src/main.tsx', code);
+console.log('Fixed main.tsx');

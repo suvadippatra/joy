@@ -28,3 +28,9 @@ If the exporter did not include this hidden folder automatically, please open th
 *Fixed initialization order crash in SubjectView.*
 
 *Disabled faulty 180 min Botany exams per instructions. Unclickable state added.*
+
+*Fixed massive spacing gap on Home.tsx and added light-mode visibility for background texture dots.*
+
+*Fixed GitHub Pages SPA routing bug where refreshing a page caused HashRouter to load the Homepage while leaving the route in the pathname.*
+
+*Updated `main.tsx` to explicitly wipe active routes on page refresh, forcing the application to always resume from the Home page.*

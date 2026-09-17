@@ -76,7 +76,7 @@ export default function Home() {
     <div className="flex-1 bg-transparent flex flex-col font-sans transition-colors">
       <Header title="CBT TEST" />
       
-      <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 flex flex-col gap-8 mx-auto xl:max-w-[90rem]">
+      <main className="w-full p-4 sm:p-6 lg:p-8 flex flex-col gap-8 mx-auto xl:max-w-[90rem] mb-12">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Subjects</h2>
