@@ -39,8 +39,6 @@ jobs:
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v4
-        with:
-          enablement: true
       - name: Build
         run: |
           npm run build -- --base=${{ steps.pages.outputs.base_path }}/
