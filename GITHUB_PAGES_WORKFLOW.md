@@ -32,13 +32,15 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v4
+        with:
+          enablement: true
       - name: Build
         run: |
           npm run build -- --base=${{ steps.pages.outputs.base_path }}/
