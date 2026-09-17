@@ -1,0 +1,2824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- PARAMETER 1 (Global): Exam Name. Update this string to dynamically change the browser tab title. -->
+    <title>Plant Kingdom</title>
+    
+    
+    
+    <!-- PARAMETER 13 (Font Family) - Will be injected as Q_FONT_FAMILY constant -->
+
+    <script>
+        // CORRECTION 2B: Math Rendering Engine Detection
+        // Will be overridden by compiler based on user selection
+        window.mathRenderEngine = 'mathml'; // Options: 'mathml', 'html_fallback', 'katex_online'
+    </script>
+
+    <style>
+        :root {
+            --primary: #3db2d4; 
+            --header-bg: #2d3436;
+            --panel-bg: #ffffff;
+            --nta-green: #28a745;
+            --nta-red: #dc3545;
+            --nta-purple: #6f42c1;
+            --nta-grey: #e9ecef;
+            --text-dark: #2d3436;
+            --border-color: #dfe6e9;
+            --q-font: Arial, sans-serif; 
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; padding: 0; 
+            position: fixed; 
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            background-color: #f4f6f8; 
+            display: flex; flex-direction: column;
+            overflow: hidden; 
+        }
+
+        /* Utilities */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* HIDE PRINT ELEMENTS ON SCREEN */
+        .print-footer, .print-secondary-header { display: none; }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f4f6f8; z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+
+        /* Audio Toast Notification Style */
+        .audio-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 25px; border-radius: 30px; font-size: 0.9rem; z-index: 5000; animation: fadeOut 2.5s forwards; pointer-events: none; }
+        @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+
+        /* --- LOGIN SCREEN --- */
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 500px; } 
+        .avatar-grid { display: flex; justify-content: center; gap: 15px; margin: 25px 0; flex-wrap: wrap; }
+        .avatar-option { font-size: 2.2rem; cursor: pointer; border: 3px solid transparent; border-radius: 50%; padding: 10px; transition: all 0.2s; background: #f8f9fa; }
+        .avatar-option.selected { border-color: var(--primary); background: #e3f2fd; transform: scale(1.15); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .inp-name { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; margin-bottom: 20px; cursor: pointer; background: #fff; }
+
+        /* --- INSTRUCTION PAGE --- */
+        .instruction-container { width: 90%; max-width: 1000px; height: 90%; background: white; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .inst-header { padding: 20px 30px; border-bottom: 3px solid var(--primary); display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        .inst-user-profile { display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 5px 15px; border-radius: 30px; border: 1px solid #eee; }
+        .inst-body { flex: 1; overflow-y: auto; padding: 30px; line-height: 1.6; color: #444; }
+        .inst-section { margin-bottom: 30px; }
+        .inst-section h3 { color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 15px; }
+        .scheme-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9rem; }
+        .scheme-table th, .scheme-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        .scheme-table th { background: #f1f2f6; }
+        
+        .inst-status-icon { display: inline-block; width: 16px; height: 16px; margin: 0 4px; vertical-align: middle; font-size: 10px; text-align: center; line-height: 16px; }
+        .inst-status-icon.circle { border-radius: 50%; }
+        .inst-status-icon.square { border-radius: 3px; }
+        .inst-status-icon.poly { clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 50% 100%, 0% 80%); border-radius: 3px; height: 18px; }
+
+        .inst-footer { padding: 15px 30px; border-top: 1px solid #eee; background: #f9f9f9; display: flex; flex-direction: column; gap: 15px; }
+        .inst-actions { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        
+        .dev-declaration { font-size: 0.8rem; color: #666; text-align: center; padding-top: 10px; border-top: 1px dotted #ccc; width: 100%; }
+        .dev-declaration a { color: var(--primary); text-decoration: none; font-weight: bold; }
+        
+        /* --- HEADER & TOOLBAR --- */
+        header { background: var(--header-bg); color: white; padding: 0 15px; height: 60px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 50; flex-shrink: 0; }
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        .logo-circle { width: 36px; height: 36px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); font-size: 0.8rem; flex-shrink: 0; overflow: hidden; }
+        .logo-circle img { width: 100%; height: 100%; object-fit: cover; }
+        .exam-title { font-size: 1.1rem; font-weight: 600; line-height: 1.2; }
+        .exam-subtitle { font-size: 0.75rem; color: #b2bec3; display: block; }
+        .toolbar { display: flex; align-items: center; gap: 12px; }
+        .zoom-container { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; }
+        .zoom-label { font-size: 0.8rem; color: #dfe6e9; }
+        input[type=range] { width: 120px; cursor: pointer; accent-color: var(--primary); }
+        .tool-btn { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 8px; border-radius: 4px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;}
+        .tool-btn:hover { background: rgba(255,255,255,0.1); border-color: white; }
+        .tool-icon { width: 20px; height: 20px; fill: white; }
+        .timer-box { font-family: 'Courier New', monospace; font-weight: 700; font-size: 1.2rem; color: #fab1a0; background: #2d3436; padding: 5px 10px; border: 1px solid #636e72; border-radius: 4px; white-space: nowrap; }
+
+        /* --- EXAM LAYOUT --- */
+        .main-container { display: flex; flex: 1; overflow: hidden; position: relative; min-height: 0; }
+        
+        .question-area { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: white; 
+            position: relative; 
+            z-index: 1; 
+            box-shadow: inset 15px 0 20px -15px rgba(0,0,0,0.15), inset -15px 0 20px -15px rgba(0,0,0,0.15); 
+            min-width: 0; 
+        }
+        
+        .q-scroll-view { flex: 1; overflow-y: auto; padding: 30px; transform-origin: top left; padding-bottom: 200px; }
+        
+        /* Smooth Scroll Buttons */
+        .section-nav-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            background: #e9ecef;
+            border-bottom: 2px solid var(--primary);
+            position: relative;
+            padding: 0 5px;
+        }
+
+        .section-tab-container { 
+            flex: 1;
+            display: flex; 
+            overflow-x: auto; 
+            white-space: nowrap; 
+            scrollbar-width: none; 
+            padding: 10px 0 0 0;
+        }
+        .section-tab-container::-webkit-scrollbar { display: none; }
+        
+        .nav-scroll-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid #b2bec3;
+            background: white;
+            color: #2d3436;
+            font-weight: bold;
+            font-size: 1.2rem;
+            line-height: 1; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            flex-shrink: 0;
+            margin: 0 5px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding-bottom: 4px;
+        }
+        .nav-scroll-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .nav-scroll-btn.hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .section-tab { 
+            flex-shrink: 0; 
+            padding: 10px 25px; margin-right: 5px; background: #b2bec3; color: white; font-weight: 600; font-size: 0.95rem; cursor: pointer; border-top-left-radius: 8px; border-top-right-radius: 8px; transition: all 0.2s; border: 1px solid rgba(0,0,0,0.1); border-bottom: none; opacity: 0.8; 
+        }
+        
+        .section-tab:hover { opacity: 1; }
+        .section-tab.active { background: var(--primary); color: white; opacity: 1; box-shadow: 0 -2px 5px rgba(0,0,0,0.1); position: relative; top: 2px; }
+        
+        .question-content { 
+            font-size: 1.15rem; 
+            line-height: 1.6; 
+            color: var(--text-dark); 
+            margin-bottom: 15px; 
+            white-space: pre-wrap; 
+            font-family: var(--q-font);
+        }
+        .q-num-inline { font-weight: 800; color: #000; margin-right: 5px; }
+        .question-content img { max-width: 100%; height: auto; display: block; margin: 15px 0; border:1px solid #eee; border-radius: 4px; }
+        
+        .table-container { margin: 15px 0; overflow-x: auto; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #dfe6e9; font-family: var(--q-font); }
+        .question-content table { border-collapse: collapse; width: 100%; max-width: 800px; background: white; }
+        .question-content th, .question-content td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; vertical-align: top; font-size: 1rem; }
+        .question-content th { background-color: #f8f9fa; font-weight: 600; }
+
+        .option-item { 
+            display: flex; align-items: center; gap: 15px; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: 0.2s; font-size: 1.1rem; white-space: pre-wrap; 
+            font-family: var(--q-font);
+        }
+        .option-item:hover { background: #f8f9fa; border-color: var(--primary); }
+        .option-item.selected { background: #e3f2fd; border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+        .option-item img { max-height: 150px; max-width: 100%; display: block; border: 1px solid #ccc; border-radius: 4px; }
+        
+        .nat-container { margin-bottom: 25px; padding: 15px; background: #f8f9fa; border: 1px dashed var(--primary); border-radius: 8px; max-width: 400px;}
+        .nat-input { width: 100%; padding: 12px 15px; border: 2px solid #b2bec3; border-radius: 6px; font-size: 1.2rem; font-weight: bold; font-family: monospace; cursor: pointer; background: white; color: var(--text-dark); transition: border-color 0.2s; }
+        .nat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(61,178,212,0.2); outline: none;}
+
+        .footer-bar { height: 60px; flex-shrink: 0; border-top: 1px solid var(--border-color); background: #fff; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; gap: 10px; }
+        .btn { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; color: white; font-size: 0.9rem; white-space: nowrap; }
+        .btn-nav { background: var(--primary); }
+        .btn-save { background: var(--nta-green); }
+        .btn-review { background: var(--nta-purple); }
+        .btn-clear { background: white; color: #333; border: 1px solid #ccc; }
+        
+        /* --- DYNAMIC SIDEBAR WITH TOGGLE --- */
+        .sidebar { 
+            width: 320px; 
+            background: #fff; 
+            border-left: 1px solid var(--border-color); 
+            display: flex; 
+            flex-direction: column; 
+            transition: margin-right 0.3s ease, transform 0.3s ease; 
+            z-index: 20; 
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05); 
+            height: 100%; 
+            position: relative;
+            margin-right: 0;
+            flex-shrink: 0;
+        }
+        
+        .sidebar.closed { margin-right: -320px; }
+        
+        .sidebar-toggle-edge {
+            position: absolute;
+            top: 50%;
+            left: -28px;
+            width: 28px;
+            height: 60px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 8px 0 0 8px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            transform: translateY(-50%);
+            z-index: 25;
+            user-select: none;
+        }
+
+        .profile-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; background: #f8f9fa; flex-shrink: 0; }
+        .profile-img { width: 40px; height: 40px; background: #dfe6e9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .palette-legend { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.75rem; background: #fff; border-bottom: 1px solid #eee; flex-shrink: 0; }
+        .leg-item { display: flex; align-items: center; gap: 5px; }
+        .leg-color { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7rem; font-weight: bold; }
+        
+        .palette-grid { flex: 1; overflow-y: auto; padding: 15px; max-height: calc(100vh - 200px); }
+        .palette-section-header { background: #e3f2fd; color: var(--primary); padding: 8px; text-align: center; font-weight: bold; font-size: 0.9rem; border-radius: 4px; margin-bottom: 15px; border: 1px solid #bbdefb; }
+        
+        .btn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .p-btn { aspect-ratio: 1; border-radius: 50%; border: 1px solid #ccc; background: white; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; position: relative; transition: transform 0.1s; }
+        .p-btn:hover { background-color: #f1f1f1; }
+        .p-btn.active { border: 3px solid #0984e3 !important; z-index: 2; transform: scale(1.1); box-shadow: 0 4px 10px rgba(9, 132, 227, 0.3); }
+        
+        .status-ans { background: var(--nta-green) !important; color: white !important; border-color: var(--nta-green) !important; }
+        .status-not-ans { background: var(--nta-red) !important; color: white !important; border-color: var(--nta-red) !important; border-radius: 4px; clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 50% 100%, 0% 80%); }
+        .status-rev { background: var(--nta-purple) !important; color: white !important; border-color: var(--nta-purple) !important; border-radius: 50%; }
+        .status-rev-ans { background: var(--nta-purple) !important; color: white !important; border-color: var(--nta-purple) !important; position: relative; }
+        .status-rev-ans::after { content: '✔'; position: absolute; bottom: -4px; right: -4px; background: var(--nta-green); color: white; width: 14px; height: 14px; font-size: 9px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white; z-index: 5; }
+
+        .sidebar-footer { padding: 15px; border-top: 1px solid #eee; text-align: center; background: #fff; flex-shrink: 0; }
+        .btn-submit { width: 100%; background: #27ae60; padding: 12px; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; display: none; }
+
+        /* --- FLOATING PANELS & ZOOM WRAPPER --- */
+        .float-panel { 
+            position: absolute; 
+            top: 50px; 
+            left: 50px; 
+            background: #f0f0f0; 
+            border-radius: 8px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4); 
+            border: 1px solid #999; 
+            z-index: 100; 
+            display: none; 
+            overflow: hidden; 
+            transform-origin: top left; 
+        }
+        .fp-head { background: #0056b3; color: white; padding: 8px 12px; cursor: move; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+        .fp-body { padding: 10px; background: #e0e0e0; max-height: 450px; overflow-y: auto; }
+        
+        #calc-panel { width: 450px; }
+        .calc-display-area { background: white; border: 1px solid #999; padding: 5px; margin-bottom: 5px; position:relative;}
+        .calc-input { width: 100%; border: none; text-align: right; font-size: 1.2rem; outline: none; background:transparent;}
+        .calc-top-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 5px; }
+        .calc-main-body { display: flex; gap: 10px; }
+        .calc-left-panel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; flex: 1; }
+        .calc-right-panel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; flex: 1; }
+        .sc-btn { padding: 8px 2px; font-size: 0.75rem; font-weight: bold; border: 1px solid #999; border-radius: 3px; cursor: pointer; background: linear-gradient(to bottom, #fff, #e6e6e6); color: black; text-align: center; height: 35px; }
+        .sc-btn:active { background: #ccc; }
+        .sc-btn.dark { background: #e0e0e0; } .sc-btn.red { color: #cc0000; } .sc-btn.blue { color: blue; }
+        
+        .calc-help { position: absolute; top: 45px; right: 10px; width: 320px; max-height: 350px; background: #fff; border: 1px solid #999; border-radius: 6px; padding: 15px; font-size: 0.8rem; display: none; z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow-y: auto; text-align: left; color: #333; line-height: 1.4; }
+        .calc-help h4 { margin-top: 0; margin-bottom: 10px; color: var(--primary); border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .calc-help p { margin-bottom: 10px; }
+        .calc-help strong { display: block; margin-top: 10px; margin-bottom: 5px; color: #000; border-bottom: 1px dotted #ccc; }
+        .calc-help ul { padding-left: 20px; margin: 5px 0; }
+        .calc-help li { margin-bottom: 5px; }
+
+        /* RE-ENGINEERED VIRTUAL KEYBOARD */
+        #vk-panel { 
+            width: 95vw; max-width: 800px; 
+            background: #909ca3; 
+            border: 4px solid #b7c5ce; 
+            border-radius: 6px; 
+            z-index: 2500; 
+            padding: 0;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+        }
+        
+        .vk-inner-wrap {
+            display: flex;
+            padding: 8px;
+            background: #8e9fae;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .vk-grid-area { flex: 1; }
+        
+        .vk-row { 
+            display: flex; 
+            gap: 4px; 
+            margin-bottom: 4px; 
+            justify-content: center; 
+        }
+
+        .vk-btn { 
+            flex: 1; 
+            background: #e8e0c3; 
+            border: 1px solid #333; 
+            border-radius: 2px; 
+            font-weight: bold; 
+            color: #111; 
+            font-size: 1.1rem; 
+            padding: 10px 0; 
+            cursor: pointer; 
+            box-shadow: 1px 1px 0 #111; 
+            user-select: none; 
+            text-align: center;
+            transition: none; 
+            font-family: monospace;
+        }
+
+        .vk-btn:active { 
+            transform: translate(1px, 1px); 
+            box-shadow: none; 
+            background: #d4ccb0;
+        }
+
+        .vk-btn-dark { background: #b0bec5; }
+        .vk-btn-dark:active { background: #9eaab0; }
+        
+        .vk-btn-wide { flex: 1.5; }
+        .vk-btn-wider { flex: 2; }
+        .vk-btn-space { flex: 6; }
+        
+        .vk-side-panel { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 4px; 
+            width: 70px; 
+            margin-left: 8px; 
+            padding-left: 8px;
+            border-left: 2px solid #758694;
+        }
+
+        /* Constants Style */
+        .const-list { display: flex; flex-direction: column; gap: 8px; padding: 5px; }
+        .const-card { background: transparent; padding: 5px 0; border: none; border-bottom: 1px dashed #ccc; border-radius: 0; box-shadow: none; font-size: 0.95rem; font-family: 'Segoe UI', serif; }
+        .const-card:last-child { border-bottom: none; }
+        .const-text-line { color: #2d3436; }
+        .const-text-line strong { color: #000; }
+
+        /* --- SUBMISSION & REPORT --- */
+        .modal-card { background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; }
+        .modal-title { font-size: 1.4rem; color: #d63031; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 0.95rem; }
+        .stat-val { font-weight: bold; }
+        .gateway-container { width: 90%; max-width: 600px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.15); text-align: center; }
+        .gateway-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 30px 0; }
+        .gateway-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .gateway-val { display: block; font-size: 1.8rem; font-weight: bold; color: #333; }
+        
+        .detailed-sheet-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; overflow-y: auto; padding: 40px; display: none; }
+        
+        /* Report Header */
+        .report-header-grid { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 0; margin-bottom: 0; background: white; position: relative; z-index: 200; border-bottom: none !important; }
+        
+        .header-content-left { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        
+        .header-exam-title-row { font-size: 1.3rem; font-weight: 800; color: #000; margin-bottom: 5px; }
+        
+        .header-info-matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+        .header-row-line { font-size: 1rem; color: #000; }
+        .header-row-line strong { color: #555; font-weight: 600; margin-right: 5px; }
+        
+        .header-photo { width: 100px; height: 120px; object-fit: contain; display: flex; align-items: center; justify-content: center; font-size: 3rem; background: #f5f5f5; border: 1px solid #eee; border-radius: 4px; margin-left: 20px; }
+        
+        /* Perf Summary */
+        .print-perf-summary { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; background: #f1f3f5; padding: 10px; border-radius: 4px; font-size: 0.8rem; text-align: center; margin-bottom: 25px; }
+        .pps-item { display: flex; flex-direction: column; }
+        .pps-val { font-weight: bold; color: #222; }
+        
+        /* Question List */
+        .print-section-title { text-align: center; font-weight: bold; font-size: 0.9rem; background: #f0f0f0; padding: 5px; margin: 20px 0 10px 0; border-radius: 4px; border: 1px solid #ddd; }
+        .print-q-block { margin-bottom: 20px; break-inside: avoid; page-break-inside: avoid; }
+        .print-q-text { font-size: 1rem; font-weight: 600; color: #000; margin-bottom: 10px; width: 100%; padding-top: 10px; border-top: 1px dotted #ccc; white-space: pre-wrap; font-family: var(--q-font); }
+        .print-q-text img { display: block; max-width: 100%; height: auto; margin-top: 10px; border: 1px solid #eee; }
+        
+        .print-q-text table { border-collapse: collapse; margin: 10px 0; width: 100%; border: 1px solid #999; }
+        .print-q-text th, .print-q-text td { border: 1px solid #999; padding: 4px; text-align: left; }
+
+        .print-q-block:first-child .print-q-text { border-top: none; }
+        .print-q-body { display: flex; gap: 20px; }
+        .print-opt-col { flex: 0 0 70%; display: flex; flex-direction: column; gap: 4px; padding: 0; border: none; }
+        .print-opt-item { font-size: 0.9rem; padding: 4px 8px; border-radius: 3px; border: 1px solid transparent; white-space: pre-wrap; font-family: var(--q-font); }
+        .po-correct { background-color: #fff; color: #155724; font-weight:bold; border: 1px solid #c3e6cb; } 
+        .po-wrong-sel { border: 1px solid #f5c6cb; color: #721c24; }
+        .po-neutral { color: #555; }
+        .print-meta-col { flex: 0 0 30%; display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 0.85rem; color: #444; border: 1px solid #999; padding: 10px; border-radius: 4px; }
+        .pm-row { display: flex; justify-content: space-between; margin-bottom: 2px;}
+        .pm-val { font-weight: bold; }
+        
+        .report-back-btn { position: fixed; bottom: 30px; right: 30px; padding: 12px 25px; background: #333; color: white; border: none; border-radius: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); cursor: pointer; }
+
+        /* Responsive Modal Container Adjustments */
+        .info-modal-wrapper {
+            transform-origin: center center;
+            transition: transform 0.1s ease;
+        }
+
+        .info-modal-card {
+            background: white; 
+            padding: 25px; 
+            border-radius: 8px; 
+            width: 90vw; 
+            max-width: 800px; 
+            max-height: 85vh; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .info-table-container {
+            overflow-y: auto; 
+            flex: 1; 
+            margin-top: 10px;
+        }
+
+        @media (min-width: 769px) {
+            .footer-bar { justify-content: flex-start; }
+            .btn-save-container { margin-left: auto; }
+            .avatar-grid { flex-wrap: nowrap; }
+            
+            /* Expand modal table fully on desktop */
+            .info-table-container {
+                overflow-y: visible !important;
+                max-height: none !important;
+            }
+            .info-modal-card {
+                max-height: none !important;
+                height: auto !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .avatar-grid { gap: 10px; flex-wrap: wrap; }
+            .avatar-option { flex: 0 0 auto; }
+            header { padding: 10px; height: auto; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 10px; align-items: center; }
+            .header-left { grid-column: 1; grid-row: 1; }
+            .timer-box { grid-column: 2; grid-row: 1; font-size: 1rem; padding: 4px 8px; justify-self: end; }
+            .toolbar { grid-column: 1 / -1; grid-row: 2; width: 100%; justify-content: space-between; }
+            .tool-label, .zoom-label { display: none; } 
+            input[type=range] { width: 100%; min-width: 50px; }
+            
+            .sidebar { position: absolute; right: 0; transform: translateX(100%); margin-right: 0; z-index: 100; box-shadow: -5px 0 20px rgba(0,0,0,0.2); }
+            .sidebar.open { transform: translateX(0); }
+            
+            #calc-panel { top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); width: 95% !important; max-width: 400px; }
+            .calc-main-body { flex-direction: column; }
+            .calc-left-panel, .calc-right-panel { grid-template-columns: repeat(5, 1fr); width: 100%; }
+            .footer-bar { height: auto; display: grid; grid-template-columns: 1fr 1fr; grid-gap: 8px; padding: 10px; background: #fff; }
+            .footer-bar div { display: contents; } 
+            .btn { margin: 0 !important; width: 100%; }
+            .btn-review { grid-column: 1; grid-row: 1; font-size: 0.8rem; }
+            .btn-clear { grid-column: 1; grid-row: 2; font-size: 0.8rem; }
+            .btn-save-container { grid-column: 2; grid-row: 2; display:block; }
+            .btn-save { font-size: 0.8rem; width:100%; }
+            .print-q-body { flex-direction: column; }
+            .print-opt-col { border: none; padding: 0; }
+            .print-meta-col { border: 1px solid #ccc; margin-top: 10px; }
+            .print-perf-summary { grid-template-columns: 1fr 1fr; }
+            .report-header-grid { flex-direction: column; text-align: center; }
+            .header-content-left { width: 100%; align-items: center; }
+            .header-row-line { flex-direction: column; gap: 2px; }
+            .header-row-line strong { width: auto; }
+            .header-photo { margin: 15px auto 0; }
+            
+            /* Mobile adjustment for VK to fit screen width */
+            .vk-btn { font-size: 0.9rem; padding: 8px 0; }
+        }
+
+        @media (max-width: 480px) {
+            .gateway-stats { grid-template-columns: 1fr 1fr; }
+        }
+
+        @page { margin: 1cm; counter-increment: page; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            body { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; }
+            
+            body, html { 
+                background-color: white !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+                font-size: 12pt !important;
+            }
+            
+            #detailed-sheet-view, #detailed-sheet-view * { visibility: visible; }
+            #detailed-sheet-view { 
+                position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; 
+                display: block !important; 
+                background: white !important; 
+                overflow: visible; 
+            }
+            
+            .report-back-btn { display: none !important; }
+            
+            .header-photo { 
+                margin: 0 0 0 20px !important; 
+                border: none !important; 
+                background-color: transparent !important; 
+                background: transparent !important;
+                box-shadow: none !important;
+                width: 90px !important;
+                height: 100px !important;
+            }
+
+            .report-header-grid { 
+                display: flex !important; 
+                flex-direction: row !important; 
+                text-align: left !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                border-bottom: none !important;
+                margin-bottom: 5px !important;
+                padding-bottom: 0 !important;
+            }
+            
+            .header-content-left { align-items: flex-start !important; width: auto !important; flex: 1 !important; }
+            .header-info-matrix { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 5px 20px !important; }
+            .header-row-line { flex-direction: row !important; font-size: 10pt !important; }
+            
+            .print-perf-summary { display: grid !important; grid-template-columns: repeat(8, 1fr) !important; background: white; border: 1px solid #000; }
+            .print-q-body { display: flex !important; flex-direction: row !important; gap: 10px !important; }
+            .print-opt-col { flex: 1 !important; width: auto !important; border: none !important; padding: 0 !important; }
+            .print-meta-col { flex: 0 0 240px !important; width: 240px !important; border: none !important; margin-top: 0 !important; display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 5px !important; }
+            
+            .meta-block {
+                border: 1px solid #ccc !important;
+                background: #f9f9f9 !important;
+                padding: 5px !important;
+                border-radius: 4px;
+                font-size: 9pt;
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+            }
+            
+            .meta-block strong { display: block; font-size: 8pt; color: #555; text-transform: uppercase; }
+            .meta-block span { font-weight: bold; font-size: 10pt; color: #000; }
+            
+            .print-footer, .print-secondary-header { display: flex !important; visibility: visible !important; }
+
+            .print-footer { 
+                position: fixed; bottom: 0; left: 0; right: 0; height: 1cm; 
+                display: grid !important; grid-template-columns: 1fr 1fr 1fr; align-items: center; 
+                border-top: none !important; 
+                background: white; font-size: 9pt; padding: 0 10px; 
+            }
+            .page-number::after { content: counter(page); }
+            
+            .print-secondary-header { 
+                position: fixed; top: 0; left: 0; right: 0; height: 1cm; 
+                justify-content: space-between; align-items: center; 
+                border-bottom: none !important; 
+                background: white; z-index: 100; font-weight: bold; padding: 0 10px; font-size: 10pt; 
+            }
+            .print-secondary-header a { display: flex; align-items: center; gap: 5px; color: #333; text-decoration: none; font-size: 9pt; }
+            
+            .print-first-page-mask { position: absolute; top: 0; left: 0; right: 0; height: 1.2cm; background: white; z-index: 200; display: block !important; }
+        }
+    </style>
+
+                <style>
+                @media (max-width: 768px) {
+                    #virtual-keyboard, .keyboard-container, .virtual-keyboard { transform: scale(0.85); transform-origin: bottom center; bottom: 0 !important; left: 0 !important; right: 0 !important; width: 100% !important; z-index: 9999 !important; }
+                }
+                </style>
+                <script>
+                if (typeof answer === 'undefined') { window.answer = ""; }
+                document.addEventListener('input', e => { 
+                    if(e.target.value && typeof e.target.value === 'string' && e.target.value.includes('undefined')) {
+                        e.target.value = e.target.value.replace('undefined', ''); 
+                        window.answer = e.target.value;
+                    }
+                });
+                setInterval(() => { 
+                    document.querySelectorAll('input').forEach(inp => { 
+                        if(inp.value.includes('undefined')) inp.value = inp.value.replace('undefined', ''); 
+                    }); 
+                }, 300);
+                </script></head>
+<body>
+
+    <!-- Print Specific Fixed Elements -->
+    <div class="print-footer">
+        <div>
+            <a href="https://github.com/suvadippatra" target="_blank" style="text-decoration:none; color:#333; display:flex; align-items:center; gap:5px;">
+                <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                suvadippatra
+            </a>
+        </div>
+        <div style="text-align: center;">- <span class="page-number" style="font-weight:bold;">Page </span> -</div>
+        <div id="print-footer-name" style="font-weight:bold; text-align: right;">Candidate Name</div>
+    </div>
+    
+    <div class="print-secondary-header">
+        <!-- PARAMETER 6 (Global): Exam Name & Subtitle for Print Header. -->
+        <div>Plant Kingdom - Botany by Vipin Sir</div>
+        <div></div> 
+    </div>
+
+    <!-- SUBMISSION MODAL -->
+    <div id="submission-modal" class="overlay hidden" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-card">
+            <div id="modal-warning-line" style="display:none; color:white; background:#d63031; padding:10px; margin:-30px -30px 20px -30px; border-radius:8px 8px 0 0; font-weight:bold;">Time Run Out — Examination Auto-Submitted</div>
+            <h3 class="modal-title">Submit Examination</h3>
+            <p class="modal-msg">Are you sure you want to submit? Once submitted, no changes, edits, or reviews will be allowed.</p>
+            <div class="summary-grid">
+                <div class="stat-row"><span>Answered:</span> <span class="stat-val" style="color:var(--nta-green)" id="sub-ans">0</span></div>
+                <div class="stat-row"><span>Not Answered:</span> <span class="stat-val" style="color:var(--nta-red)" id="sub-not-ans">0</span></div>
+                <div class="stat-row"><span>Marked for Review:</span> <span class="stat-val" style="color:var(--nta-purple)" id="sub-rev">0</span></div>
+                <div class="stat-row"><span>Not Visited:</span> <span class="stat-val" style="color:#666" id="sub-not-visit">0</span></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:15px; margin-top:20px;">
+                <button id="btn-cancel-sub" class="btn" style="background:#636e72;" onclick="closeModal()">Cancel</button>
+                <button id="btn-confirm-sub" class="btn btn-save" onclick="confirmSubmit()">Final Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXAM INFO MODAL -->
+    <div id="info-modal" class="overlay hidden" style="background: rgba(0,0,0,0.6); z-index: 5500;">
+        <div class="info-modal-wrapper" id="info-modal-target">
+            <div class="info-modal-card">
+                <h3 class="modal-title" style="color:var(--primary); margin-bottom: 10px;">Examination Rules & Section Limits</h3>
+                <p style="font-size: 0.9rem; color: #555; margin-bottom: 15px; line-height: 1.4; text-align: left;">
+                    <strong>Notice:</strong> For sections with a restricted attempt limit, only your first answered questions (chronologically by question number) up to the section limit will be evaluated. Any attempts exceeding the defined limit will be ignored during scoring. Questions 'Marked for Review & Answered' will be counted.
+                </p>
+                <div class="info-table-container">
+                    <table class="scheme-table">
+                        <thead>
+                            <tr><th>Section</th><th>Total Qs</th><th>Max Attempt</th><th>Correct</th><th>Wrong</th><th>Max Marks</th></tr>
+                        </thead>
+                        <tbody id="info-scheme-body"></tbody>
+                    </table>
+                </div>
+                <div style="display:flex; justify-content:center; margin-top:20px;">
+                    <button class="btn btn-nav" onclick="document.getElementById('info-modal').classList.add('hidden')">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="overlay">
+        <!-- PARAMETER 2 (Global): Agency Name and Exam Title (Login View). -->
+        <h2 style="color:var(--primary); margin-bottom: 5px;">Kattar NEET 26</h2>
+        <h1 style="color:#666; margin-bottom: 5px;">Plant Kingdom</h1>
+        <p style="color:#666; margin-bottom: 0px;">Identify yourself to proceed</p>
+        <p style="color:#666; margin-bottom: 30px;">Did you bring your id card, two passport photo and transparent watter bottle?</p>
+        
+        <div class="login-card">
+            <!-- Input for Name with Virtual Keyboard trigger -->
+            <input type="text" id="user-name" class="inp-name" placeholder="Enter Candidate Name (Tap for Keyboard)" autocomplete="off" readonly onclick="openVK('login')">
+            <p style="color:#666; font-size:0.9rem;">Select Avatar</p>
+            <div class="avatar-grid">
+                <div class="avatar-option" onclick="selectAvatar(this, '👨‍⚕️')">👨‍⚕️</div>
+                <div class="avatar-option" onclick="selectAvatar(this, '👷')">👷</div>
+                <div class="avatar-option selected" onclick="selectAvatar(this, '🎓')">🎓</div>
+                <div class="avatar-option" onclick="selectAvatar(this, '👨')">👨</div>
+                <div class="avatar-option" onclick="selectAvatar(this, '👩')">👩</div>
+            </div>
+            <button class="btn btn-nav" style="width:100%; padding: 12px; font-size:1.1rem; margin-top:20px;" onclick="goToInstructions()">Proceed</button>
+        </div>
+    </div>
+
+    <!-- INSTRUCTION SCREEN -->
+    <div id="instruction-screen" class="overlay hidden">
+        <div class="instruction-container">
+            <div class="inst-header">
+                <div>
+                    <!-- PARAMETER 3 (Global): Exam Name (Instructions View). -->
+                    <h2 style="margin:0; color:var(--text-dark);">Plant Kingdom</h2>
+                    <div style="font-size:0.9rem; color:#666; margin-top:5px;" id="current-date-time">Loading date...</div>
+                </div>
+                <div class="inst-user-profile"><span id="inst-name-disp">Candidate</span><span id="inst-avatar-disp" style="font-size:1.5rem;">🎓</span></div>
+            </div>
+            <div class="inst-body">
+                <div id="s-content-area"></div>
+            </div>
+            <div class="inst-footer">
+                <div class="inst-actions">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer;"><input type="checkbox" id="agree-check" style="width:18px; height:18px; cursor:pointer;" onchange="toggleStartBtn()"><span>I have read and understood the instructions.</span></label>
+                    <button id="btn-start-exam" class="btn btn-nav" style="padding:12px 40px; opacity:0.5; cursor:not-allowed;" disabled onclick="initExam()">START EXAMINATION</button>
+                </div>
+                <div class="dev-declaration">
+                  This Exam Interface is Developed by <a href="https://github.com/suvadippatra" target="_blank">suvadippatra</a>, this interface mirrors the design standards of NTA and TCS.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN EXAM UI -->
+    <header id="app-header" class="hidden">
+        <div class="header-left">
+            <div class="logo-circle">PW</div>
+            <div>
+                <!-- PARAMETER 4 (Global): Exam Name & Subtitle (Main Toolbar). -->
+                <div class="exam-title">Plant Kingdom</div>
+                <span class="exam-subtitle">Botany by Vipin Sir</span>
+            </div>
+        </div>
+        <div class="toolbar">
+            <div class="zoom-container"><input type="range" min="0.8" max="1.8" step="0.1" value="1" oninput="applyZoom(this.value)"></div>
+            <button class="tool-btn hidden" id="btn-audio" style="display:none;"></button>
+            
+            <button class="tool-btn" onclick="document.getElementById('info-modal').classList.remove('hidden')" title="Exam Info">
+                <span style="font-size:1.1rem; font-weight:bold; font-family:serif; font-style:italic;">i</span>
+            </button>
+            <button class="tool-btn" onclick="toggleFloat('calc-panel')" title="Calculator"><svg class="tool-icon" viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 2v16h10V4H7zm2 2h6v2H9V6zm0 4h2v2H9v-2zm4 0h2v2H9v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/></svg></button>
+            <button class="tool-btn" onclick="toggleFloat('const-panel')" title="Constants"><svg class="tool-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg></button>
+            <button class="tool-btn" onclick="toggleFullScreen(document.documentElement)" title="Full Screen"><svg class="tool-icon" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+        </div>
+        <div class="timer-box" id="timer-display">03:00:00</div>
+    </header>
+
+    <div class="main-container hidden" id="app-container">
+        <main class="question-area">
+            <div class="section-nav-bar">
+                <button class="nav-scroll-btn hidden" id="tab-scroll-left" onclick="scrollTabs(-1)">‹</button>
+                <div class="section-tab-container" id="section-tabs"></div>
+                <button class="nav-scroll-btn" id="tab-scroll-right" onclick="scrollTabs(1)">›</button>
+            </div>
+            
+            <div class="q-scroll-view" id="zoom-target">
+                <div id="q-render-area"></div>
+            </div>
+            <div class="footer-bar">
+                <button class="btn btn-review" onclick="handleAction('review')">Mark for Review</button>
+                <button class="btn btn-clear" onclick="handleAction('clear')">Clear</button>
+                <div class="btn-save-container">
+                    <button class="btn btn-save" id="btn-save-next" onclick="handleAction('save')">Save & Next</button>
+                </div>
+            </div>
+        </main>
+        
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-toggle-edge" onclick="toggleSidebar()" id="sidebar-toggle-btn">&gt;</div>
+            
+            <div class="profile-card">
+                <div class="profile-img" id="side-avatar">🎓</div>
+                <div style="font-size:0.9rem;">
+                    <strong id="side-name">Candidate</strong><br>
+                    <span id="side-id" style="color:#666">ID: 2026-EXAM</span>
+                </div>
+            </div>
+            <div class="palette-legend">
+                <div class="leg-item"><div class="leg-color status-ans">5</div> Answered</div>
+                <div class="leg-item"><div class="leg-color status-not-ans">3</div> Not Ans</div>
+                <div class="leg-item"><div class="leg-color status-rev">7</div> Review</div>
+                <div class="leg-item"><div class="leg-color status-rev-ans">1</div> Ans+Rev</div>
+                <div class="leg-item"><div class="leg-color" style="border:1px solid #ccc; color:#333">0</div> Not Visited</div>
+            </div>
+            <div class="palette-grid" id="palette-grid">
+                <!-- Content injected via JS -->
+            </div>
+            <div class="sidebar-footer">
+                <button id="final-submit-btn" class="btn btn-submit" onclick="attemptSubmit()">SUBMIT TEST</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- CALCULATOR & CONSTANTS -->
+    <div id="calc-panel" class="float-panel">
+        <div class="fp-head" id="calc-drag-handle">Scientific Calculator <div style="display:flex; gap:10px;"><button onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="toggleCalcHelp()" style="background:#003366; color:white; border:1px solid white; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; font-family:serif;">?</button><button onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="toggleFloat('calc-panel')" style="background:none; border:none; color:white; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button></div></div>
+        <div id="calc-help-box" class="calc-help">
+            <h4>Calculator Instructions</h4>
+            <p>Allows you to perform basic and complex mathematical operations such as modulus, square root, cube root, trigonometric, exponential, logarithmic, hyperbolic functions, etc. <br> You can operate the calculator using the buttons provided on screen with your mouse.</p>
+            <strong>Do's:</strong>
+            <ul>
+                <li>Be sure to press [C] when beginning a new calculation.</li>
+                <li>Simplify an equation using parenthesis and other mathematical operators.</li>
+                <li>Use the predefined operations such as p (Pi), log, Exp to save time during calculation.</li>
+                <li>Use memory function for calculating cumulative totals.</li>
+                <li>[M+]: Will add displayed value to memory.</li>
+                <li>[MR]: Will recall the value stored in memory.</li>
+                <li>[M-]: Subtracts the displayed value from memory.</li>
+                <li>Be sure select the angle unit (Deg or Rad) before beginning any calculation.</li>
+                <li>Note: By default angle unit is set as Degree</li>
+            </ul>
+            <strong>Dont's:</strong>
+            <ul>
+                <li>Perform multiple operations together.</li>
+                <li>Leave parenthesis unbalanced.</li>
+                <li>Change the angle unit (Deg or Rad) while performing a calculation.</li>
+            </ul>
+            <strong>Limitations:</strong>
+            <ul>
+                <li>Keyboard operation is disabled.</li>
+                <li>The output for a Factorial calculation is precise up to 14 digits.</li>
+                <li>The output for Logarithmic and Hyperbolic calculations is precise up to 5 digits.</li>
+                <li>Modulus (mod) operation performed on decimal numbers with 15 digits would not be precise.</li>
+                <li>Use mod operation only if the number comprises of less than 15 digits i.e. mod operation provides best results for smaller numbers.</li>
+                <li>The range of value supported by the calculator is 10(-323) to 10(308).</li>
+            </ul>
+        </div>
+        <div class="fp-body">
+            <div class="calc-container"><div class="calc-display-area"><input type="text" id="calc-result" class="calc-input" value="0" readonly></div><div class="calc-top-row"><button class="sc-btn" onclick="calcInput('0')">0</button><button class="sc-btn" onclick="calcDualOp('Mod')">Mod</button><button class="sc-btn" onclick="toggleAngle('deg')">Deg</button><button class="sc-btn" onclick="toggleAngle('rad')">Rad</button><button class="sc-btn red" onclick="calcMem('MC')">MC</button><button class="sc-btn red" onclick="calcMem('MR')">MR</button></div><div class="calc-top-row" style="margin-bottom:10px; display:flex; justify-content: flex-end; gap:4px;"><button class="sc-btn red" style="flex:1" onclick="calcMem('MS')">MS</button><button class="sc-btn red" style="flex:1" onclick="calcMem('M+')">M+</button><button class="sc-btn red" style="flex:1" onclick="calcMem('M-')">M-</button></div><div class="calc-main-body"><div class="calc-left-panel"><button class="sc-btn dark" onclick="calcFunc('sinh')">sinh</button><button class="sc-btn dark" onclick="calcFunc('cosh')">cosh</button><button class="sc-btn dark" onclick="calcFunc('tanh')">tanh</button><button class="sc-btn dark" onclick="calcFunc('exp')">Exp</button><button class="sc-btn dark" onclick="calcInput('(')">(</button><button class="sc-btn dark" onclick="calcFunc('asinh')">sinh⁻¹</button><button class="sc-btn dark" onclick="calcFunc('acosh')">cosh⁻¹</button><button class="sc-btn dark" onclick="calcFunc('atanh')">tanh⁻¹</button><button class="sc-btn dark" onclick="calcFunc('log2')">log₂x</button><button class="sc-btn dark" onclick="calcFunc('ln')">ln</button><button class="sc-btn dark" onclick="calcConst('pi')">π</button><button class="sc-btn dark" onclick="calcConst('e')">e</button><button class="sc-btn dark" onclick="calcFunc('fact')">n!</button><button class="sc-btn dark" onclick="calcDualOp('logy')">logᵧx</button><button class="sc-btn dark" onclick="calcFunc('pow10')">10ˣ</button><button class="sc-btn dark" onclick="calcFunc('sin')">sin</button><button class="sc-btn dark" onclick="calcFunc('cos')">cos</button><button class="sc-btn dark" onclick="calcFunc('tan')">tan</button><button class="sc-btn dark" onclick="calcDualOp('pow')">xʸ</button><button class="sc-btn dark" onclick="calcFunc('cube')">x³</button><button class="sc-btn dark" onclick="calcFunc('asin')">sin⁻¹</button><button class="sc-btn dark" onclick="calcFunc('acos')">cos⁻¹</button><button class="sc-btn dark" onclick="calcFunc('atan')">tan⁻¹</button><button class="sc-btn dark" onclick="calcDualOp('yroot')">ʸ√x</button><button class="sc-btn dark" onclick="calcFunc('cbrt')">∛</button></div><div class="calc-right-panel"><button class="sc-btn dark" onclick="calcInput(')')">)</button><button class="sc-btn red" onclick="calcBackspace()">←</button><button class="sc-btn red" onclick="calcClear()">C</button><button class="sc-btn dark" onclick="calcNegate()">+/-</button><button class="sc-btn dark" onclick="calcFunc('sqrt')">√</button><button class="sc-btn dark" onclick="calcFunc('log')">log</button><button class="sc-btn" onclick="calcInput('7')">7</button><button class="sc-btn" onclick="calcInput('8')">8</button><button class="sc-btn" onclick="calcInput('9')">9</button><button class="sc-btn" onclick="calcDualOp('/')">/</button><button class="sc-btn dark" onclick="calcFunc('ex')">eˣ</button><button class="sc-btn" onclick="calcInput('4')">4</button><button class="sc-btn" onclick="calcInput('5')">5</button><button class="sc-btn" onclick="calcInput('6')">6</button><button class="sc-btn" onclick="calcDualOp('*')">*</button><button class="sc-btn dark" onclick="calcFunc('sq')">x²</button><button class="sc-btn" onclick="calcInput('1')">1</button><button class="sc-btn" onclick="calcInput('2')">2</button><button class="sc-btn" onclick="calcInput('3')">3</button><button class="sc-btn" onclick="calcDualOp('-')">-</button><button class="sc-btn dark" onclick="calcFunc('abs')">|x|</button><button class="sc-btn" onclick="calcInput('0')">0</button><button class="sc-btn" onclick="calcInput('.')">.</button><button class="sc-btn blue" onclick="calcEqual()">=</button><button class="sc-btn" onclick="calcDualOp('+')">+</button></div></div></div>
+        </div>
+    </div>
+    
+    <!-- RE-ENGINEERED VIRTUAL KEYBOARD PANEL -->
+    <div id="vk-panel" class="float-panel">
+        <div class="fp-head" id="vk-drag-handle" style="background: #3a4750; color: #fff; cursor: move; user-select: none;">
+            Virtual Input Keyboard
+            <span onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="closeVK()" style="cursor:pointer; font-size:1.2rem; margin-left:auto;">&times;</span>
+        </div>
+        
+        <div class="vk-inner-wrap">
+            <div id="vk-main-area" class="vk-grid-area">
+                
+                <!-- QWERTY Alpha Layout -->
+                <div id="vk-alpha-container" style="display:flex; flex-direction:column; gap:4px;">
+                    <div class="vk-row">
+                        <button class="vk-btn" onclick="vkType('`')">`</button>
+                        <button class="vk-btn" onclick="vkType('1')">1</button>
+                        <button class="vk-btn" onclick="vkType('2')">2</button>
+                        <button class="vk-btn" onclick="vkType('3')">3</button>
+                        <button class="vk-btn" onclick="vkType('4')">4</button>
+                        <button class="vk-btn" onclick="vkType('5')">5</button>
+                        <button class="vk-btn" onclick="vkType('6')">6</button>
+                        <button class="vk-btn" onclick="vkType('7')">7</button>
+                        <button class="vk-btn" onclick="vkType('8')">8</button>
+                        <button class="vk-btn" onclick="vkType('9')">9</button>
+                        <button class="vk-btn" onclick="vkType('0')">0</button>
+                        <button class="vk-btn" onclick="vkType('-')">-</button>
+                        <button class="vk-btn" onclick="vkType('=')">=</button>
+                        <button class="vk-btn vk-btn-wide" onclick="vkBackspace()">⌫</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn vk-btn-wide" onclick="vkType(' ')">Tab</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('q')">q</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('w')">w</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('e')">e</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('r')">r</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('t')">t</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('y')">y</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('u')">u</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('i')">i</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('o')">o</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('p')">p</button>
+                        <button class="vk-btn" onclick="vkType('[')">[</button>
+                        <button class="vk-btn" onclick="vkType(']')">]</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn vk-btn-wider" onclick="toggleVKShift()">Caps</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('a')">a</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('s')">s</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('d')">d</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('f')">f</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('g')">g</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('h')">h</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('j')">j</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('k')">k</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('l')">l</button>
+                        <button class="vk-btn" onclick="vkType(';')">;</button>
+                        <button class="vk-btn" onclick="vkType('\'')">'</button>
+                        <button class="vk-btn" onclick="vkType('\\')">\</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn vk-btn-wide" onclick="toggleVKShift()">Shift</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('z')">z</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('x')">x</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('c')">c</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('v')">v</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('b')">b</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('n')">n</button>
+                        <button class="vk-btn vk-letter" onclick="vkType('m')">m</button>
+                        <button class="vk-btn" onclick="vkType(',')">,</button>
+                        <button class="vk-btn" onclick="vkType('.')">.</button>
+                        <button class="vk-btn" onclick="vkType('/')">/</button>
+                        <button class="vk-btn vk-btn-wide" onclick="toggleVKShift()">Shift</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn vk-btn-wide" onclick="vkType(' ')">Ctrl</button>
+                        <button class="vk-btn" onclick="vkType(' ')">Win</button>
+                        <button class="vk-btn" onclick="vkType(' ')">Alt</button>
+                        <button class="vk-btn vk-btn-space" onclick="vkType(' ')"> </button>
+                        <button class="vk-btn" onclick="vkType(' ')">AltGr</button>
+                        <button class="vk-btn" onclick="vkType(' ')">Fn</button>
+                    </div>
+                </div>
+
+                <!-- Numeric Numpad Layout -->
+                <div id="vk-num-container" style="display:none; flex-direction:column; gap:4px; max-width: 350px; margin: 0 auto;">
+                    <div class="vk-row">
+                        <button class="vk-btn" onclick="vkType('7')">7</button>
+                        <button class="vk-btn" onclick="vkType('8')">8</button>
+                        <button class="vk-btn" onclick="vkType('9')">9</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn" onclick="vkType('4')">4</button>
+                        <button class="vk-btn" onclick="vkType('5')">5</button>
+                        <button class="vk-btn" onclick="vkType('6')">6</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn" onclick="vkType('1')">1</button>
+                        <button class="vk-btn" onclick="vkType('2')">2</button>
+                        <button class="vk-btn" onclick="vkType('3')">3</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn" onclick="vkType('0')">0</button>
+                        <button class="vk-btn" onclick="vkType('.')">.</button>
+                        <button class="vk-btn" onclick="vkType('-')">-</button>
+                    </div>
+                    <div class="vk-row">
+                        <button class="vk-btn vk-btn-wider" style="background:#e57373;" onclick="vkBackspace()">⌫ Backspace</button>
+                        <button class="vk-btn vk-btn-wider" style="background:#b0bec5;" onclick="vkClear()">Clear All</button>
+                    </div>
+                </div>
+                
+            </div>
+            
+            <!-- Side Control Panel -->
+            <div class="vk-side-panel">
+                <button class="vk-btn vk-btn-dark" onclick="toggleVKMode('alpha')">Abc</button>
+                <button class="vk-btn vk-btn-dark" onclick="toggleVKMode('num')">123</button>
+                <button class="vk-btn vk-btn-dark" style="margin-top:auto;" onclick="closeVK()">Hide</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Constants Panel -->
+    <div id="const-panel" class="float-panel" style="width:400px;">
+        <div class="fp-head" id="const-drag-handle">Fundamental Physical Constants <span onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="toggleFloat('const-panel')" style="cursor:pointer; font-size:1.2rem; margin-left:auto;">&times;</span></div>
+        <div class="fp-body">
+            <!-- PARAMETER 5 (Global): List of Constants. -->
+<div class="const-list">
+
+</div>
+</div>
+</div>
+<!-- RESULT GATEWAY -->
+    <div id="result-gateway" class="hidden overlay" style="background:#f4f6f8;">
+        <div class="gateway-container">
+            <div class="gateway-title">Examination Submitted</div>
+            <p style="color:#666; margin-bottom:30px;">Your response has been successfully recorded.</p>
+            <div class="gateway-stats">
+                <div class="gateway-card"><span class="gateway-val" style="color:var(--primary)" id="gt-score">0</span><span class="gateway-lbl">Score</span></div>
+                <div class="gateway-card"><span class="gateway-val" style="color:var(--nta-green)" id="gt-correct">0</span><span class="gateway-lbl">Correct</span></div>
+                <div class="gateway-card"><span class="gateway-val" style="color:var(--nta-red)" id="gt-wrong">0</span><span class="gateway-lbl">Wrong</span></div>
+                <div class="gateway-card"><span class="gateway-val" id="gt-accuracy">0%</span><span class="gateway-lbl">Accuracy</span></div>
+                <div class="gateway-card"><span class="gateway-val" id="gt-attempt">0</span><span class="gateway-lbl">Attempted</span></div>
+                <div class="gateway-card"><span class="gateway-val" id="gt-time">0m</span><span class="gateway-lbl">Avg Time</span></div>
+            </div>
+            <div style="display:flex; gap:20px; justify-content:center;">
+                <button class="btn btn-nav" onclick="showDetailedSheet()">View Detailed Answer Sheet</button>
+                <button class="btn" style="background:#333; color:white;" onclick="printReport()">Print Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DETAILED SHEET -->
+    <div id="detailed-sheet-view" class="detailed-sheet-container">
+        
+        <div class="report-header-grid">
+            <div class="header-content-left">
+                <!-- PARAMETER 6 (Global): Exam Name & Subtitle (Report/Print View). -->
+                <div class="header-exam-title-row">Plant Kingdom : Botany by Vipin Sir</div>
+                
+                <div class="header-info-matrix">
+                    <div class="header-row-line"><strong>Candidate Name:</strong> <span id="rep-name">Name</span></div>
+                    <div class="header-row-line"><strong>Exam Date:</strong> <span id="rep-date">Jan 22, 2026</span></div>
+                    <div class="header-row-line"><strong>Candidate ID:</strong> <span id="rep-id">12345</span></div>
+                    <div class="header-row-line"><strong>Total Time Taken:</strong> <span id="rep-total-time">00:00:00</span></div>
+                </div>
+            </div>
+            <div class="header-photo" id="rep-icon">🎓</div>
+        </div>
+
+        <div class="print-perf-summary">
+            <div class="pps-item"><span class="pps-val" id="rep-pps-score">0</span><span class="pps-lbl">Score</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-acc">0%</span><span class="pps-lbl">Accuracy</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-time">0s</span><span class="pps-lbl">Avg Time</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-att">0</span><span class="pps-lbl">Attempt</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-cor">0</span><span class="pps-lbl">Correct</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-wro">0</span><span class="pps-lbl">Wrong</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-not">0</span><span class="pps-lbl">Unans</span></div>
+            <div class="pps-item"><span class="pps-val" id="rep-pps-tot">0</span><span class="pps-lbl">Total</span></div>
+        </div>
+        <div id="question-report-list"></div>
+        <button class="report-back-btn" onclick="hideDetailedSheet()">Back to Summary</button>
+    </div>
+
+<script>
+    /* === CONFIGURATION ZONE === */
+    
+    // PARAMETER 7 (Global): Timer/Stopwatch Configuration. 
+    const TIMER_MODE = 'COUNTDOWN'; 
+    const EXAM_DURATION_MINS = 50; 
+    
+    // PARAMETER 10 (Global): Font Family for Questions & Options. (e.g., 'Calibri', 'Verdana', 'Arial', 'Times New Roman')
+    const Q_FONT_FAMILY = "system-ui, -apple-system, Roboto, Arial, sans-serif";
+
+    /* === SOUNDS & HEADPHONE LOOP CONFIG === */
+    const BG_AUDIO_LOOP = false; 
+    const BACKGROUND_AUDIO_BASE64 = ""; 
+    const START_EXAM_AUDIO_B64 = ""; 
+    const SUBMIT_EXAM_AUDIO_B64 = ""; 
+
+    // PARAMETER 8 (Global): Attempt Rules (Instructional Text). 
+    const EXAM_S_HTML = `<div class="inst-section"><h3>📋 Instructions</h3><p>1. The examination will consist of Objective Type Questions (MCQs) and Numerical Answer Types (NATs).</p><p>2. Total Duration: 180 Minutes.</p><p>3. The examination console is equipped with specific tools to aid your performance. A Zoom Slider is located in the top toolbar, allowing you to adjust the size of text and images for better readability. An On-Screen Scientific Calculator is available for mathematical computations. You may also access a Table of Universal Constants at any time.</p><p>4. For Fill-in-the-blank or NAT type questions, an on-screen Virtual Keyboard will automatically appear to facilitate entering text or decimal numbers.</p></div><div class="inst-section"><p>Please familiarize yourself with the status indicators used in the Question Palette:<br><span class="inst-status-icon circle status-ans"></span> <strong>Green:</strong> Answered.<br><span class="inst-status-icon square status-not-ans"></span> <strong>Red:</strong> Not Answered.<br><span class="inst-status-icon circle status-rev"></span> <strong>Purple:</strong> Marked for Review.<br><span class="inst-status-icon circle status-rev-ans"></span> <strong>Purple with Tick:</strong> Answered & Marked for Review (will be considered for evaluation).<br><span class="inst-status-icon circle" style="border:1px solid #ccc; color:#333"></span> <strong>White/Grey:</strong> Not Visited.</p><br><p style="color:var(--nta-red);"><strong>Critical Rule:</strong> If you attempt more questions than the maximum allowed in a specific section, only your first valid attempts (chronologically by question number) up to the limit will be evaluated.</p></div><div class="inst-section"><p>The Question Paper is divided into distinct <strong>Sections</strong>. Below is the section-wise distribution and marking schema:</p><h3>Marking Scheme</h3><table class="scheme-table"><thead><tr><th>Section</th><th>Total Qs</th><th>Max Attempt</th><th>Correct</th><th>Incorrect</th><th>Max Marks</th></tr></thead><tbody id="scheme-table-body"></tbody><tfoot id="scheme-table-foot"></tfoot></table></div>`;
+
+    // PARAMETER 9 (Section Level & Question Level): Core Question Bank structure.
+    const QUESTION_BANK = [
+  {
+    "sectionTitle": "Section A",
+    "marksCorrect": 4,
+    "marksWrong": 1,
+    "maxAttempts": 0,
+    "questions": [
+      {
+        "id": 1,
+        "type": "MCQ",
+        "text": "How many of the following organisms have cellulose, pectin and polysulphate ester in their cell wall?<br><strong>Gelidium, Selaginella, Polytrichum, Polysiphonia, Dictyota, Laminaria, Gracilaria</strong>",
+        "img": "",
+        "table": "",
+        "options": [
+          "Two",
+          "Four",
+          "Three",
+          "Five"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 2,
+        "type": "MCQ",
+        "text": "Select the correct sequence of arrangement of reproductive structures for <em>Cycas</em>.",
+        "img": "",
+        "table": "",
+        "options": [
+          "Microspores → Microsporophylls → Microsporangia → Male cone",
+          "Megaspores → Megasporangia → Megasporophylls → Female cone",
+          "Sporangia → Sporophylls → Spores → Strobili",
+          "Megasporophylls → Megasporangia → Megaspores"
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 3,
+        "type": "MCQ",
+        "text": "Identify the type of taxonomy/classification for the given criteria or basis.<br>A. Only gross superficial morphological characters are considered<br>B. Consider external features, internal features, like ultrastructure, anatomy, embryology and phytochemistry<br>C. Based on evolutionary relationships between the various organisms<br>D. Based on chemical constituents of the plant<br>E. Based on all observable characteristics that are assigned with number and codes<br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A-Artificial Classification, B-Natural Classification, C-Phylogenetic Classification, D-Chemotaxonomy, E-Numerical Taxonomy",
+          "A-Natural Classification, B-Phylogenetic Classification, C-Chemotaxonomy, D-Artificial Classification, E-Numerical Taxonomy",
+          "A-Phylogenetic Classification, B-Artificial Classification, C-Natural Classification, D-Numerical Taxonomy, E-Chemotaxonomy",
+          "A-Chemotaxonomy, B-Numerical Taxonomy, C-Artificial Classification, D-Natural Classification, E-Phylogenetic Taxonomy"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 4,
+        "type": "MCQ",
+        "text": "According to evolutionary point of view which of the following plant's male gametophyte would have number of cells?",
+        "img": "",
+        "table": "",
+        "options": [
+          "<em>Polytrichum</em>",
+          "<em>Cedrus</em>",
+          "<em>Funaria</em>",
+          "<em>Equisetum</em>"
+        ],
+        "correct": null,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 5,
+        "type": "MCQ",
+        "text": "Identify the incorrect statements about algae:<br>A. They can be found on stones, soil, and wood.<br>B. They may be found in association with animals such as sloth bear.<br>C. Zoospore is the most common type of spore produced sexually.<br>D. Kelps are profusely branched forms.<br>E. Algae are classified into three classes based on the type of pigments possessed and the type of stored food.<br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, D and E only",
+          "B, C and D only",
+          "C only",
+          "D and E only"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 6,
+        "type": "MCQ",
+        "text": "In which of the following plants male and female sex organs are present on different plant body?<br><em>A. Cycas<br>B. Pinus<br>C. Selaginella<br>D. Marchantia<br>E. Salvinia</em><br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A and B only",
+          "A, C and D only",
+          "B, C and E only",
+          "A, C, D and E only"
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 7,
+        "type": "MCQ",
+        "text": "Given below are two statements: one is labelled as Assertion A and the other is labelled as Reason R:<br><strong>Assertion A:</strong> The spread of living pteridophytes is limited and restricted to narrow geographical regions.<br><strong>Reason R:</strong> In pteridophytes, gametophytes require specific restricted requirement such as cool, damp, shady places to grow and need water for fertilisation.<br>In the light of the above statements, choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A is true but R is false.",
+          "A is false but R is true.",
+          "Both A and R are true and R is the correct explanation of A.",
+          "Both A and R are true but R is not the correct explanation of A."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 8,
+        "type": "MCQ",
+        "text": "Read the following statements about algae.<br>A. Algae contribute to nearly half of the total carbon dioxide fixation on Earth through photosynthesis.<br>B. Chlorella, a small multicellular green alga, is rich in proteins and used as a food supplement, even by space travellers.<br>C. Algae help increase the level of dissolved carbon dioxide in their immediate environment.<br>D. Commercially important hydrocolloids like algin and carrageen are obtained from red and brown algae, respectively.<br>E. Agar, obtained from red algae like Gelidium and Gracilaria, is used in microbial culture and food industries.<br>Choose the correct answer from the option given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Only B, C and D are incorrect",
+          "Only A, C, D and E are correct",
+          "A, B, C, D and E are correct",
+          "Only A, B and D are incorrect"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 9,
+        "type": "MCQ",
+        "text": "Which of the following plants possess strobilus in their sporophytic stage?<br><em>A. Selaginella<br>B. Equisetum<br>C. Cycas<br>D. Sphagnum<br>E. Pinus</em><br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, B, C and E only",
+          "A, B, D and E only",
+          "C only",
+          "B and C only"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 10,
+        "type": "MCQ",
+        "text": "In which of the following group of plants, gametophytes are free living?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Ginkgo, Polytrichum and Funaria",
+          "Cedrus, Selaginella and Pteris",
+          "Lycopodium, Adiantum and Psilotum",
+          "Marchantia, Dryopteris and Sequoia"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 11,
+        "type": "MCQ",
+        "text": "Read the following five statements (A to E) and identify the correct statement(s):<br>A. Gymnosperms include medium-sized trees or tall trees and shrubs.<br>B. In gymnosperm, roots are generally tap roots.<br>C. Coralloid roots in Cycas show mycorrhizal association.<br>D. The stems are unbranched in Cedrus or branched Pinus.<br>E. In gymnosperms, male gamete and female gamete are present within pollen grain and ovule respectively.<br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, D and E only",
+          "B, C and E only",
+          "A, B and E only",
+          "B, C and D only"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 12,
+        "type": "MCQ",
+        "text": "Identify the correct statement(s):<br>A. Funaria possesses unicellular and unbranched rhizoids.<br>B. Gemmae are asexual buds, which develop in small receptacles called gemma cups.<br>C. Peat obtained from Sphagnum plants is used as packing material for trans-shipment of living material.<br>D. Mosses reduce the impact of falling rain and prevent soil erosion.<br>E. Some mosses provide food for herbaceous mammals, birds and other animals.<br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, B and C only",
+          "B, C, D and E only",
+          "A, C and D only",
+          "B, D and E only"
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 13,
+        "type": "MCQ",
+        "text": "Given below are two statements: one is labelled as Assertion A and the other is labelled as Reason R:<br><strong>Assertion A:</strong> The plant body of bryophytes is more differentiated than that of algae but lacks true roots, stems, or leaves and possesses root-like, leaf-like, or stem-like structures.<br><strong>Reason R:</strong> Main plant body in bryophytes is haploid.<br>In the light of the above statements, choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A is true but R is false.",
+          "A is false but R is true.",
+          "Both A and R are true and R is the correct explanation of A.",
+          "Both A and R are true but R is NOT the correct explanation of A."
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 14,
+        "type": "MCQ",
+        "text": "Out of the given features, identify the correct one(s) for Cycas.<br>A. Multicellular female gametophyte retained within megasporangium<br>B. Roots show enhanced fixed N<sub>2</sub> content due to a symbiotic association<br>C. The pinnate leaves persist for a few years<br>D. Main plant body is sporophyte which bears male and female cones<br>E. Megaspore mother cell is differentiated from one of the cells of the nucellus<br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, B, C, and E only",
+          "A, B, D, and E only",
+          "A, B, C, D, and E",
+          "A, C, D, and E only"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 15,
+        "type": "MCQ",
+        "text": "Given below are two statements:<br><strong>Statement I:</strong> On the microsporangiate strobili, microsporophylls are arranged spirally along an axis, while in the megasporangiate strobili, megasporophylls bearing ovules or megasporangia are present.<br><strong>Statement II:</strong> In gymnosperm, pollen grains come in contact with the opening of the ovules borne on megasporophylls. The pollen tube carrying the male gametes grows towards archegonia in the ovules and discharge their contents near the mouth of the archegonia.<br>In the light of the above statements, choose the most appropriate answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Statement I is correct but Statement II is incorrect.",
+          "Statement I is incorrect but Statement II is correct.",
+          "Both Statement I and Statement II are correct.",
+          "Both Statement I and Statement II are incorrect."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 16,
+        "type": "MCQ",
+        "text": "Which of the following are not common between bryophytes, pteridophytes and gymnosperms?<br>A. Production of spores through meiotic division.<br>B. Presence of archegonia as female sex organ.<br>C. Transfer of male gamete is mediated by water.<br>D. Development of gametophyte from spores.<br>E. Free living sporophytes.<br>Choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "C and E only",
+          "A, B and D only",
+          "B and D only",
+          "C, D and E only"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 17,
+        "type": "MCQ",
+        "text": "Match List-I with List-II.",
+        "img": "",
+        "table": "<table><tr><th>List-I</th><th>List-II</th></tr><tr><td>(A) Floridean starch as stored food</td><td>(I) Many green algae</td></tr><tr><td>(B) 2-8 equal size flagella arise apically</td><td>(II) Dictyota</td></tr><tr><td>(C) Gelatinous coating of algin covering cellulosic wall of vegetative cell</td><td>(III) Kelps</td></tr><tr><td>(D) May reach a height of 100 metres</td><td>(IV) Gelidium</td></tr></table> Choose the correct answer from the option given below:",
+        "options": [
+          "A-IV, B-I, C-II, D-III",
+          "A-I, B-IV, C-III, D-II",
+          "A-IV, B-I, C-III, D-II",
+          "A-IV, B-II, C-I, D-III"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 18,
+        "type": "MCQ",
+        "text": "Which of the following are the general features of green algae?<br>A. They may be unicellular (Chlorella), colonial (Chara) or filamentous (Ulothrix).<br>B. They are usually grass green due to the dominance of pigments chlorophyll a and b.<br>C. They usually have a rigid cell wall made of an inner layer of pectose and an outer layer of cellulose.<br>D. They possess pyrenoids in cytoplasm that contain protein besides starch.<br>E. The chloroplast may be discoid, plate-like, reticulate, cup-shaped, spiral or ribbon-shaped in different species.<br>Choose the correct answer from the option given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "B, D and E only",
+          "A, C and D only",
+          "A, D and E only",
+          "B and E only"
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 19,
+        "type": "MCQ",
+        "text": "Which of the following statements are correct regarding members of class Phaeophyceae?<br>A. They are found in marine habitat only.<br>B. The photosynthetic part of their body is called frond.<br>C. Stipe helps in attaching the plant body to substratum.<br>D. They produce pear-shaped spores asexually and pyriform gametes sexually.<br>E. Stored food material is mannitol and laminarin.<br>Choose the correct answer from the option given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A and B only",
+          "B, D and E only",
+          "A, B and C only",
+          "D and E only"
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 20,
+        "type": "MCQ",
+        "text": "Which of the following statements are correct regarding Rhodophyceae?<br>A. They appear to be red in colour due to presence of chlorophyll d.<br>B. All of them are marine with greater concentrations found in the warmer areas.<br>C. They can be found at great depths in oceans where relatively little light penetrates.<br>D. The stored food is very similar to amylopectin and glycogen in structure.<br>E. Their sexual reproduction is accompanied by complex post fertilisation developments.<br>Choose the correct answer from the option given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "B, C and E only",
+          "A, D and E only",
+          "C, D and E only",
+          "A, B and C only"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 21,
+        "type": "MCQ",
+        "text": "Which of the following features is not common in Volvox and Fucus?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Sexual reproduction by fusion of a small motile male gamete with a large non motile female gamete.",
+          "Presence of chlorophyll a pigment.",
+          "Presence of cellulose in cell wall.",
+          "Presence of lateral unequal size flagella."
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 22,
+        "type": "MCQ",
+        "text": "Which of the following is not a common feature for Sphagnum and Equisetum?",
+        "img": "",
+        "table": "",
+        "options": [
+          "They grow in damp and shady places.",
+          "The gametophytes bear male and female sex organs called antheridia and archegonia.",
+          "They require water for transfer of antherozoids to the mouth of archegonium.",
+          "They possess rhizome."
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 23,
+        "type": "MCQ",
+        "text": "Match List-I with List-II.",
+        "img": "",
+        "table": "<table><tr><th>List-I</th><th>List-II</th></tr><tr><td>(A) Predominant gametophytic stage</td><td>(I) Salvinia</td></tr><tr><td>(B) Have an elaborate mechanism of spore dispersal</td><td>(II) Marchantia</td></tr><tr><td>(C) Event precursor to the seed habit</td><td>(III) Ferns</td></tr><tr><td>(D) Macrophyllous leaves</td><td>(IV) Polytrichum</td></tr></table> Choose the most appropriate answer from the option given below:",
+        "options": [
+          "A-II, B-IV, C-I, D-III",
+          "A-IV, B-II, C-I, D-III",
+          "A-IV, B-III, C-II, D-I",
+          "A-III, B-IV, C-II, D-I"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 24,
+        "type": "MCQ",
+        "text": "Which of the following parts are haploid structures?<br>A. Secondary protonema of Funaria<br>B. Prothallus of Dryopteris<br>C. Nucellus of Cycas<br>D. Archegonia of Pinus<br>E. Foot of Marchantia<br>Choose the correct answer from the option given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "B, D and E only",
+          "A, C and E only",
+          "A, B and D only",
+          "B, C and E only"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 25,
+        "type": "MCQ",
+        "text": "Given below are two statements:<br><strong>Statement I:</strong> In bryophytes, zygotes do not undergo reduction division immediately; instead, they develop into a multicellular body called a sporophyte, in which meiosis occurs to produce spores.<br><strong>Statement II:</strong> The sporophyte in liverworts is not free-living but attached to the photosynthetic gametophyte and derives nourishment from it.<br>In the light of the above statements, choose the most appropriate answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Statement I is correct but Statement II is incorrect.",
+          "Statement I is incorrect but Statement II is correct.",
+          "Both Statement I and Statement II are correct.",
+          "Both Statement I and Statement II are incorrect."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 26,
+        "type": "MCQ",
+        "text": "Which of the following is not correct for pteridophytes?<br>A. They are used for medicinal purposes and as soil-binders.<br>B. Some may flourish well in sandy-soil conditions.<br>C. Like bryophytes, they live on land but require water for fertilisation.<br>D. Spores are formed through meiosis inside capsule.<br>E. These are first terrestrial vascular plant.<br>Choose the correct answer from the option given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "B only",
+          "C and E only",
+          "D only",
+          "A and D only"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 27,
+        "type": "MCQ",
+        "text": "A student observes a plant with cone-like structures growing in moist, shady areas. On closer observation, the cone bears compact clusters of sporangia subtended by leaf-like structures. Which of the following plants is it most likely to be?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Polytrichum",
+          "Cycas",
+          "Equisetum",
+          "Ferns"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 28,
+        "type": "MCQ",
+        "text": "According to evolution point of view which plant groups shows retention of the female gametophyte and embryo development on the sporophyte?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Algae and Pteridophytes only",
+          "Bryophytes and pteridophytes only",
+          "Some pteridophytes, gymnosperms and angiosperms",
+          "Gymnosperms and angiosperms only"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 29,
+        "type": "MCQ",
+        "text": "Identify the incorrect statement about bryophytes.",
+        "img": "",
+        "table": "",
+        "options": [
+          "They are primarily terrestrial plants.",
+          "They depend on water for asexual reproduction.",
+          "The primary plant body produces haploid gametes.",
+          "Only some cells of sporophyte undergo meiosis to produce haploid spores."
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 30,
+        "type": "MCQ",
+        "text": "Given below are two statements:<br><strong>Statement I:</strong> In Porphyra, sexual reproduction involves fusion of a large and non-motile female gamete with smaller and non-motile male gamete.<br><strong>Statement II:</strong> In Spirogyra, sexual reproduction involves fusion of non-flagellated gametes.<br>In the light of the above statements, choose the most appropriate answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Statement I is correct but Statement II is incorrect.",
+          "Statement I is incorrect but Statement II is correct.",
+          "Both Statement I and Statement II are correct.",
+          "Both Statement I and Statement II are incorrect."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 31,
+        "type": "MCQ",
+        "text": "Heterospory in Selaginella and Salvinia is evolutionarily significant because;",
+        "img": "",
+        "table": "",
+        "options": [
+          "It results in production of free-living gametophytes that are independent.",
+          "It leads to the development of the embryo within the female gametophyte.",
+          "It allows spores to develop into multicellular sporophytes immediately.",
+          "It leads to development of vascular tissues in the sporophyte."
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 32,
+        "type": "MCQ",
+        "text": "Gymnosperm leaves are well adapted to withstand extremes of temperature, humidity and wind. All the following are reasons correct for this adaptation, except:",
+        "img": "",
+        "table": "",
+        "options": [
+          "They have small surface area due to needle-like shape.",
+          "They are associated with mycorrhiza which obtains water and minerals for them.",
+          "They are evergreen and not shed during autumn-winter period.",
+          "Their sunken stomata reduce loss of water due to transpiration."
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 33,
+        "type": "MCQ",
+        "text": "A member of rhodophyceae will not;",
+        "img": "",
+        "table": "",
+        "options": [
+          "have r-phycoerythrin in body.",
+          "be present in warmer areas of oceans.",
+          "reproduce asexually by motile spores.",
+          "survive in dark depths of oceans."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 34,
+        "type": "MCQ",
+        "text": "Which of the following statements is a key evolutionary advancement seen in gymnosperms but absent in majority of pteridophytes and bryophytes?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Development of multicellular sporophyte",
+          "Presence of independent gametophyte",
+          "Retention of female gametophyte within megasporangium",
+          "Production of flagellated male gametes"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 35,
+        "type": "MCQ",
+        "text": "Given below are two statements:<br><strong>Statement I:</strong> The gametophyte is large, photosynthetic and dominant in pteridophytes.<br><strong>Statement II:</strong> In pteridophytes, the zygote undergoes meiotic divisions to give rise to sporophyte.<br>In the light of the above statements, choose the most appropriate answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Statement I is correct but Statement II is incorrect.",
+          "Statement I is incorrect but Statement II is correct.",
+          "Both Statement I and Statement II are correct.",
+          "Both Statement I and Statement II are incorrect."
+        ],
+        "correct": 3,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 36,
+        "type": "MCQ",
+        "text": "A newly discovered aquatic organism had chlorophyll, lacked flagellated stages in its life cycle, and stored food in the form of a compound having structural similarity with amylopectin and glycogen. Which class should this organism should be placed into?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Sphenosida",
+          "Rhodophyceae",
+          "Phaeophyceae",
+          "Lycopsida"
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 37,
+        "type": "MCQ",
+        "text": "Match List I with List II.",
+        "img": "",
+        "table": "<table><tr><th>List-I</th><th>List-II</th></tr><tr><td>(A) Alga rich in proteins</td><td>(I) Selaginella</td></tr><tr><td>(B) Asexual reproductive structures are gemmae</td><td>(II) Ginkgo</td></tr><tr><td>(C) Microphyllous leaves</td><td>(III) Chlorella</td></tr><tr><td>(D) Living fossil</td><td>(IV) Marchantia</td></tr></table> Choose the correct answer from the options given below:",
+        "options": [
+          "A-IV, B-I, C-II, D-III",
+          "A-II, B-III, C-IV, D-I",
+          "A-III, B-IV, C-I, D-II",
+          "A-I, B-III, C-II, D-IV"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 38,
+        "type": "MCQ",
+        "text": "A plant is found to have a gelatinous coating of algin around its cells, biflagellate zoospores with unequal flagella, and stores food as laminarin. Which of the following is likely to be true for it?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Complex post fertilization events",
+          "Cup-shaped chloroplast",
+          "Frond with holdfast and stipe",
+          "Spiral chloroplast"
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 39,
+        "type": "MCQ",
+        "text": "Given below are two statements: One is labelled as Assertion (A) and the other is labelled as Reason (R):<br><strong>Assertion (A):</strong> All gymnosperms produce the same type of spores.<br><strong>Reason (R):</strong> The spores in gymnosperms are produced within sporangia that are borne on sporophylls which are arranged spirally along an axis to form lax or compact strobili or cones.<br>In the light of the above statements, choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A is true but R is false",
+          "A is false but R is true",
+          "Both A and R are true and R is the correct explanation of A",
+          "Both A and R are true but R is NOT the correct explanation of A"
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 40,
+        "type": "MCQ",
+        "text": "Read the following statements about green algae.<br>A. They store food in the form of mannitol or laminarin.<br>B. Chlorophyll a and b are localized in definite chloroplasts.<br>C. Pyrenoids are storage bodies in cytoplasm that contain proteins and starch.<br>D. Vegetative reproduction is by zoospores.<br>E. Volvox and Chara are examples of Chlorophyceae.<br>Choose the correct option.",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, C, D are incorrect",
+          "B, C, and E are correct",
+          "B, C, D, and E are incorrect",
+          "C, D and E are correct"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 41,
+        "type": "MCQ",
+        "text": "Which of the following reflects the major life cycle transition when moving from bryophytes to pteridophytes?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Dominance of gametophyte with multicellular rhizoids",
+          "Sporophyte becoming independent and differentiated",
+          "Sporophyte remaining nutritionally dependent on gametophyte",
+          "Gametophyte showing elaborate structures like strobili"
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 42,
+        "type": "MCQ",
+        "text": "Given below are two statements:<br><strong>Statement I:</strong> Large amounts of water holding substances (hydrocolloids) are produced by green algae.<br><strong>Statement II:</strong> The algae produce energy-rich compounds which form the basis of the food cycles of all aquatic animals.<br>In the light of the above statements, choose the most appropriate answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Statement I is correct but Statement II is incorrect.",
+          "Statement I is incorrect but Statement II is correct.",
+          "Both Statement I and Statement II are correct.",
+          "Both Statement I and Statement II are incorrect."
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 43,
+        "type": "MCQ",
+        "text": "The zoospores of brown algae have all the following characteristics, except that;",
+        "img": "",
+        "table": "",
+        "options": [
+          "they are asexual reproductive structures.",
+          "they have unequal flagella.",
+          "their flagella are apically attached.",
+          "they are pear-shaped."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 44,
+        "type": "MCQ",
+        "text": "Given below are two statements: One is labelled as Assertion (A) and the other is labelled as Reason (R):<br><strong>Assertion (A):</strong> Mosses are ecological pioneers and help in soil formation.<br><strong>Reason (R):</strong> They prevent growth of higher plants on newly formed rocks.<br>In the light of the above statements, choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A is true but R is false",
+          "A is false but R is true",
+          "Both A and R are true and R is the correct explanation of A",
+          "Both A and R are true but R is NOT the correct explanation of A"
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 45,
+        "type": "MCQ",
+        "text": "A gymnosperm has coralloid roots. Which of the following should also be true for it?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Its stems are branched.",
+          "It is monoecious.",
+          "Its leaves persist for few years.",
+          "The roots are very large."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 46,
+        "type": "MCQ",
+        "text": "Go through the following diagram then choose the incorrect statement.",
+        "img": "data:image/jpeg;base64,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",
+        "table": "",
+        "options": [
+          "'D' is closely appressed to the substratum.",
+          "Green, multicellular, asexual buds develop in 'B'.",
+          "The multicellular structure 'A' produces biflagellate antherozoids.",
+          "'C' are unicellular."
+        ],
+        "correct": 2,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 47,
+        "type": "MCQ",
+        "text": "Given below are two statements:<br><strong>Statement I:</strong> The plant body is thalloid in case of algae and bryophytes.<br><strong>Statement II:</strong> Gymnosperms are the first terrestrial plants to possess xylem and phloem.<br>In the light of the above statements, choose the most appropriate answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "Statement I is correct but Statement II is incorrect.",
+          "Statement I is incorrect but Statement II is correct.",
+          "Both Statement I and Statement II are correct.",
+          "Both Statement I and Statement II are incorrect."
+        ],
+        "correct": 0,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 48,
+        "type": "MCQ",
+        "text": "In which of the following options all the listed genera belong to the same class of algae?",
+        "img": "",
+        "table": "",
+        "options": [
+          "Chara, Fucus, Polysiphonia",
+          "Volvox, Spirogyra, Chlamydomonas",
+          "Porphyra, Ectocarpus, Ulothrix",
+          "Sargassum, Laminaria, Gracilaria"
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 49,
+        "type": "MCQ",
+        "text": "In order to ship a living material, the product of a plant was used. Choose the incorrect feature for that plant.",
+        "img": "",
+        "table": "",
+        "options": [
+          "It has elaborate mechanism of spore dispersal.",
+          "It is used for medicinal purposes.",
+          "Its sporophyte is differentiated into foot, seta and capsule.",
+          "Spores are formed by meiosis."
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      },
+      {
+        "id": 50,
+        "type": "MCQ",
+        "text": "Read the following statements.<br>(A) Both gymnosperms and angiosperms produce seeds, but gymnosperms have naked seeds.<br>(B) Cycas and Pinus bear male and female cones on the same plant.<br>(C) Pollen tube helps in internal fertilization in both gymnosperms as well as angiosperms.<br>(D) Ovules develop in specialised structures called flowers in angiosperms.<br>(E) Gymnosperms rely on water currents for pollen transfer.<br>In the light of above statements, choose the correct answer from the options given below:",
+        "img": "",
+        "table": "",
+        "options": [
+          "A, B, C, and D correct",
+          "A, C, and D are correct",
+          "B, C, D, and E are incorrect",
+          "C, D and E are incorrect"
+        ],
+        "correct": 1,
+        "marksCorrect": 4,
+        "marksWrong": 1
+      }
+    ]
+  }
+];
+
+    // ==========================================================
+    // SYSTEM LOGIC
+    // ==========================================================
+
+    let QUESTIONS = [];
+    let EXAM_SECTIONS = []; 
+    let globalQIndex = 1;
+    let qCounter = 0;
+    let activeSectionIndex = 0; 
+    
+    // CRITICAL MATH RENDER: Triggers KaTeX auto-render on newly injected innerHTML if active.
+    function triggerMathRender() {
+        if (window.renderMathInElement) {
+            try {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            } catch (e) {
+                console.warn("Math rendering failed: ", e);
+            }
+        }
+    }
+
+    window.onload = function() {
+        document.documentElement.style.setProperty('--q-font', Q_FONT_FAMILY);
+        if(document.getElementById('s-content-area')) {
+            document.getElementById('s-content-area').innerHTML = EXAM_S_HTML;
+            generateSchemeTable();
+            generateInfoModalTable();
+            triggerMathRender(); // Render instructions if they have math
+        }
+    };
+    
+    function generateSchemeTable() {
+        const tbody = document.getElementById('scheme-table-body');
+        const tfoot = document.getElementById('scheme-table-foot');
+        if(!tbody || !tfoot) return;
+        
+        let totalQs = 0;
+        let totalAttempts = 0;
+        let totalMaxMarks = 0;
+        let htmlRows = '';
+        
+        QUESTION_BANK.forEach(sec => {
+            const count = sec.questions.length;
+            const marksC = (sec.marksCorrect !== undefined) ? sec.marksCorrect : 4;
+            const marksW = (sec.marksWrong !== undefined) ? sec.marksWrong : 1;
+            const maxAtt = sec.maxAttempts || count;
+            const secMax = maxAtt * marksC;
+            
+            totalQs += count;
+            totalAttempts += maxAtt;
+            totalMaxMarks += secMax;
+            
+            htmlRows += `<tr>
+                <td>${sec.sectionTitle}</td>
+                <td>${count}</td>
+                <td style="font-weight:bold; color:var(--primary);">${maxAtt}</td>
+                <td style="color:green;">+${marksC}</td>
+                <td style="color:red;">-${marksW}</td>
+                <td>${secMax}</td>
+            </tr>`;
+        });
+        
+        tbody.innerHTML = htmlRows;
+        tfoot.innerHTML = `<tr>
+            <td style="font-weight:bold; background:#e9ecef;">Total</td>
+            <td style="font-weight:bold; background:#e9ecef;">${totalQs}</td>
+            <td style="font-weight:bold; background:#e9ecef; color:var(--primary);">${totalAttempts}</td>
+            <td colspan="2" style="background:#e9ecef;"></td>
+            <td style="font-weight:bold; background:#e9ecef;">${totalMaxMarks}</td>
+        </tr>`;
+    }
+
+    function generateInfoModalTable() {
+        const tbody = document.getElementById('info-scheme-body');
+        if(!tbody) return;
+        
+        let htmlRows = '';
+        
+        QUESTION_BANK.forEach(sec => {
+            const count = sec.questions.length;
+            const marksC = (sec.marksCorrect !== undefined) ? sec.marksCorrect : 4;
+            const marksW = (sec.marksWrong !== undefined) ? sec.marksWrong : 1;
+            const maxAtt = sec.maxAttempts || count;
+            const secMax = maxAtt * marksC;
+            
+            htmlRows += `<tr>
+                <td style="text-align: left;">${sec.sectionTitle}</td>
+                <td>${count}</td>
+                <td style="font-weight:bold; color:var(--primary);">${maxAtt}</td>
+                <td style="color:green;">+${marksC}</td>
+                <td style="color:red;">-${marksW}</td>
+                <td>${secMax}</td>
+            </tr>`;
+        });
+        
+        tbody.innerHTML = htmlRows;
+    }
+
+    QUESTION_BANK.forEach(sec => {
+        const mCorrect = (sec.marksCorrect !== undefined) ? sec.marksCorrect : 4;
+        const mWrong = (sec.marksWrong !== undefined) ? sec.marksWrong : 1;
+        const mAtt = sec.maxAttempts || sec.questions.length;
+
+        EXAM_SECTIONS.push({ 
+            name: sec.sectionTitle, 
+            startIndex: qCounter, 
+            count: sec.questions.length,
+            maxAttempts: mAtt
+        });
+        
+        sec.questions.forEach(q => {
+            QUESTIONS.push({
+                id: globalQIndex++,
+                section: sec.sectionTitle,
+                text: q.text,
+                type: q.type || 'MCQ', 
+                table: q.table || '',  
+                options: q.options,
+                correct: q.correct,
+                img: q.img,
+                marksCorrect: mCorrect,
+                marksWrong: mWrong
+            });
+            qCounter++;
+        });
+    });
+
+    let USER_DATA = { name: "Candidate", avatar: "🎓", id: "" };
+    let currQ = 0, answers = {}, status = {}, timerInterval;
+    let timeSpent = new Array(QUESTIONS.length).fill(0);
+    let finalTimes = {}; 
+
+    let lastSwitchTime = 0;
+    let totalExamTime = 0;
+    let audioObj = null;
+
+    function selectAvatar(el, icon) {
+        document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected'));
+        el.classList.add('selected');
+        USER_DATA.avatar = icon;
+    }
+    
+    function goToInstructions() {
+        const n = document.getElementById('user-name').value;
+        if(n.trim()) USER_DATA.name = n;
+        const now = new Date();
+        const idString = now.getFullYear().toString() + (now.getMonth()+1).toString().padStart(2,'0') + now.getDate().toString().padStart(2,'0') + now.getHours().toString().padStart(2,'0') + now.getMinutes().toString().padStart(2,'0') + now.getSeconds().toString().padStart(2,'0');
+        USER_DATA.id = idString;
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('instruction-screen').classList.remove('hidden');
+        document.getElementById('inst-name-disp').innerText = USER_DATA.name;
+        document.getElementById('inst-avatar-disp').innerText = USER_DATA.avatar;
+        document.getElementById('current-date-time').innerText = now.toLocaleString();
+    }
+
+    function toggleStartBtn() {
+        const c = document.getElementById('agree-check');
+        const b = document.getElementById('btn-start-exam');
+        b.disabled = !c.checked;
+        b.style.opacity = c.checked ? 1 : 0.5;
+        b.style.cursor = c.checked ? 'pointer' : 'not-allowed';
+    }
+    
+    function initExam() {
+        toggleFullScreen(document.documentElement);
+        document.getElementById('instruction-screen').classList.add('hidden');
+        document.getElementById('app-header').classList.remove('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+        document.getElementById('side-name').innerText = USER_DATA.name;
+        document.getElementById('side-avatar').innerText = USER_DATA.avatar;
+        document.getElementById('side-id').innerText = "ID: " + USER_DATA.id;
+        document.getElementById('print-footer-name').innerText = USER_DATA.name;
+
+        for(let i=0; i<QUESTIONS.length; i++) {
+            status[i] = 'not-visited';
+        }
+
+        renderSectionTabs();
+        switchSection(0); 
+        initTabScroll();
+        startTimer();
+        
+        makeDraggable(document.getElementById("calc-panel"), document.getElementById("calc-drag-handle"));
+        makeDraggable(document.getElementById("const-panel"), document.getElementById("const-drag-handle"));
+        makeDraggable(document.getElementById("vk-panel"), document.getElementById("vk-drag-handle")); 
+        
+        const btn = document.getElementById('sidebar-toggle-btn');
+        if (window.innerWidth <= 768) {
+             btn.innerText = '<';
+        }
+
+        if(START_EXAM_AUDIO_B64) {
+            new Audio(START_EXAM_AUDIO_B64).play();
+        }
+        
+        if(BACKGROUND_AUDIO_BASE64) {
+            audioObj = new Audio(BACKGROUND_AUDIO_BASE64);
+            audioObj.loop = BG_AUDIO_LOOP;
+        }
+    }
+    
+    function showAudioToast() {
+        const t = document.createElement('div');
+        t.className = 'audio-toast';
+        t.innerText = 'No music set';
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2500);
+    }
+
+    function toggleAudio() {
+        if(!audioObj) { showAudioToast(); return; }
+        const btn = document.getElementById('btn-audio');
+        if(audioObj.paused) { audioObj.play(); btn.classList.add('active'); } else { audioObj.pause(); btn.classList.remove('active'); }
+    }
+
+    function toggleSidebar() {
+        const sb = document.getElementById('sidebar');
+        const btn = document.getElementById('sidebar-toggle-btn');
+        if (window.innerWidth > 768) {
+            sb.classList.toggle('closed');
+            btn.innerText = sb.classList.contains('closed') ? '<' : '>';
+        } else {
+            sb.classList.toggle('open');
+            btn.innerText = sb.classList.contains('open') ? '>' : '<';
+        }
+    }
+
+    function renderSectionTabs() {
+        const container = document.getElementById('section-tabs');
+        container.innerHTML = '';
+        EXAM_SECTIONS.forEach((sec, idx) => {
+            const tab = document.createElement('div');
+            tab.className = 'section-tab';
+            tab.innerText = sec.name;
+            tab.id = `tab-${idx}`;
+            tab.onclick = () => switchSection(idx);
+            container.appendChild(tab);
+        });
+        setTimeout(updateScrollButtons, 100);
+    }
+    
+    function initTabScroll() {
+        const container = document.getElementById('section-tabs');
+        container.addEventListener('scroll', updateScrollButtons);
+        window.addEventListener('resize', updateScrollButtons);
+        updateScrollButtons();
+    }
+
+    function scrollTabs(direction) {
+        const container = document.getElementById('section-tabs');
+        const scrollAmount = 200; 
+        container.scrollBy({ left: direction * scrollAmount, behavior: 'auto' });
+    }
+
+    function updateScrollButtons() {
+        const container = document.getElementById('section-tabs');
+        const leftBtn = document.getElementById('tab-scroll-left');
+        const rightBtn = document.getElementById('tab-scroll-right');
+        const tolerance = 2; 
+        
+        if (container.scrollWidth <= container.clientWidth) {
+            leftBtn.classList.add('hidden');
+            rightBtn.classList.add('hidden');
+            return;
+        }
+        if (container.scrollLeft <= tolerance) {
+            leftBtn.classList.add('hidden');
+        } else {
+            leftBtn.classList.remove('hidden');
+        }
+        if (container.scrollLeft + container.clientWidth >= container.scrollWidth - tolerance) {
+            rightBtn.classList.add('hidden');
+        } else {
+            rightBtn.classList.remove('hidden');
+        }
+    }
+
+    function switchSection(secIdx) {
+        activeSectionIndex = secIdx;
+        document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+        const activeTab = document.getElementById(`tab-${secIdx}`);
+        activeTab.classList.add('active');
+        activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        renderPalette(secIdx);
+        const targetQ = EXAM_SECTIONS[secIdx].startIndex;
+        loadQuestion(targetQ);
+    }
+
+    function renderPalette(secIdx) {
+        const g = document.getElementById('palette-grid');
+        g.innerHTML = ''; 
+        g.classList.remove('fade-in');
+        void g.offsetWidth; 
+        g.classList.add('fade-in');
+
+        const sec = EXAM_SECTIONS[secIdx];
+        
+        const header = document.createElement('div');
+        header.className = 'palette-section-header';
+        header.innerText = `${sec.name}`; 
+        g.appendChild(header);
+
+        const btnGrid = document.createElement('div');
+        btnGrid.className = 'btn-grid';
+        
+        const start = sec.startIndex;
+        const end = start + sec.count;
+
+        for(let i = start; i < end; i++) {
+            const b = document.createElement('div');
+            b.className = 'p-btn'; 
+            b.innerText = i + 1; 
+            b.id = `p-${i}`;
+            
+            if(status[i] === 'ans') b.classList.add('status-ans');
+            else if(status[i] === 'not-ans') b.classList.add('status-not-ans');
+            else if(status[i] === 'rev') b.classList.add('status-rev');
+            else if(status[i] === 'rev-ans') b.classList.add('status-rev-ans');
+            if(i === currQ) b.classList.add('active');
+
+            b.onclick = () => jumpTo(i);
+            btnGrid.appendChild(b);
+        }
+        g.appendChild(btnGrid);
+    }
+
+    function updateTimeSpent() {
+        if(lastSwitchTime > 0) {
+            const now = Date.now();
+            timeSpent[currQ] += (now - lastSwitchTime) / 1000;
+        }
+        lastSwitchTime = Date.now();
+    }
+    
+    function fmtText(txt) {
+        if (!txt) return '';
+        let formatted = txt.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+        // Handle list numbering line breaks safely.
+        formatted = formatted.replace(/(?<!^)(\d+\.\s+[A-Za-z])/g, '<br><br>$1'); 
+        return formatted;
+    }
+
+    function loadQuestion(idx) {
+        updateTimeSpent(); 
+        if(status[currQ] === 'not-visited') { 
+            status[currQ] = 'not-ans'; 
+        }
+        
+        let targetSecIdx = 0;
+        for(let i=0; i<EXAM_SECTIONS.length; i++) {
+            if (idx >= EXAM_SECTIONS[i].startIndex && idx < (EXAM_SECTIONS[i].startIndex + EXAM_SECTIONS[i].count)) {
+                targetSecIdx = i; break;
+            }
+        }
+
+        if (targetSecIdx !== activeSectionIndex) {
+            activeSectionIndex = targetSecIdx;
+            document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${activeSectionIndex}`).classList.add('active');
+            setTimeout(updateScrollButtons, 100);
+            renderPalette(activeSectionIndex);
+        }
+
+        currQ = idx;
+        if(status[currQ] === 'not-visited') { status[currQ] = 'not-ans'; }
+
+        const q = QUESTIONS[idx];
+        let imgHtml = q.img ? `<img src="${q.img}" alt="Question Image" onerror="this.style.display='none'">` : '';
+        let tableHtml = q.table ? `<div class="table-container">${q.table}</div>` : ''; 
+
+        let dynamicInputHtml = '';
+        if (q.type === 'NAT') {
+            const ansVal = answers[idx] !== undefined ? answers[idx] : '';
+            dynamicInputHtml = `
+                <div class="nat-container">
+                    <input type="text" id="nat-input-${idx}" class="nat-input" 
+                           value="${ansVal}" placeholder="Tap to open keyboard" 
+                           readonly onclick="openVK(${idx})">
+                </div>
+            `;
+        } else {
+            dynamicInputHtml = q.options.map((o,i) => `
+                <div class="option-item ${answers[idx]===i?'selected':''}" onclick="selectOpt(${i})">
+                    <span style="font-weight:bold; margin-right:8px;">${i + 1}.</span>${fmtText(o)}
+                </div>
+            `).join('');
+            closeVK(); 
+        }
+
+        document.getElementById('q-render-area').innerHTML = `
+            <div class="question-content"><span class="q-num-inline">Question ${idx + 1}:</span> ${fmtText(q.text.trim())}${imgHtml}${tableHtml}</div>
+            ${dynamicInputHtml}
+        `;
+        
+        updateAllVisibleBtns(); 
+
+        const submitBtn = document.getElementById('final-submit-btn');
+        const saveBtn = document.getElementById('btn-save-next');
+        
+        if (currQ === QUESTIONS.length - 1) {
+            submitBtn.style.display = 'block';
+            saveBtn.innerText = 'Save';
+            saveBtn.disabled = false;
+        } else {
+            submitBtn.style.display = 'none';
+            saveBtn.innerText = 'Save & Next';
+            saveBtn.disabled = false;
+        }
+        
+        // Critical Render call for KaTeX Online Mode
+        triggerMathRender();
+    }
+
+    function selectOpt(i) { 
+        answers[currQ] = i; 
+        updateTimeSpent();
+        finalTimes[currQ] = timeSpent[currQ];
+        loadQuestion(currQ); 
+    }
+    
+    function handleAction(a) {
+        const hasAnswer = answers[currQ] !== undefined && answers[currQ] !== '';
+        
+        if(a==='save') {
+             status[currQ] = hasAnswer ? 'ans' : 'not-ans';
+        }
+        if(a==='review') {
+            status[currQ] = hasAnswer ? 'rev-ans' : 'rev';
+        }
+        if(a==='clear') { 
+            delete answers[currQ]; 
+            delete finalTimes[currQ];
+            status[currQ] = 'not-ans'; 
+            
+            const natInput = document.getElementById(`nat-input-${currQ}`);
+            if (natInput) natInput.value = '';
+            
+            loadQuestion(currQ); 
+            return; 
+        }
+        
+        if(currQ < QUESTIONS.length-1) {
+            loadQuestion(currQ+1); 
+        } else { 
+            updateAllVisibleBtns(); 
+        }
+    }
+
+    function updateAllVisibleBtns() {
+        const buttons = document.querySelectorAll('.p-btn');
+        buttons.forEach(b => {
+            const idx = parseInt(b.id.split('-')[1]);
+            b.className = 'p-btn'; 
+            if(status[idx]==='ans') b.classList.add('status-ans');
+            else if(status[idx]==='not-ans') b.classList.add('status-not-ans');
+            else if(status[idx]==='rev') b.classList.add('status-rev');
+            else if(status[idx]==='rev-ans') b.classList.add('status-rev-ans');
+            
+            if(idx === currQ) b.classList.add('active');
+        });
+    }
+
+    function jumpTo(i) {
+        loadQuestion(i);
+        if(window.innerWidth < 768) {
+            const sb = document.getElementById('sidebar');
+            const btn = document.getElementById('sidebar-toggle-btn');
+            sb.classList.remove('open');
+            btn.innerText = '<';
+        }
+    }
+
+    function startTimer() {
+        let totalSeconds;
+        let isCountDown = false;
+        if (TIMER_MODE === 'COUNTDOWN') { totalSeconds = EXAM_DURATION_MINS * 60; isCountDown = true; } 
+        else { totalSeconds = 0; isCountDown = false; }
+        lastSwitchTime = Date.now(); 
+        timerInterval = setInterval(() => {
+            if (isCountDown) {
+                totalSeconds--;
+                if(totalSeconds <= 0) handleTimeUp();
+            } else { 
+                totalSeconds++; 
+            }
+            totalExamTime++;
+            const h = Math.floor(totalSeconds / 3600).toString().padStart(2,'0');
+            const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2,'0');
+            const s = (totalSeconds % 60).toString().padStart(2,'0');
+            document.getElementById('timer-display').innerText = `${h}:${m}:${s}`;
+        }, 1000);
+    }
+
+    function attemptSubmit() {
+        updateTimeSpent();
+        let ans=0, notAns=0, rev=0, notVis=0;
+        for(let i=0; i<QUESTIONS.length; i++) {
+            if(status[i] === 'ans' || status[i] === 'rev-ans') ans++;
+            else if(status[i] === 'not-ans') notAns++;
+            else if(status[i] === 'rev') rev++;
+            else notVis++;
+        }
+        document.getElementById('sub-ans').innerText = ans;
+        document.getElementById('sub-not-ans').innerText = notAns;
+        document.getElementById('sub-rev').innerText = rev;
+        document.getElementById('sub-not-visit').innerText = notVis;
+        document.getElementById('modal-warning-line').style.display = 'none';
+        document.getElementById('btn-cancel-sub').style.display = 'block';
+        document.getElementById('submission-modal').classList.remove('hidden');
+    }
+
+    function handleTimeUp() {
+        updateTimeSpent();
+        clearInterval(timerInterval);
+        document.getElementById('modal-warning-line').style.display = 'block';
+        document.getElementById('btn-cancel-sub').style.display = 'none';
+        document.getElementById('submission-modal').classList.remove('hidden');
+        setTimeout(confirmSubmit, 3000);
+    }
+
+    function closeModal() { document.getElementById('submission-modal').classList.add('hidden'); }
+
+    function confirmSubmit() {
+        closeModal();
+        clearInterval(timerInterval);
+        
+        const resultGateway = document.getElementById('result-gateway');
+        const appHeader = document.getElementById('app-header');
+        const appContainer = document.getElementById('app-container');
+
+        if(appHeader) appHeader.classList.add('hidden');
+        if(appContainer) appContainer.classList.add('hidden');
+        
+        if(resultGateway) {
+            resultGateway.classList.remove('hidden');
+            resultGateway.style.display = 'flex'; 
+        }
+
+        try {
+            if(audioObj) audioObj.pause();
+            if(typeof SUBMIT_EXAM_AUDIO_B64 !== 'undefined' && SUBMIT_EXAM_AUDIO_B64) {
+                new Audio(SUBMIT_EXAM_AUDIO_B64).play().catch(e => console.log("Audio error", e));
+            }
+        } catch(e) { console.error("Audio error", e); }
+        
+        setTimeout(() => {
+            try {
+                let correct=0, wrong=0, attempt=0, score=0;
+                let attemptCounts = {}; 
+                let secMaxAttempts = {};
+
+                EXAM_SECTIONS.forEach(s => {
+                   secMaxAttempts[s.name] = s.maxAttempts;
+                   attemptCounts[s.name] = 0;
+                });
+
+                QUESTIONS.forEach((q, i) => {
+                    if (!q) return; 
+                    
+                    let userAns = answers[i];
+                    let stat = status[i];
+                    
+                    if (stat === 'ans' || stat === 'rev-ans') {
+                        if (attemptCounts[q.section] < secMaxAttempts[q.section]) {
+                            
+                            attemptCounts[q.section]++;
+                            attempt++;
+                            
+                            let mCor = (typeof q.marksCorrect === 'number') ? q.marksCorrect : 4;
+                            let mWro = (typeof q.marksWrong === 'number') ? q.marksWrong : 1;
+                            
+                            let isCorrect = false;
+                            
+                            if (q.type === 'NAT') {
+                                const uAnsStr = String(userAns).trim().toLowerCase();
+                                const cAnsStr = String(q.correct).trim().toLowerCase();
+                                const rangeMatch = cAnsStr.match(/^(-?\d+(?:\.\d+)?)\s*(?:to|-|~|:)\s*(-?\d+(?:\.\d+)?)$/);
+                                
+                                if (rangeMatch) {
+                                    const min = parseFloat(rangeMatch[1]);
+                                    const max = parseFloat(rangeMatch[2]);
+                                    const uVal = parseFloat(uAnsStr);
+                                    if (!isNaN(uVal)) {
+                                        isCorrect = (uVal >= min && uVal <= max);
+                                    }
+                                } else {
+                                    isCorrect = (uAnsStr === cAnsStr);
+                                }
+                            } else {
+                                isCorrect = (userAns === q.correct);
+                            }
+
+                            if(isCorrect) { 
+                                correct++; 
+                                score += mCor; 
+                            } else { 
+                                wrong++; 
+                                score -= mWro; 
+                            }
+                        }
+                    }
+                });
+                
+                let accuracy = attempt > 0 ? Math.round((correct/attempt)*100) : 0;
+                let avgTime = attempt > 0 ? Math.round(totalExamTime/attempt) : 0;
+                let notAns = QUESTIONS.length - attempt;
+
+                if(document.getElementById('gt-score')) document.getElementById('gt-score').innerText = score;
+                if(document.getElementById('gt-correct')) document.getElementById('gt-correct').innerText = correct;
+                if(document.getElementById('gt-wrong')) document.getElementById('gt-wrong').innerText = wrong;
+                if(document.getElementById('gt-attempt')) document.getElementById('gt-attempt').innerText = attempt;
+                if(document.getElementById('gt-accuracy')) document.getElementById('gt-accuracy').innerText = accuracy + "%";
+                if(document.getElementById('gt-time')) document.getElementById('gt-time').innerText = avgTime + "s";
+                
+                prepareReport(score, accuracy, avgTime, attempt, correct, wrong, notAns);
+            } catch(e) {
+                console.error("Scoring error", e);
+                alert("An error occurred during scoring. Please check console.");
+            }
+        }, 50);
+    }
+
+    function prepareReport(score, acc, time, att, corr, wrong, notAns) {
+        document.getElementById('rep-name').innerText = USER_DATA.name;
+        document.getElementById('rep-id').innerText = USER_DATA.id;
+        document.getElementById('rep-icon').innerText = USER_DATA.avatar;
+        
+        const h = Math.floor(totalExamTime / 3600).toString().padStart(2,'0');
+        const m = Math.floor((totalExamTime % 3600) / 60).toString().padStart(2,'0');
+        const s = (totalExamTime % 60).toString().padStart(2,'0');
+        document.getElementById('rep-total-time').innerText = `${h}:${m}:${s}`;
+
+        document.getElementById('rep-pps-score').innerText = score;
+        document.getElementById('rep-pps-acc').innerText = acc + "%";
+        document.getElementById('rep-pps-time').innerText = time + "s";
+        document.getElementById('rep-pps-att').innerText = att;
+        document.getElementById('rep-pps-cor').innerText = corr;
+        document.getElementById('rep-pps-wro').innerText = wrong;
+        document.getElementById('rep-pps-not').innerText = notAns;
+        document.getElementById('rep-pps-tot').innerText = QUESTIONS.length;
+
+        const list = document.getElementById('question-report-list');
+        list.innerHTML = '';
+        
+        let lastSection = "";
+        
+        let repAttemptCounts = {};
+        let secMaxAttempts = {};
+        EXAM_SECTIONS.forEach(s => {
+           secMaxAttempts[s.name] = s.maxAttempts;
+           repAttemptCounts[s.name] = 0;
+        });
+
+        QUESTIONS.forEach((q, i) => {
+            if (q.section !== lastSection) {
+                const sep = document.createElement('div');
+                sep.className = 'print-section-title';
+                sep.innerText = q.section;
+                list.appendChild(sep);
+                lastSection = q.section;
+            }
+
+            const userAns = answers[i];
+            const stat = status[i];
+            const isAttempted = (stat === 'ans' || stat === 'rev-ans');
+            
+            let isCorrect = false;
+            
+            if (q.type === 'NAT') {
+                const uAnsStr = String(userAns).trim().toLowerCase();
+                const cAnsStr = String(q.correct).trim().toLowerCase();
+                const rangeMatch = cAnsStr.match(/^(-?\d+(?:\.\d+)?)\s*(?:to|-|~|:)\s*(-?\d+(?:\.\d+)?)$/);
+                
+                if (rangeMatch) {
+                    const min = parseFloat(rangeMatch[1]);
+                    const max = parseFloat(rangeMatch[2]);
+                    const uVal = parseFloat(uAnsStr);
+                    if (!isNaN(uVal)) {
+                        isCorrect = (uVal >= min && uVal <= max);
+                    }
+                } else {
+                    isCorrect = (uAnsStr === cAnsStr);
+                }
+            } else {
+                isCorrect = (userAns === q.correct);
+            }
+
+            const timeVal = finalTimes[i] ? Math.round(finalTimes[i]) : 0;
+            
+            let evaluated = false;
+            if(isAttempted) {
+                if(repAttemptCounts[q.section] < secMaxAttempts[q.section]) {
+                    evaluated = true;
+                    repAttemptCounts[q.section]++;
+                }
+            }
+            
+            let mCor = (typeof q.marksCorrect === 'number') ? q.marksCorrect : 4;
+            let mWro = (typeof q.marksWrong === 'number') ? q.marksWrong : 1;
+            let marks = 0;
+            
+            if (evaluated) {
+                marks = isCorrect ? mCor : -mWro;
+            }
+            
+            let optionsHTML = '';
+            
+            if (q.type === 'NAT') {
+                let optClass = isCorrect ? 'po-correct' : (userAns ? 'po-wrong-sel' : 'po-neutral');
+                if(!evaluated && isAttempted) optClass = 'po-neutral';
+                optionsHTML = `<div class="print-opt-item ${optClass}">Your Input: <strong>${userAns || '-'}</strong><br><span style="color:#555; font-size:0.85rem;">Correct Answer: ${q.correct}</span></div>`;
+            } else {
+                q.options.forEach((opt, oIdx) => {
+                    let optClass = 'po-neutral';
+                    if (oIdx === q.correct) optClass = 'po-correct';
+                    else if (userAns === oIdx && !isCorrect) optClass = 'po-wrong-sel';
+                    
+                    if(userAns === oIdx && !evaluated) optClass = 'po-neutral';
+                    
+                    optionsHTML += `<div class="print-opt-item ${optClass}"><strong>${oIdx + 1}.</strong> ${fmtText(opt)}</div>`;
+                });
+            }
+            
+            let imgHtml = q.img ? `<img src="${q.img}" alt="Question Image">` : '';
+            let tableHtml = q.table ? `<div style="margin: 10px 0;">${q.table}</div>` : '';
+
+            let outcomeStr = !isAttempted ? '-' : (evaluated ? (q.type === 'NAT' ? 'Filled' : String.fromCharCode(65+userAns)) : 'Not Evaluated');
+            
+            const metaHTML = `
+                <div class="meta-block" style="${!evaluated && isAttempted ? 'grid-column: 1 / -1;' : ''}"><strong>Selected</strong><span>${outcomeStr}</span></div>
+                ${!evaluated && isAttempted ? '' : `<div class="meta-block"><strong>Correct</strong><span>${q.type === 'NAT' ? 'Value' : String.fromCharCode(65+q.correct)}</span></div>`}
+                <div class="meta-block"><strong>Marks</strong><span style="color:${marks>0?'green':(marks<0?'red':'black')}">${marks>0?'+'+marks:marks}</span></div>
+                <div class="meta-block"><strong>Time</strong><span>${timeVal > 0 ? timeVal + 's' : '-'}</span></div>
+            `;
+
+            const block = document.createElement('div');
+            block.className = 'print-q-block';
+            block.innerHTML = `<div class="print-q-text">Q${q.id}. ${fmtText(q.text)}${imgHtml}${tableHtml}</div><div class="print-q-body"><div class="print-opt-col">${optionsHTML}</div><div class="print-meta-col">${metaHTML}</div></div>`;
+            list.appendChild(block);
+        });
+        
+        // Critical Render call for KaTeX Online Mode in Report
+        triggerMathRender();
+    }
+
+    function showDetailedSheet() { document.getElementById('result-gateway').classList.add('hidden'); document.getElementById('detailed-sheet-view').style.display = 'block'; }
+    function hideDetailedSheet() { document.getElementById('detailed-sheet-view').style.display = 'none'; document.getElementById('result-gateway').classList.remove('hidden'); }
+    
+    function printReport() { 
+        const originalTitle = document.title;
+        document.title = "NEET Re-Exam (2024)"; 
+        
+        document.getElementById('result-gateway').classList.add('hidden'); 
+        document.getElementById('detailed-sheet-view').style.display = 'block'; 
+        
+        setTimeout(() => { 
+            window.print(); 
+            setTimeout(() => { document.title = originalTitle; }, 100);
+        }, 500); 
+    }
+
+    function applyZoom(v) { 
+        document.getElementById('zoom-target').style.transform = `scale(${v})`; 
+        document.getElementById('zoom-target').style.width = `${100/v}%`; 
+
+        const calc = document.getElementById('calc-panel');
+        const consts = document.getElementById('const-panel');
+        const vk = document.getElementById('vk-panel');
+        const infoTarget = document.getElementById('info-modal-target');
+
+        calc.style.transform = `scale(${v})`;
+        consts.style.transform = `scale(${v})`;
+        vk.style.transform = `scale(${v})`;
+        
+        if (infoTarget) {
+            infoTarget.style.transform = `scale(${v})`;
+        }
+    }
+
+    function toggleFullScreen(elem) { if (!document.fullscreenElement) { if (elem.requestFullscreen) { elem.requestFullscreen(); } else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } } else { if (document.exitFullscreen) document.exitFullscreen(); } }
+    function toggleFloat(id) { const el = document.getElementById(id); if(!el.style.left) { el.style.top="80px"; el.style.left="50px"; } el.style.display = el.style.display==='block'?'none':'block'; }
+    function toggleCalcHelp() { const h = document.getElementById('calc-help-box'); h.style.display = h.style.display==='block'?'none':'block'; }
+    
+    function makeDraggable(elmnt, handle) { 
+        let pos1=0, pos2=0, pos3=0, pos4=0; 
+        handle.onmousedown = dragStart; 
+        handle.ontouchstart = dragStart; 
+        
+        function dragStart(e) { 
+            e.preventDefault(); 
+            if (elmnt.style.transform && elmnt.style.transform !== 'none') {
+                const rect = elmnt.getBoundingClientRect();
+                elmnt.style.transform = 'none';
+                elmnt.style.top = rect.top + 'px';
+                elmnt.style.left = rect.left + 'px';
+                elmnt.style.bottom = 'auto'; 
+            }
+
+            if (e.type === "touchstart") { 
+                pos3 = e.touches[0].clientX; pos4 = e.touches[0].clientY; 
+            } else { 
+                pos3 = e.clientX; pos4 = e.clientY; 
+            } 
+            document.onmouseup = closeDrag; document.onmousemove = elementDrag; 
+            document.ontouchend = closeDrag; document.ontouchmove = elementDrag; 
+        } 
+        function elementDrag(e) { 
+            e.preventDefault(); 
+            let clientX, clientY; 
+            if (e.type === "touchmove") { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } 
+            else { clientX = e.clientX; clientY = e.clientY; } 
+            
+            pos1 = pos3 - clientX; pos2 = pos4 - clientY; 
+            pos3 = clientX; pos4 = clientY; 
+            
+            let newTop = elmnt.offsetTop - pos2; let newLeft = elmnt.offsetLeft - pos1; 
+            
+            if(newTop < 0) newTop = 0; 
+            if(newTop > window.innerHeight - 50) newTop = window.innerHeight - 50; 
+            if(newLeft < -(elmnt.offsetWidth - 50)) newLeft = -(elmnt.offsetWidth - 50); 
+            if(newLeft > window.innerWidth - 50) newLeft = window.innerWidth - 50; 
+            
+            elmnt.style.top = newTop + "px"; elmnt.style.left = newLeft + "px"; 
+        } 
+        function closeDrag() { 
+            document.onmouseup = null; document.onmousemove = null; 
+            document.ontouchend = null; document.ontouchmove = null; 
+        } 
+    }
+
+    /* --- ENHANCED VIRTUAL KEYBOARD HANDLERS --- */
+    let vkTarget = null;
+    let vkShift = false;
+
+    function openVK(target) {
+        vkTarget = target;
+        const el = document.getElementById('vk-panel');
+        el.style.display = 'block'; 
+
+        el.style.transform = 'none';
+
+        if (target === 'login') {
+            const rect = el.getBoundingClientRect();
+            let leftPos = (window.innerWidth - rect.width) / 2;
+            let topPos = window.innerHeight - rect.height - 20;
+            
+            el.style.left = Math.max(10, leftPos) + "px";
+            el.style.top = Math.max(10, topPos) + "px";
+            el.style.bottom = 'auto';
+            
+            toggleVKMode('alpha'); 
+        } else {
+            if (!el.style.top || el.style.top === "") {
+                const rect = el.getBoundingClientRect();
+                let leftPos = (window.innerWidth - rect.width) / 2;
+                let topPos = window.innerHeight - rect.height - 20;
+                
+                el.style.left = Math.max(10, leftPos) + "px";
+                el.style.top = Math.max(10, topPos) + "px";
+                el.style.bottom = 'auto';
+            }
+            toggleVKMode('num');
+            if (answers[target] === undefined) answers[target] = '';
+        }
+    }
+
+    function closeVK() { document.getElementById('vk-panel').style.display = 'none'; vkTarget = null; }
+    
+    function toggleVKMode(mode) {
+        document.getElementById('vk-num-container').style.display = mode === 'num' ? 'flex' : 'none';
+        document.getElementById('vk-alpha-container').style.display = mode === 'alpha' ? 'flex' : 'none';
+        document.getElementById('vk-tab-num').classList.remove('active');
+        document.getElementById('vk-tab-alpha').classList.remove('active');
+        document.getElementById(`vk-tab-${mode}`).classList.add('active');
+    }
+
+    function toggleVKShift() {
+        vkShift = !vkShift;
+        const letters = document.querySelectorAll('.vk-letter');
+        letters.forEach(btn => {
+            const char = btn.innerText;
+            btn.innerText = vkShift ? char.toUpperCase() : char.toLowerCase();
+        });
+    }
+
+    function vkType(char) {
+        if (vkTarget === null) return;
+        
+        let finalChar = char;
+        if (vkShift && char.length === 1 && char.match(/[a-z]/i)) {
+            finalChar = char.toUpperCase();
+        }
+
+        if (vkTarget === 'login') {
+            const inp = document.getElementById('user-name');
+            inp.value += finalChar;
+        } else {
+            if (currQ !== vkTarget) return;
+            answers[vkTarget] += finalChar;
+            status[vkTarget] = 'ans';
+            document.getElementById(`nat-input-${vkTarget}`).value = answers[vkTarget];
+            finalTimes[vkTarget] = timeSpent[vkTarget];
+        }
+    }
+    
+    function vkBackspace() {
+        if (vkTarget === null) return;
+        
+        if (vkTarget === 'login') {
+            const inp = document.getElementById('user-name');
+            inp.value = inp.value.slice(0, -1);
+        } else {
+            if (currQ !== vkTarget || !answers[vkTarget]) return;
+            answers[vkTarget] = String(answers[vkTarget]).slice(0, -1);
+            if (answers[vkTarget] === '') status[vkTarget] = 'not-ans';
+            document.getElementById(`nat-input-${vkTarget}`).value = answers[vkTarget];
+        }
+    }
+
+    function vkClear() {
+        if (vkTarget === null) return;
+        
+        if (vkTarget === 'login') {
+            document.getElementById('user-name').value = '';
+        } else {
+            if (currQ !== vkTarget) return;
+            answers[vkTarget] = '';
+            status[vkTarget] = 'not-ans';
+            document.getElementById(`nat-input-${vkTarget}`).value = '';
+        }
+    }
+
+    /* Calculator state logic */
+    let calcState = { display: '0', firstOp: null, waitingForSecondOp: false, operator: null, memory: 0, angleMode: 'deg' };
+    function updateDisplay() { document.getElementById('calc-result').value = calcState.display; }
+    function calcInput(digit) { if (calcState.waitingForSecondOp) { calcState.display = digit; calcState.waitingForSecondOp = false; } else { calcState.display = calcState.display === '0' ? digit : calcState.display + digit; } updateDisplay(); }
+    function calcClear() { calcState.display = '0'; calcState.firstOp = null; calcState.waitingForSecondOp = false; calcState.operator = null; updateDisplay(); }
+    function calcBackspace() { if (calcState.display.length > 1) { calcState.display = calcState.display.slice(0, -1); } else { calcState.display = '0'; } updateDisplay(); }
+    function calcNegate() { calcState.display = String(-parseFloat(calcState.display)); updateDisplay(); }
+    function toggleAngle(mode) { calcState.angleMode = mode; }
+    function toRad(val) { return calcState.angleMode === 'deg' ? val * (Math.PI / 180) : val; }
+    function fromRad(val) { return calcState.angleMode === 'deg' ? val * (180 / Math.PI) : val; }
+    function calcFunc(func) { let val = parseFloat(calcState.display); let res = 0; switch(func) { case 'sin': res = Math.sin(toRad(val)); break; case 'cos': res = Math.cos(toRad(val)); break; case 'tan': res = Math.tan(toRad(val)); break; case 'asin': res = fromRad(Math.asin(val)); break; case 'acos': res = fromRad(Math.acos(val)); break; case 'atan': res = fromRad(Math.atan(val)); break; case 'sinh': res = Math.sinh(val); break; case 'cosh': res = Math.cosh(val); break; case 'tanh': res = Math.tanh(val); break; case 'asinh': res = Math.asinh(val); break; case 'acosh': res = Math.acosh(val); break; case 'atanh': res = Math.atanh(val); break; case 'ln': res = Math.log(val); break; case 'log': res = Math.log10(val); break; case 'log2': res = Math.log2(val); break; case 'sq': res = val * val; break; case 'cube': res = val * val * val; break; case 'sqrt': res = Math.sqrt(val); break; case 'cbrt': res = Math.cbrt(val); break; case 'recip': res = 1 / val; break; case 'fact': res = 1; for(let i=2; i<=val; i++) res *= i; break; case 'exp': res = Math.exp(val); break; case 'ex': res = Math.exp(val); break; case 'pow10': res = Math.pow(10, val); break; case 'abs': res = Math.abs(val); break; } calcState.display = String(res); calcState.waitingForSecondOp = true; updateDisplay(); }
+    function calcConst(c) { if (c === 'pi') calcState.display = String(Math.PI); if (c === 'e') calcState.display = String(Math.E); calcState.waitingForSecondOp = true; updateDisplay(); }
+    function calcDualOp(nextOp) { const inputValue = parseFloat(calcState.display); if (calcState.operator && calcState.waitingForSecondOp) { calcState.operator = nextOp; return; } if (calcState.firstOp == null) { calcState.firstOp = inputValue; } else if (calcState.operator) { const result = performCalculation(calcState.operator, calcState.firstOp, inputValue); calcState.display = String(result); calcState.firstOp = result; } calcState.waitingForSecondOp = true; calcState.operator = nextOp; updateDisplay(); }
+    function calcEqual() { const inputValue = parseFloat(calcState.display); if (calcState.operator && calcState.firstOp != null) { const result = performCalculation(calcState.operator, calcState.firstOp, inputValue); calcState.display = String(result); calcState.firstOp = null; calcState.operator = null; calcState.waitingForSecondOp = true; updateDisplay(); } }
+    function performCalculation(op, first, second) { switch(op) { case '+': return first + second; case '-': return first - second; case '*': return first * second; case '/': return first / second; case 'Mod': return first % second; case 'pow': return Math.pow(first, second); case 'yroot': return Math.pow(first, 1/second); case 'logy': return Math.log(first) / Math.log(second); default: return second; } }
+    function calcMem(op) { let val = parseFloat(calcState.display); switch(op) { case 'MC': calcState.memory = 0; break; case 'MR': calcState.display = String(calcState.memory); break; case 'MS': calcState.memory = val; break; case 'M+': calcState.memory += val; break; case 'M-': calcState.memory -= val; break; } if(op === 'MR') calcState.waitingForSecondOp = true; updateDisplay(); }
+
+</script>
+</body>
+</html>
