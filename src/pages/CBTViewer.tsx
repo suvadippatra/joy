@@ -4,10 +4,12 @@ import { useCBTData } from '../hooks/useCBTData';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../components/ThemeProvider';
 import localforage from 'localforage';
+import { useReports } from '../hooks/useReports';
 
 export default function CBTViewer() {
   const { id } = useParams<{ id: string }>();
   const { tests, loading } = useCBTData();
+  const { addReport } = useReports();
   const test = tests.find(t => t.id === id);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
@@ -76,7 +78,43 @@ export default function CBTViewer() {
           
           injectedHead += `</style>`;
           
+          let injectedBodyScript = `
+          <script>
+            (function() {
+              let reportSent = false;
+              const checkResults = () => {
+                 const gateway = document.getElementById('result-gateway');
+                 if (gateway && !gateway.classList.contains('hidden') && !reportSent) {
+                     reportSent = true;
+                     const score = document.getElementById('gt-score')?.innerText || '0';
+                     const correct = document.getElementById('gt-correct')?.innerText || '0';
+                     const wrong = document.getElementById('gt-wrong')?.innerText || '0';
+                     const accuracy = document.getElementById('gt-accuracy')?.innerText || '0%';
+                     const attempt = document.getElementById('gt-attempt')?.innerText || '0';
+                     const time = document.getElementById('gt-time')?.innerText || '0s';
+                     
+                     window.parent.postMessage({
+                         type: 'CBT_SUBMIT',
+                         payload: { testId: '${test.id}', score, correct, wrong, accuracy, attempt, time }
+                     }, '*');
+                 }
+              };
+              
+              const observer = new MutationObserver(checkResults);
+              window.addEventListener('DOMContentLoaded', () => {
+                  observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+                  setInterval(checkResults, 1000);
+              });
+            })();
+          </script>
+          `;
+          
           html = html.replace('</head>', injectedHead + '</head>');
+          if (html.includes('</body>')) {
+             html = html.replace('</body>', injectedBodyScript + '</body>');
+          } else {
+             html += injectedBodyScript;
+          }
           
           const blob = new Blob([html], { type: 'text/html' });
           setIframeSrc(URL.createObjectURL(blob));
@@ -101,6 +139,28 @@ export default function CBTViewer() {
       }
     };
   }, [iframeSrc]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'CBT_SUBMIT' && test) {
+        const payload = event.data.payload;
+        addReport({
+          testId: test.id,
+          testTitle: test.title,
+          subject: test.subject,
+          score: parseFloat(payload.score) || 0,
+          correct: parseInt(payload.correct, 10) || 0,
+          wrong: parseInt(payload.wrong, 10) || 0,
+          accuracy: parseFloat(payload.accuracy?.replace('%', '')) || 0,
+          attempt: parseInt(payload.attempt, 10) || 0,
+          time: payload.time || '0s'
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [test, addReport]);
 
   if (loading) {
     return (

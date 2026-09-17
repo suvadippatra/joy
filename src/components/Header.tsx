@@ -1,4 +1,4 @@
-import { Moon, Sun, Search, ChevronLeft, X, Settings } from 'lucide-react';
+import { Moon, Sun, Search, ChevronLeft, X, Settings, GraduationCap } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
@@ -35,7 +35,12 @@ export default function Header({ title, showBack = false, hideControls = false, 
             <ChevronLeft size={24} />
           </button>
         )}
-        <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent truncate tracking-tight uppercase">
+        
+        <Link to="/" className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 shadow-md shadow-blue-500/20 shrink-0">
+          <GraduationCap size={18} className="text-white" />
+        </Link>
+        
+        <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent truncate tracking-tight uppercase ml-1">
           {title}
         </h1>
       </div>

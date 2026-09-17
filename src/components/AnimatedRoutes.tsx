@@ -4,6 +4,7 @@ import Home from '../pages/Home';
 import SubjectView from '../pages/SubjectView';
 import CBTViewer from '../pages/CBTViewer';
 import Settings from '../pages/Settings';
+import ReportsView from '../pages/ReportsView';
 import { PageTransition } from './PageTransition';
 
 export function AnimatedRoutes() {
@@ -14,6 +15,7 @@ export function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><Home /></PageTransition>} />
         <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
+        <Route path="/reports" element={<PageTransition><ReportsView /></PageTransition>} />
         <Route path="/subject/:subject" element={<PageTransition><SubjectView /></PageTransition>} />
         <Route path="/test/:id" element={<PageTransition><CBTViewer /></PageTransition>} />
       </Routes>

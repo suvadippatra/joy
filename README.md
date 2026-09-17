@@ -8,3 +8,10 @@ To deploy this project to GitHub Pages, a workflow file must be placed at `.gith
 If the exporter did not include this hidden folder automatically, please open the `GITHUB_PAGES_WORKFLOW.md` file in this repository for the exact code to paste into GitHub!
 
 > Note: To trigger a fresh export in AI Studio, simply make any tiny edit to a file and press "Export to GitHub" again.
+> 
+> *Fixes applied: HashRouter implementation and PWA manifest relative paths.*
+> EOF> 
+> *Fixes applied: Rearranged botany exams, added duration text, added triple dot menu for local tests.*
+> EOF> 
+> *Added Reports View, localforage tracking, and ErrorBoundary.*
+> EOF

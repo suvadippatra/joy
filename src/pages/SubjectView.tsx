@@ -1,27 +1,31 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { CBTTest, Category, subjects } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
-import { Play, Trash2 } from 'lucide-react';
+import { Play, MoreVertical, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import Footer from '../components/Footer';
 
 export default function SubjectView() {
   const { subject: subjectParam } = useParams<{ subject: string }>();
   const [activeCategory, setActiveCategory] = useState<Category>('Kattar Tests');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const navigate = useNavigate();
   
   const { tests, deleteLocalTest } = useCBTData();
-
   const subject = subjects.find(s => s.toLowerCase() === subjectParam?.toLowerCase()) || 'Botany';
-
   const subjectTests = tests.filter(test => test.subject === subject);
   
   const kattarCount = subjectTests.filter(t => t.category === 'Kattar Tests').length;
   const practiceCount = subjectTests.filter(t => t.category === 'Practice Sets').length;
-
   const displayTests = subjectTests.filter(t => t.category === activeCategory);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   return (
     <div className="flex-1 bg-transparent flex flex-col font-sans transition-colors">
@@ -98,17 +102,45 @@ export default function SubjectView() {
                     <h3 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 truncate w-full">
                       {test.title}
                     </h3>
+                    {test.duration && (
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 truncate">
+                        {test.duration}
+                      </p>
+                    )}
                   </div>
                 </Link>
                 
                 {test.isLocal && (
-                  <button 
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteLocalTest(test.id); }}
-                    className="absolute bottom-6 right-6 p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white dark:bg-slate-700 dark:hover:bg-red-600 transition-colors opacity-0 group-hover/card:opacity-100 z-10 shadow-sm"
-                    title="Delete local test"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="absolute bottom-6 right-4 z-10">
+                    <button 
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        setOpenMenuId(openMenuId === test.id ? null : test.id);
+                      }}
+                      className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                      title="More options"
+                    >
+                      <MoreVertical size={20} />
+                    </button>
+
+                    {openMenuId === test.id && (
+                      <div className="absolute right-0 bottom-full mb-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteLocalTest(test.id);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                          Remove HTML
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))

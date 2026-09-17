@@ -33,6 +33,12 @@ export default function Home() {
       const content = evt.target?.result as string;
       const match = content.match(/<title>(.*?)<\/title>/i);
       const title = match ? match[1] : file.name.replace('.html', '');
+      
+      const durationMatch = content.match(/duration\s*:\s*(\d+)/i) || content.match(/Duration:?\s*(\d+)\s*(mins?|minutes?)/i);
+      let durationStr = '180 Mins';
+      if (durationMatch && durationMatch[1]) {
+        durationStr = `${durationMatch[1]} Mins`;
+      }
 
       const newTest: CBTTest = {
         id: 'local_' + Date.now(),
@@ -40,7 +46,8 @@ export default function Home() {
         subject: uploadSubject as Subject,
         category: uploadCategory as Category,
         dateAdded: new Date().toISOString(),
-        isLocal: true
+        isLocal: true,
+        duration: durationStr
       };
 
       await addLocalTest(newTest, content);
@@ -58,15 +65,24 @@ export default function Home() {
       
       <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 flex flex-col gap-8 mx-auto xl:max-w-[90rem]">
         
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Subjects</h2>
-          <button 
-            onClick={() => setIsUploadModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-md shadow-blue-500/20"
-          >
-            <Upload size={18} />
-            <span>Upload Test</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <Link 
+              to="/reports"
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-colors shadow-md shadow-emerald-500/20"
+            >
+              <span className="text-lg">📊</span>
+              <span>Reports</span>
+            </Link>
+            <button 
+              onClick={() => setIsUploadModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-md shadow-blue-500/20"
+            >
+              <Upload size={18} />
+              <span>Upload Test</span>
+            </button>
+          </div>
         </div>
 
         {/* Subject Grid */}
