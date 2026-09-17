@@ -1,0 +1,146 @@
+export interface CBTTest {
+  id: string;
+  title: string;
+  filename?: string;
+  subject: string;
+  category: 'Kattar Tests' | 'Practice Sets';
+  dateAdded: string;
+  isLocal?: boolean;
+}
+
+export const subjects = ['Physics', 'Chemistry', 'Botany', 'Zoology'] as const;
+export type Subject = typeof subjects[number];
+
+export const categories = ['Kattar Tests', 'Practice Sets'] as const;
+export type Category = typeof categories[number];
+
+export const staticCbtTests: CBTTest[] = [
+  {
+    id: 'static_botany_1',
+    title: 'Cell - The Unit of Life',
+    filename: '/cbts/Botany/Kattar Tests/Cell_-_The_Unit_of_Life_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T01:00:00Z',
+  },
+  {
+    id: 'static_botany_2',
+    title: 'Cell Cycle and Cell Division',
+    filename: '/cbts/Botany/Kattar Tests/Cell_Cycle_and_Cell_Division_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T02:00:00Z',
+  },
+  {
+    id: 'static_botany_3',
+    title: 'Anatomy of Flowering Plants',
+    filename: '/cbts/Botany/Kattar Tests/Anatomy_of_Flowering_Plants_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T03:00:00Z',
+  },
+  {
+    id: 'static_botany_4',
+    title: 'Biodiversity and Conservation',
+    filename: '/cbts/Botany/Kattar Tests/Biodiversity_and_Conservation_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T04:00:00Z',
+  },
+  {
+    id: 'static_botany_5',
+    title: 'Biological Classification',
+    filename: '/cbts/Botany/Kattar Tests/Biological_Classification_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T05:00:00Z',
+  },
+  {
+    id: 'static_botany_6',
+    title: 'Ecosystem',
+    filename: '/cbts/Botany/Kattar Tests/Ecosystem_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T06:00:00Z',
+  },
+  {
+    id: 'static_botany_7',
+    title: 'Microbes in Human Welfare',
+    filename: '/cbts/Botany/Kattar Tests/Microbes_in_Human_Welfare_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T07:00:00Z',
+  },
+  {
+    id: 'static_botany_8',
+    title: 'Molecular Basis of Inheritance',
+    filename: '/cbts/Botany/Kattar Tests/Molecular_Basis_of_Inheritance_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T08:00:00Z',
+  },
+  {
+    id: 'static_botany_9',
+    title: 'Morphology of Flowering Plants',
+    filename: '/cbts/Botany/Kattar Tests/Morphology_of_Flowering_Plants_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T09:00:00Z',
+  },
+  {
+    id: 'static_botany_10',
+    title: 'Organisms and Population',
+    filename: '/cbts/Botany/Kattar Tests/Organisms_and_Population_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T10:00:00Z',
+  },
+  {
+    id: 'static_botany_11',
+    title: 'Photosynthesis in Higher Plants',
+    filename: '/cbts/Botany/Kattar Tests/Photosynthesis_in_Higher_Plants_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T11:00:00Z',
+  },
+  {
+    id: 'static_botany_12',
+    title: 'Plant Growth and Development',
+    filename: '/cbts/Botany/Kattar Tests/Plant_Growth_and_Development_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T12:00:00Z',
+  },
+  {
+    id: 'static_botany_13',
+    title: 'Plant Kingdom',
+    filename: '/cbts/Botany/Kattar Tests/Plant_Kingdom_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T13:00:00Z',
+  },
+  {
+    id: 'static_botany_14',
+    title: 'Principle of Inheritance and Variation',
+    filename: '/cbts/Botany/Kattar Tests/Principle_of_Inheritance_and_Variation_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T14:00:00Z',
+  },
+  {
+    id: 'static_botany_15',
+    title: 'Respiration in Plants',
+    filename: '/cbts/Botany/Kattar Tests/Respiration_in_Plants_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T15:00:00Z',
+  },
+  {
+    id: 'static_botany_16',
+    title: 'The Living World',
+    filename: '/cbts/Botany/Kattar Tests/The_Living_World_Final.html',
+    subject: 'Botany',
+    category: 'Kattar Tests',
+    dateAdded: '2026-09-17T16:00:00Z',
+  }
+];

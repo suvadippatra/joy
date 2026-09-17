@@ -1,11 +1,8 @@
-<div align="center">
+# CBT Hub
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Computer Based Tests portal designed for uninterrupted offline practice.
 
-  <h1>Built with AI Studio</h2>
+## GitHub Pages Deployment
+To deploy this project to GitHub Pages, a workflow file must be placed at `.github/workflows/deploy.yml`. 
 
-  <p>The fastest path from prompt to production with Gemini.</p>
-
-  <a href="https://aistudio.google.com/apps">Start building</a>
-
-</div>
+If the exporter did not include this hidden folder automatically, please open the `GITHUB_PAGES_WORKFLOW.md` file in this repository for the exact code to paste into GitHub!
