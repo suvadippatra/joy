@@ -34,3 +34,6 @@ If the exporter did not include this hidden folder automatically, please open th
 *Fixed GitHub Pages SPA routing bug where refreshing a page caused HashRouter to load the Homepage while leaving the route in the pathname.*
 
 *Updated `main.tsx` to explicitly wipe active routes on page refresh, forcing the application to always resume from the Home page.*
+
+*Fixed visual issues on Home page: Replaced truncated Subject card titles with wrapped titles, increased Subject card background icon opacity, and added an empty state placeholder for Recent Exams.*
+*Re-engineered CBT test analytics capture engine to robustly extract exam data (Score, Accuracy, Time) using fallback regex parsing and multiple standard NTA DOM selectors.*

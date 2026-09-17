@@ -87,19 +87,68 @@ export default function CBTViewer() {
           injectedHead += `</style>`;
           
           let injectedBodyScript = `
-          <script>
+                    <script>
             (function() {
               let reportSent = false;
               const checkResults = () => {
-                 const gateway = document.getElementById('result-gateway');
-                 if (gateway && !gateway.classList.contains('hidden') && !reportSent) {
+                 if (reportSent) return;
+                 
+                 const pageText = document.body.innerText || '';
+                 const gateway = document.getElementById('result-gateway') || 
+                                 document.querySelector('.result-panel') ||
+                                 document.querySelector('.score-card') ||
+                                 document.getElementById('score-card');
+                                 
+                 // Detect if we are on a result page
+                 const isResultPage = (gateway && !gateway.classList.contains('hidden')) || 
+                                      pageText.includes('Total Score') || 
+                                      pageText.includes('Test Summary') ||
+                                      pageText.includes('Test Result');
+                                      
+                 if (isResultPage) {
                      reportSent = true;
-                     const score = document.getElementById('gt-score')?.innerText || '0';
-                     const correct = document.getElementById('gt-correct')?.innerText || '0';
-                     const wrong = document.getElementById('gt-wrong')?.innerText || '0';
-                     const accuracy = document.getElementById('gt-accuracy')?.innerText || '0%';
-                     const attempt = document.getElementById('gt-attempt')?.innerText || '0';
-                     const time = document.getElementById('gt-time')?.innerText || '0s';
+                     
+                     // 1. Try standard NTA clone IDs first
+                     let score = document.getElementById('gt-score')?.innerText || document.getElementById('score')?.innerText;
+                     let correct = document.getElementById('gt-correct')?.innerText || document.getElementById('correct-ans')?.innerText || document.getElementById('correct')?.innerText;
+                     let wrong = document.getElementById('gt-wrong')?.innerText || document.getElementById('incorrect-ans')?.innerText || document.getElementById('wrong')?.innerText;
+                     let attempt = document.getElementById('gt-attempt')?.innerText || document.getElementById('attempted-ques')?.innerText || document.getElementById('attempted')?.innerText;
+                     let time = document.getElementById('gt-time')?.innerText || document.getElementById('time-taken')?.innerText;
+                     let accuracy = document.getElementById('gt-accuracy')?.innerText || document.getElementById('accuracy')?.innerText;
+                     
+                     // 2. Fallback to Regex parsing if IDs are missing
+                     if (!score) {
+                         const m = pageText.match(/(?:Score|Marks|Total Score)\s*[:\-]?\s*(\d+\.?\d*)/i);
+                         score = m ? m[1] : '0';
+                     }
+                     if (!correct) {
+                         const m = pageText.match(/(?:Correct|Correct Answers?)\s*[:\-]?\s*(\d+)/i);
+                         correct = m ? m[1] : '0';
+                     }
+                     if (!wrong) {
+                         const m = pageText.match(/(?:Wrong|Incorrect|Incorrect Answers?)\s*[:\-]?\s*(\d+)/i);
+                         wrong = m ? m[1] : '0';
+                     }
+                     if (!attempt) {
+                         const m = pageText.match(/(?:Attempted|Attempted Questions?)\s*[:\-]?\s*(\d+)/i);
+                         attempt = m ? m[1] : '0';
+                     }
+                     if (!time) {
+                         const m = pageText.match(/(?:Time|Time Taken)\s*[:\-]?\s*([\d\w\s:]+)/i);
+                         time = m ? m[1].trim() : '0s';
+                     }
+                     
+                     // Calculate accuracy if missing
+                     if (!accuracy) {
+                         const m = pageText.match(/Accuracy\s*[:\-]?\s*(\d+\.?\d*)/i);
+                         if (m) {
+                             accuracy = m[1] + '%';
+                         } else {
+                             const c = parseInt(correct || '0');
+                             const a = parseInt(attempt || '0');
+                             accuracy = (a > 0) ? ((c / a) * 100).toFixed(1) + '%' : '0%';
+                         }
+                     }
                      
                      window.parent.postMessage({
                          type: 'CBT_SUBMIT',

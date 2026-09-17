@@ -29,11 +29,11 @@ export default function Home() {
 
   const getSubjectIcon = (subject: string) => {
     switch (subject) {
-      case 'Botany': return <Leaf size={48} className="text-emerald-400/30 dark:text-emerald-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      case 'Zoology': return <Dna size={48} className="text-rose-400/30 dark:text-rose-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      case 'Physics': return <Activity size={48} className="text-blue-400/30 dark:text-blue-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      case 'Chemistry': return <FlaskConical size={48} className="text-amber-400/30 dark:text-amber-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      default: return <Microscope size={48} className="text-indigo-400/30 dark:text-indigo-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Botany': return <Leaf size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Zoology': return <Dna size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Physics': return <Activity size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Chemistry': return <FlaskConical size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      default: return <Microscope size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
     }
   };
 
@@ -113,7 +113,7 @@ export default function Home() {
               {/* Decorative Icon */}
               {getSubjectIcon(subject)}
 
-              <h2 className="relative text-lg sm:text-2xl lg:text-4xl font-extrabold text-white truncate w-full tracking-tight drop-shadow-md z-10">
+              <h2 className="relative text-xl sm:text-2xl lg:text-4xl font-extrabold text-white break-words w-full tracking-tight drop-shadow-md z-10">
                 {subject}
               </h2>
             </Link>
@@ -121,20 +121,22 @@ export default function Home() {
         </div>
 
         {/* Recent Tests */}
-        {recentExams.length > 0 && (
-          <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 truncate">
-                Recent Exams
-              </h2>
+        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 truncate">
+              Recent Exams
+            </h2>
+            {recentExams.length > 0 && (
               <Link 
                 to="/recent"
                 className="flex items-center gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
               >
                 View More <ArrowRight size={16} />
               </Link>
-            </div>
-            
+            )}
+          </div>
+          
+          {recentExams.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {recentExams.map((report) => (
                 <Link 
@@ -176,11 +178,18 @@ export default function Home() {
                 </Link>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="w-full bg-slate-50 dark:bg-slate-800/30 border-2 border-dashed border-slate-200 dark:border-slate-700/50 rounded-3xl flex flex-col items-center justify-center p-8 text-center min-h-[250px]">
+              <Activity size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-600 dark:text-slate-300 mb-2">No Recent Exams</h3>
+              <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                When you complete a test, your analytics and score reports will appear here automatically.
+              </p>
+            </div>
+          )}
+        </div>
       </main>
       <Footer />
-
       {/* Upload Modal */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -207,7 +216,6 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Category</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -222,7 +230,6 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-
               <div className="pt-4 mt-6 border-t border-slate-100 dark:border-slate-700">
                 <input 
                   type="file" 
