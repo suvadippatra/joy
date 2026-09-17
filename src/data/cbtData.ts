@@ -7,6 +7,7 @@ export interface CBTTest {
   dateAdded: string;
   isLocal?: boolean;
   duration?: string;
+  disabled?: boolean;
 }
 
 export const subjects = ['Physics', 'Chemistry', 'Botany', 'Zoology'] as const;
@@ -21,7 +22,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Cell_-_The_Unit_of_Life_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T01:00:00Z',
   },
   {
@@ -30,7 +31,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Cell_Cycle_and_Cell_Division_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T02:00:00Z',
   },
   {
@@ -39,7 +40,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/The_Living_World_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T03:00:00Z',
   },
   {
@@ -48,7 +49,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Biological_Classification_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T04:00:00Z',
   },
   {
@@ -57,7 +58,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Plant_Kingdom_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '50 Mins',
     dateAdded: '2026-09-17T05:00:00Z',
   },
   {
@@ -66,7 +67,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Morphology_of_Flowering_Plants_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T06:00:00Z',
   },
   {
@@ -75,7 +76,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Anatomy_of_Flowering_Plants_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T07:00:00Z',
   },
   {
@@ -84,7 +85,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Respiration_in_Plants_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T08:00:00Z',
   },
   {
@@ -93,7 +94,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Photosynthesis_in_Higher_Plants_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T09:00:00Z',
   },
   {
@@ -102,7 +103,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Plant_Growth_and_Development_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '56 Mins',
     dateAdded: '2026-09-17T10:00:00Z',
   },
   {
@@ -113,6 +114,7 @@ export const staticCbtTests: CBTTest[] = [
     category: 'Kattar Tests',
     duration: '180 Mins',
     dateAdded: '2026-09-17T11:00:00Z',
+    disabled: true,
   },
   {
     id: 'static_botany_8',
@@ -122,6 +124,7 @@ export const staticCbtTests: CBTTest[] = [
     category: 'Kattar Tests',
     duration: '180 Mins',
     dateAdded: '2026-09-17T12:00:00Z',
+    disabled: true,
   },
   {
     id: 'static_botany_14',
@@ -131,6 +134,7 @@ export const staticCbtTests: CBTTest[] = [
     category: 'Kattar Tests',
     duration: '180 Mins',
     dateAdded: '2026-09-17T13:00:00Z',
+    disabled: true,
   },
   {
     id: 'static_botany_7',
@@ -140,6 +144,7 @@ export const staticCbtTests: CBTTest[] = [
     category: 'Kattar Tests',
     duration: '180 Mins',
     dateAdded: '2026-09-17T14:00:00Z',
+    disabled: true,
   },
   {
     id: 'static_botany_10',
@@ -149,6 +154,7 @@ export const staticCbtTests: CBTTest[] = [
     category: 'Kattar Tests',
     duration: '180 Mins',
     dateAdded: '2026-09-17T15:00:00Z',
+    disabled: true,
   },
   {
     id: 'static_botany_6',
@@ -158,6 +164,7 @@ export const staticCbtTests: CBTTest[] = [
     category: 'Kattar Tests',
     duration: '180 Mins',
     dateAdded: '2026-09-17T16:00:00Z',
+    disabled: true,
   },
   {
     id: 'static_botany_4',
@@ -165,7 +172,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Biodiversity_and_Conservation_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T17:00:00Z',
   }
 ];

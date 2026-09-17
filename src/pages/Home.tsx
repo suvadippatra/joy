@@ -2,27 +2,40 @@ import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { subjects, categories, Subject, Category, CBTTest } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
-import React, { useEffect, useState, useRef } from 'react';
-import { Upload, X } from 'lucide-react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight } from 'lucide-react';
 import Footer from '../components/Footer';
+import { useReports } from '../hooks/useReports';
 
 export default function Home() {
-  const [recentTestIds, setRecentTestIds] = useState<string[]>([]);
   const { tests, addLocalTest } = useCBTData();
+  const { reports } = useReports();
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadSubject, setUploadSubject] = useState<Subject | ''>('');
   const [uploadCategory, setUploadCategory] = useState<Category | ''>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('recentTests') || '[]');
-    setRecentTestIds(stored);
-  }, []);
+  // Group unique tests in reports by their most recent attempt
+  const recentExams = useMemo(() => {
+    const uniqueMap = new Map();
+    reports.forEach(r => {
+      if (!uniqueMap.has(r.testId)) {
+        uniqueMap.set(r.testId, r);
+      }
+    });
+    return Array.from(uniqueMap.values()).slice(0, 3);
+  }, [reports]);
 
-  const recentTests = recentTestIds
-    .map(id => tests.find(t => t.id === id))
-    .filter(Boolean);
+  const getSubjectIcon = (subject: string) => {
+    switch (subject) {
+      case 'Botany': return <Leaf size={48} className="text-emerald-400/30 dark:text-emerald-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Zoology': return <Dna size={48} className="text-rose-400/30 dark:text-rose-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Physics': return <Activity size={48} className="text-blue-400/30 dark:text-blue-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Chemistry': return <FlaskConical size={48} className="text-amber-400/30 dark:text-amber-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      default: return <Microscope size={48} className="text-indigo-400/30 dark:text-indigo-500/20 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -97,7 +110,10 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity" />
               <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[size:20px_20px] opacity-20" />
               
-              <h2 className="relative text-lg sm:text-2xl lg:text-4xl font-extrabold text-white truncate w-full tracking-tight drop-shadow-md">
+              {/* Decorative Icon */}
+              {getSubjectIcon(subject)}
+
+              <h2 className="relative text-lg sm:text-2xl lg:text-4xl font-extrabold text-white truncate w-full tracking-tight drop-shadow-md z-10">
                 {subject}
               </h2>
             </Link>
@@ -105,28 +121,58 @@ export default function Home() {
         </div>
 
         {/* Recent Tests */}
-        {recentTests.length > 0 && (
+        {recentExams.length > 0 && (
           <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 flex items-center gap-2 truncate">
-              Attempt recent tests again
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recentTests.map((test) => test && (
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 truncate">
+                Recent Exams
+              </h2>
+              <Link 
+                to="/recent"
+                className="flex items-center gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              >
+                View More <ArrowRight size={16} />
+              </Link>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentExams.map((report) => (
                 <Link 
-                  key={test.id} 
-                  to={`/test/${test.id}`}
+                  key={report.id} 
+                  to={`/test/${report.testId}`}
                   className="group relative overflow-hidden bg-white dark:bg-slate-800/80 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex flex-col p-5 shadow-md shadow-blue-500/5 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all duration-300"
                 >
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-bl-full opacity-10 group-hover:opacity-20 transition-opacity" />
-                  <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider mb-2 truncate">
-                    {test.subject}
-                  </p>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 truncate w-full">
-                    {test.title}
+                  
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider truncate">
+                      {report.subject}
+                    </p>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap ml-2">
+                      {new Date(report.date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 line-clamp-2 w-full leading-tight mb-4 flex-1">
+                    {report.testTitle}
                   </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 truncate">
-                    {test.category}
-                  </p>
+                  
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                        <Target size={14} className="text-blue-500" />
+                        <span className="text-sm font-semibold">{report.score}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                        <Percent size={14} className="text-emerald-500" />
+                        <span className="text-sm font-semibold">{report.accuracy}%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                      <Clock size={14} />
+                      <span className="text-xs font-medium">{report.time}</span>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>

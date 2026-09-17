@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import localforage from 'localforage';
 
 export interface ExamReport {
@@ -34,7 +34,7 @@ export function useReports() {
     loadReports();
   }, []);
 
-  const addReport = async (report: Omit<ExamReport, 'id' | 'date'>) => {
+  const addReport = useCallback(async (report: Omit<ExamReport, 'id' | 'date'>) => {
     try {
       const data: ExamReport[] = (await localforage.getItem('cbt_reports')) || [];
       const newReport: ExamReport = {
@@ -48,12 +48,12 @@ export function useReports() {
     } catch (e) {
       console.error('Failed to save report', e);
     }
-  };
+  }, []);
 
-  const clearAllReports = async () => {
+  const clearAllReports = useCallback(async () => {
     await localforage.removeItem('cbt_reports');
     setReports([]);
-  };
+  }, []);
 
   return { reports, loading, addReport, clearAllReports, refresh: loadReports };
 }

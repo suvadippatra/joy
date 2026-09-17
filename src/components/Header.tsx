@@ -47,23 +47,6 @@ export default function Header({ title, showBack = false, hideControls = false, 
       
       {!hideControls && (
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-end">
-          <PWAInstallButton />
-          
-          <Link
-            to="/settings"
-            className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
-            title="Settings"
-          >
-            <Settings size={22} />
-          </Link>
-          <button 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
-            title="Toggle Theme"
-          >
-            {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-          </button>
-          
           <div className="relative shrink-0" ref={searchRef}>
             <div className="flex items-center bg-blue-50 dark:bg-slate-800 rounded-full border border-blue-200 dark:border-blue-700/50 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:focus-within:ring-blue-900 transition-all">
               <div className="pl-3 py-2 text-blue-500 dark:text-blue-400">
@@ -86,7 +69,6 @@ export default function Header({ title, showBack = false, hideControls = false, 
                 </button>
               )}
             </div>
-
             {/* Search Results Dropdown */}
             {isSearchOpen && searchQuery && (
               <div className="absolute right-0 mt-2 w-64 sm:w-80 max-h-80 overflow-y-auto bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-800 rounded-xl shadow-xl shadow-blue-900/10 dark:shadow-black/40 py-2 z-50">
@@ -110,6 +92,24 @@ export default function Header({ title, showBack = false, hideControls = false, 
               </div>
             )}
           </div>
+          
+          <button 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
+            title="Toggle Theme"
+          >
+            {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
+          </button>
+          
+          <Link
+            to="/settings"
+            className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
+            title="Settings"
+          >
+            <Settings size={22} />
+          </Link>
+          
+          <PWAInstallButton />
         </div>
       )}
     </header>

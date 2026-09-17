@@ -1,0 +1,15 @@
+const fs = require('fs');
+let c = fs.readFileSync('src/pages/SubjectView.tsx', 'utf8');
+
+c = c.replace(
+  "              <div key={test.id} className=\"relative group/card\">\n                <Link \n                  to={`/test/${test.id}`}\n                  className=\"group relative overflow-hidden bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex flex-col p-6 shadow-md shadow-blue-500/5 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all duration-300 min-h-[160px] h-full block\"",
+  "              <div key={test.id} className=\"relative group/card\">\n                {test.disabled ? (\n                  <div className=\"group relative overflow-hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col p-6 min-h-[160px] h-full cursor-not-allowed opacity-60\">\n                  <div className=\"absolute inset-0 bg-stripes-slate opacity-20\"></div>\n                  <div className=\"absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-slate-400/20 to-slate-500/20 rounded-bl-full\" />\n                  <div className=\"w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center mb-6 text-slate-400 shrink-0\">\n                    <Play size={24} className=\"ml-1\" />\n                  </div>\n                  <div className=\"mt-auto pr-8 z-10\">\n                    <p className=\"text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate\">\n                      {test.category} (Maintenance)\n                    </p>\n                    <h3 className=\"text-lg sm:text-xl font-bold text-slate-600 dark:text-slate-400 truncate w-full\">\n                      {test.title}\n                    </h3>\n                  </div>\n                  </div>\n                ) : (\n                <Link \n                  to={`/test/${test.id}`}\n                  className=\"group relative overflow-hidden bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex flex-col p-6 shadow-md shadow-blue-500/5 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all duration-300 min-h-[160px] h-full block\""
+);
+
+c = c.replace(
+  "                      <p className=\"text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 truncate\">\n                        {test.duration}\n                      </p>\n                    )}\n                  </div>\n                </Link>\n                \n                {test.isLocal && (",
+  "                      <p className=\"text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 truncate\">\n                        {test.duration}\n                      </p>\n                    )}\n                  </div>\n                </Link>\n                )}\n                \n                {test.isLocal && ("
+);
+
+fs.writeFileSync('src/pages/SubjectView.tsx', c);
+console.log('Fixed disabled');

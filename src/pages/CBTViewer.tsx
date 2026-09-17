@@ -18,9 +18,17 @@ export default function CBTViewer() {
   // Add to recent tests
   useEffect(() => {
     if (test) {
-      const recent = JSON.parse(localStorage.getItem('recentTests') || '[]');
-      const updated = [test.id, ...recent.filter((recentId: string) => recentId !== test.id)].slice(0, 3);
-      localStorage.setItem('recentTests', JSON.stringify(updated));
+      try {
+        const stored = localStorage.getItem('recentTests');
+        const recent = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(recent)) {
+          const updated = [test.id, ...recent.filter((recentId: string) => recentId !== test.id)].slice(0, 3);
+          localStorage.setItem('recentTests', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.error("Failed to update recent tests", e);
+        localStorage.setItem('recentTests', JSON.stringify([test.id]));
+      }
       
       const fetchAndInject = async (urlOrHtml: string, isLocal: boolean) => {
         let html = '';
@@ -36,17 +44,17 @@ export default function CBTViewer() {
           
           let injectedHead = `
             <!-- Injected Local Math & Fonts -->
-            <link rel="stylesheet" href="/libs/katex.min.css">
-            <script src="/libs/katex.min.js"></script>
-            <script src="/libs/auto-render.min.js"></script>
+            <link rel="stylesheet" href="${import.meta.env.BASE_URL}libs/katex.min.css">
+            <script src="${import.meta.env.BASE_URL}libs/katex.min.js"></script>
+            <script src="${import.meta.env.BASE_URL}libs/auto-render.min.js"></script>
             <style>
               @font-face {
                   font-family: 'DM Serif Text';
-                  src: url('/fonts/DMSerifText.woff2') format('woff2');
+                  src: url('${import.meta.env.BASE_URL}fonts/DMSerifText.woff2') format('woff2');
               }
               @font-face {
                   font-family: 'Tiro Bangla';
-                  src: url('/fonts/TiroBangla.woff2') format('woff2');
+                  src: url('${import.meta.env.BASE_URL}fonts/TiroBangla.woff2') format('woff2');
               }
           `;
 
@@ -127,7 +135,9 @@ export default function CBTViewer() {
       if (test.isLocal) {
         fetchAndInject('', true);
       } else {
-        fetchAndInject(test.filename || '', false);
+        const basePath = import.meta.env.BASE_URL;
+        const normalizedPath = test.filename?.startsWith('/') ? test.filename.slice(1) : (test.filename || '');
+        fetchAndInject(basePath + normalizedPath, false);
       }
     }
   }, [test]);
@@ -135,7 +145,7 @@ export default function CBTViewer() {
   useEffect(() => {
     return () => {
       if (iframeSrc && iframeSrc.startsWith('blob:')) {
-        URL.revokeObjectURL(iframeSrc);
+        setTimeout(() => URL.revokeObjectURL(iframeSrc), 1000);
       }
     };
   }, [iframeSrc]);

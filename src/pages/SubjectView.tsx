@@ -5,11 +5,12 @@ import { CBTTest, Category, subjects } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
 import { Play, MoreVertical, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import Footer from '../components/Footer';
 
 export default function SubjectView() {
   const { subject: subjectParam } = useParams<{ subject: string }>();
-  const [activeCategory, setActiveCategory] = useState<Category>('Kattar Tests');
+  const [activeCategory, setActiveCategory] = useState<Category>(() => { const saved = sessionStorage.getItem(`activeCategory_${subjectParam}`); return (saved as Category) || 'Kattar Tests'; });
+  useEffect(() => { sessionStorage.setItem(`activeCategory_${subjectParam}`, activeCategory); }, [activeCategory, subjectParam]);
+
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const navigate = useNavigate();
   
@@ -20,6 +21,9 @@ export default function SubjectView() {
   const kattarCount = subjectTests.filter(t => t.category === 'Kattar Tests').length;
   const practiceCount = subjectTests.filter(t => t.category === 'Practice Sets').length;
   const displayTests = subjectTests.filter(t => t.category === activeCategory);
+
+  useEffect(() => { const scrollKey = `scrollPos_${subjectParam}_${activeCategory}`; const savedScroll = sessionStorage.getItem(scrollKey); const timeout = setTimeout(() => { if (savedScroll) window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'instant' }); }, 50); const handleScroll = () => sessionStorage.setItem(scrollKey, window.scrollY.toString()); window.addEventListener('scroll', handleScroll, { passive: true }); return () => { window.removeEventListener('scroll', handleScroll); clearTimeout(timeout); }; }, [subjectParam, activeCategory, displayTests.length]);
+
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -85,6 +89,23 @@ export default function SubjectView() {
           ) : (
             displayTests.map((test) => (
               <div key={test.id} className="relative group/card">
+                {test.disabled ? (
+                  <div className="group relative overflow-hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col p-6 min-h-[160px] h-full cursor-not-allowed opacity-60">
+                  <div className="absolute inset-0 bg-stripes-slate opacity-20"></div>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-slate-400/20 to-slate-500/20 rounded-bl-full" />
+                  <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center mb-6 text-slate-400 shrink-0">
+                    <Play size={24} className="ml-1" />
+                  </div>
+                  <div className="mt-auto pr-8 z-10">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">
+                      {test.category} (Maintenance)
+                    </p>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-600 dark:text-slate-400 truncate w-full">
+                      {test.title}
+                    </h3>
+                  </div>
+                  </div>
+                ) : (
                 <Link 
                   to={`/test/${test.id}`}
                   className="group relative overflow-hidden bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex flex-col p-6 shadow-md shadow-blue-500/5 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all duration-300 min-h-[160px] h-full block"
@@ -109,6 +130,7 @@ export default function SubjectView() {
                     )}
                   </div>
                 </Link>
+                )}
                 
                 {test.isLocal && (
                   <div className="absolute bottom-6 right-4 z-10">
@@ -148,7 +170,6 @@ export default function SubjectView() {
         </div>
         
       </main>
-      <Footer />
     </div>
   );
 }

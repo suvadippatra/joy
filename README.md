@@ -14,4 +14,17 @@ If the exporter did not include this hidden folder automatically, please open th
 > *Fixes applied: Rearranged botany exams, added duration text, added triple dot menu for local tests.*
 > EOF> 
 > *Added Reports View, localforage tracking, and ErrorBoundary.*
+> EOF> 
+> *Fixed 404 error during GitHub Pages deployment due to hardcoded absolute paths.*
 > EOF
+*Fixed static test durations by parsing the exact `EXAM_DURATION_MINS` from each individual HTML file.*
+
+*Fixed premature iframe blanking caused by React Strict Mode rendering cycles.*
+
+*Added subject graphics, reversed header controls, and connected Recent Tests directly to database stats.*
+
+*Fixed list view position and category preservation upon returning from tests. Restricted ads/footer to Home page only.*
+
+*Fixed initialization order crash in SubjectView.*
+
+*Disabled faulty 180 min Botany exams per instructions. Unclickable state added.*

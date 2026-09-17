@@ -4,7 +4,6 @@ import { useReports } from '../hooks/useReports';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
-import Footer from '../components/Footer';
 
 export default function ReportsView() {
   const navigate = useNavigate();
@@ -121,7 +120,6 @@ export default function ReportsView() {
           </>
         )}
       </main>
-      <Footer />
     </div>
   );
 }
