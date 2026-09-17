@@ -37,3 +37,9 @@ If the exporter did not include this hidden folder automatically, please open th
 
 *Fixed visual issues on Home page: Replaced truncated Subject card titles with wrapped titles, increased Subject card background icon opacity, and added an empty state placeholder for Recent Exams.*
 *Re-engineered CBT test analytics capture engine to robustly extract exam data (Score, Accuracy, Time) using fallback regex parsing and multiple standard NTA DOM selectors.*
+
+*Upgraded CBT test analytics engine with aggressive keyword detection to better support non-standard prebuilt HTML files.*
+*Added a manual "Save Result" fallback button to the test viewer header to guarantee stats capture.*
+
+*Fixed analytics duplication issue by intelligently updating existing test reports within a 12-hour window instead of spawning duplicate entries for every response.*
+*Fine-tuned the auto-capture keywords to prevent false-positives from active question sidebars.*

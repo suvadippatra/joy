@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useCBTData } from '../hooks/useCBTData';
 import { PWAInstallButton } from './PWAInstallButton';
 
-export default function Header({ title, showBack = false, hideControls = false, onBack }: { title: string, showBack?: boolean, hideControls?: boolean, onBack?: () => void }) {
+export default function Header({ title, showBack = false, hideControls = false, onBack, actions }: { title: string, showBack?: boolean, hideControls?: boolean, onBack?: () => void, actions?: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   
@@ -44,6 +44,8 @@ export default function Header({ title, showBack = false, hideControls = false, 
           {title}
         </h1>
       </div>
+      
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
       
       {!hideControls && (
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-end">
