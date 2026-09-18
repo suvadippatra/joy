@@ -1,5 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#2563eb" />
-  <path d="M256 120 l-100 80 v120 l100 80 l100 -80 v-120 z" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="round" />
-  <text x="256" y="300" font-family="sans-serif" font-weight="bold" font-size="120" fill="#ffffff" text-anchor="middle">CBT</text>
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#blueGrad)" />
+  <!-- Graduation Cap -->
+  <path d="M256 120 L440 216 L256 312 L72 216 Z" fill="#ffffff" />
+  <path d="M144 260 V340 C144 380 200 410 256 410 C312 410 368 380 368 340 V260 L256 320 Z" fill="#ffffff" opacity="0.95" />
+  <!-- Tassel -->
+  <path d="M400 236 V348" stroke="#ffffff" stroke-width="20" stroke-linecap="round" />
+  <circle cx="400" cy="358" r="18" fill="#ffffff" />
 </svg>
