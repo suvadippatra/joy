@@ -277,7 +277,7 @@
         .btn-submit { width: 100%; background: #27ae60; padding: 12px; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; display: none; }
 
         /* --- FLOATING PANELS & ZOOM WRAPPER --- */
-        .float-panel { 
+        .float-panel {
             position: absolute; 
             top: 50px; 
             left: 50px; 
@@ -285,7 +285,7 @@
             border-radius: 8px; 
             box-shadow: 0 10px 40px rgba(0,0,0,0.4); 
             border: 1px solid #999; 
-            z-index: 100; 
+            z-index: 999999; 
             display: none; 
             overflow: hidden; 
             transform-origin: top left; 
@@ -702,7 +702,7 @@
         
         <div class="login-card">
             <!-- Input for Name with Virtual Keyboard trigger -->
-            <input type="text" id="user-name" class="inp-name" placeholder="Enter Candidate Name (Tap for Keyboard)" autocomplete="off" readonly onclick="openVK('login')">
+            <input type="text" id="user-name" class="inp-name" placeholder="Enter Candidate Name (Tap for Keyboard)" autocomplete="off" onclick="openVK('login')">
             <p style="color:#666; font-size:0.9rem;">Select Avatar</p>
             <div class="avatar-grid">
                 <div class="avatar-option" onclick="selectAvatar(this, '👨‍⚕️')">👨‍⚕️</div>
@@ -964,8 +964,8 @@
             
             <!-- Side Control Panel -->
             <div class="vk-side-panel">
-                <button class="vk-btn vk-btn-dark" onclick="toggleVKMode('alpha')">Abc</button>
-                <button class="vk-btn vk-btn-dark" onclick="toggleVKMode('num')">123</button>
+                <button class="vk-btn vk-btn-dark" id="vk-tab-alpha" onclick="toggleVKMode('alpha')">Abc</button>
+                <button class="vk-btn vk-btn-dark" id="vk-tab-num" onclick="toggleVKMode('num')">123</button>
                 <button class="vk-btn vk-btn-dark" style="margin-top:auto;" onclick="closeVK()">Hide</button>
             </div>
         </div>
@@ -2035,13 +2035,14 @@
     let activeSectionIndex = 0; 
     
     // CRITICAL MATH RENDER: Triggers KaTeX auto-render on newly injected innerHTML if active.
-    function triggerMathRender() {
+            function triggerMathRender(el) {
         if (window.renderMathInElement) {
             try {
-                renderMathInElement(document.body, {
+                var target = el || document.getElementById('q-text') || document.getElementById('s-content-area') || document.body;
+                renderMathInElement(target, {
                     delimiters: [
-                        {left: '$$', right: '$$', display: true},
-                        {left: '$', right: '$', display: false}
+                        {left: "$$", right: "$$", display: true},
+                        {left: "$", right: "$", display: false}
                     ],
                     throwOnError: false
                 });
@@ -2051,7 +2052,7 @@
         }
     }
 
-    window.onload = function() {
+window.onload = function() {
         document.documentElement.style.setProperty('--q-font', Q_FONT_FAMILY);
         if(document.getElementById('s-content-area')) {
             document.getElementById('s-content-area').innerHTML = EXAM_S_HTML;
@@ -2809,7 +2810,7 @@
         }
     }
 
-    function toggleFullScreen(elem) { if (!document.fullscreenElement) { if (elem.requestFullscreen) { elem.requestFullscreen(); } else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } } else { if (document.exitFullscreen) document.exitFullscreen(); } }
+    function toggleFullScreen(elem) { if (!document.fullscreenElement) { if (elem.requestFullscreen) { elem.requestFullscreen().catch(()=>{}); } else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } } else { if (document.exitFullscreen) document.exitFullscreen().catch(()=>{}); } }
     function toggleFloat(id) { const el = document.getElementById(id); if(!el.style.left) { el.style.top="80px"; el.style.left="50px"; } el.style.display = el.style.display==='block'?'none':'block'; }
     function toggleCalcHelp() { const h = document.getElementById('calc-help-box'); h.style.display = h.style.display==='block'?'none':'block'; }
     
@@ -2899,11 +2900,14 @@
     function closeVK() { document.getElementById('vk-panel').style.display = 'none'; vkTarget = null; }
     
     function toggleVKMode(mode) {
-        document.getElementById('vk-num-container').style.display = mode === 'num' ? 'flex' : 'none';
-        document.getElementById('vk-alpha-container').style.display = mode === 'alpha' ? 'flex' : 'none';
-        document.getElementById('vk-tab-num').classList.remove('active');
-        document.getElementById('vk-tab-alpha').classList.remove('active');
-        document.getElementById(`vk-tab-${mode}`).classList.add('active');
+        var num = document.getElementById('vk-num-container');
+        var alpha = document.getElementById('vk-alpha-container');
+        if (num) num.style.display = (mode === 'num' ? 'flex' : 'none');
+        if (alpha) alpha.style.display = (mode === 'alpha' ? 'flex' : 'none');
+        var tabNum = document.getElementById('vk-tab-num');
+        var tabAlpha = document.getElementById('vk-tab-alpha');
+        if (tabNum) tabNum.classList.toggle('active', mode === 'num');
+        if (tabAlpha) tabAlpha.classList.toggle('active', mode === 'alpha');
     }
 
     function toggleVKShift() {

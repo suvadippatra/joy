@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import Header from '../components/Header';
 import { subjects, categories, Subject, Category, CBTTest } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
@@ -6,14 +7,17 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight } from 'lucide-react';
 import Footer from '../components/Footer';
 import { useReports } from '../hooks/useReports';
+import { StartExamModal } from '../components/StartExamModal';
 
 export default function Home() {
   const { tests, addLocalTest } = useCBTData();
   const { reports } = useReports();
+  const navigate = useNavigate();
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadSubject, setUploadSubject] = useState<Subject | ''>('');
   const [uploadCategory, setUploadCategory] = useState<Category | ''>('');
+  const [selectedTestToStart, setSelectedTestToStart] = useState<CBTTest | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Group unique tests in reports by their most recent attempt
@@ -29,11 +33,11 @@ export default function Home() {
 
   const getSubjectIcon = (subject: string) => {
     switch (subject) {
-      case 'Botany': return <Leaf size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      case 'Zoology': return <Dna size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      case 'Physics': return <Activity size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      case 'Chemistry': return <FlaskConical size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
-      default: return <Microscope size={48} className="text-white/40 dark:text-white/30 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform duration-500" />;
+      case 'Botany': return <Leaf size={22} className="text-white drop-shadow-sm" />;
+      case 'Zoology': return <Dna size={22} className="text-white drop-shadow-sm" />;
+      case 'Physics': return <Activity size={22} className="text-white drop-shadow-sm" />;
+      case 'Chemistry': return <FlaskConical size={22} className="text-white drop-shadow-sm" />;
+      default: return <Microscope size={22} className="text-white drop-shadow-sm" />;
     }
   };
 
@@ -43,15 +47,54 @@ export default function Home() {
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const content = evt.target?.result as string;
+      let content = evt.target?.result as string;
       const match = content.match(/<title>(.*?)<\/title>/i);
-      const title = match ? match[1] : file.name.replace('.html', '');
+      const title = match ? match[1].trim() : file.name.replace('.html', '');
       
-      const durationMatch = content.match(/duration\s*:\s*(\d+)/i) || content.match(/Duration:?\s*(\d+)\s*(mins?|minutes?)/i);
-      let durationStr = '180 Mins';
+      const durationMatch = content.match(/EXAM_DURATION_MINS\s*=\s*(\d+)/) || 
+                            content.match(/duration\s*:\s*(\d+)/i) || 
+                            content.match(/Duration:?\s*(\d+)\s*(mins?|minutes?)/i);
+      let durationStr = '60 Mins';
       if (durationMatch && durationMatch[1]) {
         durationStr = `${durationMatch[1]} Mins`;
       }
+
+      // Strip external KaTeX CDN stylesheets and scripts from uploaded HTML to guarantee offline execution
+      content = content.replace(/<link[^>]*href=["'][^"']*(?:katex|cdn\.jsdelivr|cdnjs\.cloudflare)[^"']*["'][^>]*>/gi, '');
+      content = content.replace(/<script[^>]*src=["'][^"']*(?:katex|auto-render|cdn\.jsdelivr|cdnjs\.cloudflare)[^"']*["'][^>]*>\s*<\/script>/gi, '');
+      content = content.replace(/window\.mathRenderEngine\s*=\s*['"](?:katex_online|mathml|html_fallback)['"]/g, "window.mathRenderEngine = 'katex_local'");
+
+      // Parse question bank for accurate question count and marks
+      let totalQuestions = 0;
+      let marksCorrect = 4;
+      let marksWrong = 1;
+
+      const qBankMatch = content.match(/const\s+QUESTION_BANK\s*=\s*(\[[\s\S]*?\]);\s*(?:const|let|var|function|\/\/|\/\*|<)/);
+      if (qBankMatch) {
+        try {
+          const qb = JSON.parse(qBankMatch[1]);
+          for (const sec of qb) {
+            const qCount = sec.questions ? sec.questions.length : 0;
+            totalQuestions += qCount;
+            if (sec.marksCorrect !== undefined) marksCorrect = sec.marksCorrect;
+            if (sec.marksWrong !== undefined) marksWrong = sec.marksWrong;
+          }
+        } catch {
+          // fallback if parsing fails
+        }
+      }
+
+      // Fallback question counting by question ID pattern
+      if (totalQuestions === 0) {
+        const idMatches = content.match(/"id"\s*:\s*\d+/g);
+        if (idMatches && idMatches.length > 0) {
+          totalQuestions = idMatches.length;
+        } else {
+          totalQuestions = 50;
+        }
+      }
+
+      const totalMarks = totalQuestions * marksCorrect;
 
       const newTest: CBTTest = {
         id: 'local_' + Date.now(),
@@ -60,7 +103,11 @@ export default function Home() {
         category: uploadCategory as Category,
         dateAdded: new Date().toISOString(),
         isLocal: true,
-        duration: durationStr
+        duration: durationStr,
+        totalQuestions,
+        totalMarks,
+        marksCorrect,
+        marksWrong
       };
 
       await addLocalTest(newTest, content);
@@ -74,115 +121,128 @@ export default function Home() {
 
   return (
     <div className="flex-1 bg-transparent flex flex-col font-sans transition-colors">
-      <Header title="CBT TEST" />
+      <Header title="CBT Test" isHome={true} />
       
-      <main className="w-full p-4 sm:p-6 lg:p-8 flex flex-col gap-8 mx-auto xl:max-w-[90rem] mb-12">
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Subjects</h2>
-          <div className="flex items-center gap-3">
+      <main className="w-full px-3 py-4 sm:p-6 lg:p-8 flex flex-col gap-5 sm:gap-6 mx-auto xl:max-w-[90rem]">
+        {/* Header with Subjects, Reports, and Upload Test on one single line */}
+        <div className="flex items-center justify-between gap-2 flex-nowrap w-full">
+          <h2 className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100 shrink-0">Subjects</h2>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link 
               to="/reports"
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-colors shadow-md shadow-emerald-500/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors shadow-md shadow-emerald-500/20 whitespace-nowrap"
             >
-              <span className="text-lg">📊</span>
+              <span className="text-sm sm:text-base">📊</span>
               <span>Reports</span>
             </Link>
             <button 
               onClick={() => setIsUploadModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-md shadow-blue-500/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors shadow-md shadow-blue-500/20 whitespace-nowrap"
             >
-              <Upload size={18} />
+              <Upload size={15} />
               <span>Upload Test</span>
             </button>
           </div>
         </div>
 
-        {/* Subject Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-2">
+        {/* Subject Grid - Equal compact dimensions, no wrapping, clearly visible graphics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-5">
           {subjects.map((subject) => (
             <Link 
               key={subject} 
               to={`/subject/${subject.toLowerCase()}`}
-              className="relative overflow-hidden aspect-[16/9] sm:aspect-[4/3] rounded-3xl flex items-end p-4 sm:p-6 lg:p-8 group shadow-lg shadow-blue-500/10 hover:shadow-blue-500/30 dark:shadow-black/40 hover:-translate-y-1 transition-all duration-300"
+              className="relative overflow-hidden h-20 min-[400px]:h-22 sm:h-28 md:h-32 rounded-2xl sm:rounded-3xl flex items-center justify-between px-3.5 py-2.5 sm:px-5 sm:py-4 group shadow-md shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 dark:shadow-black/40 hover:-translate-y-0.5 transition-all duration-300"
             >
               {/* Gradient Background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[size:20px_20px] opacity-20" />
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-600 opacity-95 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.15)_1px,transparent_1px)] bg-[size:16px_16px] opacity-25" />
               
-              {/* Decorative Icon */}
-              {getSubjectIcon(subject)}
-
-              <h2 className="relative text-xl sm:text-2xl lg:text-4xl font-extrabold text-white break-words w-full tracking-tight drop-shadow-md z-10">
+              <h2 className="relative text-sm min-[380px]:text-base sm:text-xl lg:text-2xl font-extrabold text-white whitespace-nowrap tracking-tight drop-shadow-sm z-10 select-none">
                 {subject}
               </h2>
+
+              {/* Clearly visible decorative graphic badge */}
+              <div className="relative z-10 flex items-center justify-center w-8 h-8 min-[400px]:w-9 min-[400px]:h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white shadow-inner group-hover:scale-105 transition-transform shrink-0 ml-2">
+                {getSubjectIcon(subject)}
+              </div>
             </Link>
           ))}
         </div>
 
         {/* Recent Tests */}
-        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 truncate">
+        <div className="mt-4 sm:mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center justify-between mb-3 sm:mb-5">
+            <h2 className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 truncate">
               Recent Exams
             </h2>
             {recentExams.length > 0 && (
               <Link 
                 to="/recent"
-                className="flex items-center gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
               >
-                View More <ArrowRight size={16} />
+                View More <ArrowRight size={15} />
               </Link>
             )}
           </div>
           
           {recentExams.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recentExams.map((report) => (
-                <Link 
-                  key={report.id} 
-                  to={`/test/${report.testId}`}
-                  className="group relative overflow-hidden bg-white dark:bg-slate-800/80 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex flex-col p-5 shadow-md shadow-blue-500/5 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-black/50 hover:-translate-y-1 transition-all duration-300"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-bl-full opacity-10 group-hover:opacity-20 transition-opacity" />
-                  
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider truncate">
-                      {report.subject}
-                    </p>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap ml-2">
-                      {new Date(report.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                  
-                  <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 line-clamp-2 w-full leading-tight mb-4 flex-1">
-                    {report.testTitle}
-                  </h3>
-                  
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/50">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                        <Target size={14} className="text-blue-500" />
-                        <span className="text-sm font-semibold">{report.score}</span>
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+              {recentExams.map((report) => {
+                const targetTest = tests.find(t => t.id === report.testId) || {
+                  id: report.testId,
+                  title: report.testTitle,
+                  subject: report.subject,
+                  category: 'Practice Sets' as const,
+                  dateAdded: report.date
+                };
+
+                return (
+                  <button 
+                    key={report.id} 
+                    type="button"
+                    onClick={() => setSelectedTestToStart(targetTest)}
+                    className="group relative text-left overflow-hidden bg-white dark:bg-slate-800/80 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex flex-col p-3.5 sm:p-5 shadow-md shadow-blue-500/5 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-black/50 hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-bl-full opacity-10 group-hover:opacity-20 transition-opacity" />
+                    
+                    <div className="flex justify-between items-start mb-1.5 w-full">
+                      <p className="text-[11px] sm:text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider truncate">
+                        {report.subject}
+                      </p>
+                      <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap ml-2">
+                        {new Date(report.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-xs sm:text-base font-bold text-slate-800 dark:text-slate-100 line-clamp-2 w-full leading-snug mb-2.5 sm:mb-4 flex-1">
+                      {report.testTitle}
+                    </h3>
+                    
+                    <div className="flex items-center justify-between pt-2 sm:pt-3 border-t border-slate-100 dark:border-slate-700/50 w-full">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                          <Target size={13} className="text-blue-500" />
+                          <span className="text-xs sm:text-sm font-semibold">{report.score}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                          <Percent size={13} className="text-emerald-500" />
+                          <span className="text-xs sm:text-sm font-semibold">{report.accuracy}%</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                        <Percent size={14} className="text-emerald-500" />
-                        <span className="text-sm font-semibold">{report.accuracy}%</span>
+                      <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                        <Clock size={12} />
+                        <span className="text-[10px] sm:text-xs font-medium">{report.time}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                      <Clock size={14} />
-                      <span className="text-xs font-medium">{report.time}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           ) : (
-            <div className="w-full bg-slate-50 dark:bg-slate-800/30 border-2 border-dashed border-slate-200 dark:border-slate-700/50 rounded-3xl flex flex-col items-center justify-center p-8 text-center min-h-[250px]">
-              <Activity size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-600 dark:text-slate-300 mb-2">No Recent Exams</h3>
-              <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            <div className="w-full bg-slate-50 dark:bg-slate-800/30 border-2 border-dashed border-slate-200 dark:border-slate-700/50 rounded-3xl flex flex-col items-center justify-center p-6 sm:p-8 text-center min-h-[200px]">
+              <Activity size={40} className="text-slate-300 dark:text-slate-600 mb-3" />
+              <h3 className="text-base sm:text-lg font-bold text-slate-600 dark:text-slate-300 mb-1.5">No Recent Exams</h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                 When you complete a test, your analytics and score reports will appear here automatically.
               </p>
             </div>
@@ -190,10 +250,25 @@ export default function Home() {
         </div>
       </main>
       <Footer />
+
+      {/* Start Exam Confirmation Modal */}
+      <StartExamModal
+        isOpen={Boolean(selectedTestToStart)}
+        onClose={() => setSelectedTestToStart(null)}
+        onConfirm={() => {
+          if (selectedTestToStart) {
+            const id = selectedTestToStart.id;
+            setSelectedTestToStart(null);
+            navigate(`/test/${id}`);
+          }
+        }}
+        test={selectedTestToStart}
+      />
+
       {/* Upload Modal */}
-      {isUploadModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 dark:border-slate-700">
+      {isUploadModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 dark:border-slate-700 my-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-slate-800 dark:text-white">Upload Local Test</h3>
               <button onClick={() => setIsUploadModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
@@ -244,12 +319,13 @@ export default function Home() {
                   className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors ${(!uploadSubject || !uploadCategory) ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20'}`}
                 >
                   <Upload size={18} />
-                  <span>Select HTML File</span>
+                  <span>Choose HTML File</span>
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

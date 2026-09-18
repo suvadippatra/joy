@@ -9,6 +9,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { Starfield } from './components/Starfield';
 import { AnimatedRoutes } from './components/AnimatedRoutes';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ScrollToTop } from './components/ScrollToTop';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <div className="relative min-h-screen w-full flex flex-col">
           <Starfield />
           <HashRouter>
+            <ScrollToTop />
             <OfflineIndicator />
             <AnimatedRoutes />
           </HashRouter>

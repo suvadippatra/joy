@@ -28,7 +28,7 @@ export default defineConfig(() => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf}'],
           // Exclude the large test HTML files from being precached to prevent memory/bandwidth spikes on initial load
           globIgnores: ['cbts/**/*.html'],
           runtimeCaching: [

@@ -43,3 +43,7 @@ If the exporter did not include this hidden folder automatically, please open th
 
 *Fixed analytics duplication issue by intelligently updating existing test reports within a 12-hour window instead of spawning duplicate entries for every response.*
 *Fine-tuned the auto-capture keywords to prevent false-positives from active question sidebars.*
+
+*Implemented robust Offline Caching for prebuilt tests via a new Triple-Dot menu on subject test cards, explicitly saving HTML to local storage for offline use.*
+*Announced offline availability with a custom hero ad banner on the Home dashboard.*
+*Refactored Recent Exams responsive grid to display a visually balanced 2-column layout on tablet/landscape configurations.*

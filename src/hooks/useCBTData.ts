@@ -37,5 +37,9 @@ export function useCBTData() {
     setTests([...staticCbtTests, ...newLocalTests]);
   };
 
-  return { tests, loading, addLocalTest, deleteLocalTest, refresh: loadTests };
+  const getLocalTestHTML = async (id: string): Promise<string | null> => {
+    return (await localforage.getItem(id + '_html')) as string | null;
+  };
+
+  return { tests, loading, addLocalTest, deleteLocalTest, getLocalTestHTML, refresh: loadTests };
 }

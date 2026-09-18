@@ -2276,7 +2276,7 @@
 
                 txt = txt.replace(/<title>.*?<\/title>/, `<title>${appState.examTitle || 'Exam'}</title>`);
                 txt = txt.replace(/<h2 style="color:var\(--primary\); margin-bottom: 5px;">.*?<\/h2>/, `<h2 style="color:var(--primary); margin-bottom: 5px;">Kattar NEET 26</h2>`);
-                txt = txt.replace(/<h1 style="color:#666; margin-bottom: 5px;">Ecosystem</h1>`);
+                txt = txt.replace(`<h1 style="color:#666; margin-bottom: 5px;">Ecosystem</h1>`, "");
                 txt = txt.replace(/<h2 style="margin:0; color:var\(--text-dark\);">.*?<\/h2>/, `<h2 style="margin:0; color:var(--text-dark);">Ecosystem</h2>`);
                 txt = txt.replace(/<div class="exam-title">Ecosystem</div>`);
                 txt = txt.replace(/<span class="exam-subtitle">Botany by Vipin Sir</span>`);
@@ -2284,7 +2284,7 @@
                 txt = txt.replace(/const BACKGROUND_AUDIO_BASE64 = "";/, `const BACKGROUND_AUDIO_BASE64 = "${appState.audio.bg}";`);
                 txt = txt.replace(/const START_EXAM_AUDIO_B64 = "";/, `const START_EXAM_AUDIO_B64 = "${appState.audio.start}";`);
                 txt = txt.replace(/const SUBMIT_EXAM_AUDIO_B64 = "";/, `const SUBMIT_EXAM_AUDIO_B64 = "${appState.audio.submit}";`);
-                if (!appState.audio.bg) txt = txt.replace(/<button class="tool-btn hidden" id="btn-audio" style="display:none;"></button>');
+                if (!appState.audio.bg) txt = txt.replace(`<button class="tool-btn hidden" id="btn-audio" style="display:none;"></button>`, "");
 
                 let cHtml = appState.constants.map(c => `<div class="const-card"><div class="const-text-line">${c.name} : <strong>${c.value}</strong></div></div>`).join('');
                 txt = txt.replace(/<!-- PARAMETER 5 \(Global\): List of Constants\. -->[\s\S]*?<!-- RESULT GATEWAY -->/i, `<!-- PARAMETER 5 (Global): List of Constants. -->
@@ -2295,7 +2295,7 @@
 </div>
 <!-- RESULT GATEWAY -->`);
 
-                txt = txt.replace(/<div class="header-exam-title-row">Ecosystem : Botany by Vipin Sir</div>`);
+                txt = txt.replace(`<div class="header-exam-title-row">Ecosystem : Botany by Vipin Sir</div>`, "");
                 txt = txt.replace(/(<div class="print-secondary-header">\s*<!-- PARAMETER 6 \(Global\): Exam Name & Subtitle for Print Header\. -->\s*<div>).*?(<\/div>)/, `$1${appState.examTitle || ''} ${appState.examSubtitle ? '- ' + appState.examSubtitle : ''}$2`);
                 
                 txt = txt.replace(/const TIMER_MODE = '[^']*';/, `const TIMER_MODE = 'COUNTDOWN';`);
@@ -2321,7 +2321,7 @@
                 let katexCSS = ''; let katexJS = '';
                 if (appState.mathMode === 'LATEX' && appState.renderEngine !== 'HTML_FALLBACK') {
                     katexCSS = '<link rel="stylesheet" href="../libs/katex.min.css" onerror="this.onerror=null;this.href=\'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css\';">';
-                    katexJS = `\n<script defer src="../libs/katex.min.js" onerror="this.onerror=null;this.src=\'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js\';"><\/script>\n<script defer src="../libs/auto-render.min.js" onerror="this.onerror=null;this.src=\'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js\';" onload="if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]}); }"><\/script>\n`;
+                    katexJS = `\n<script defer src="../libs/katex.min.js" onerror="this.onerror=null;this.src=\'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js\';"><\/script>\n<script defer src="../libs/auto-render.min.js" onerror="this.onerror=null;this.src=\'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js\';" onload="if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.getElementById("s-content-area") || document.getElementById("q-text") || document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]}); }"><\/script>\n`;
                 }
                 txt = txt.replace(/<!--\s*PARAMETER 11.*?-->/i, () => katexCSS).replace(/<!--\s*PARAMETER 12.*?-->/i, () => katexJS).replace(/<!--\s*PARAMETER 11.*?-->/gi, '').replace(/<!--\s*PARAMETER 12.*?-->/gi, '');
 

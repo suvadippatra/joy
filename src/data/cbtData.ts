@@ -7,6 +7,10 @@ export interface CBTTest {
   dateAdded: string;
   isLocal?: boolean;
   duration?: string;
+  totalQuestions?: number;
+  totalMarks?: number;
+  marksCorrect?: number;
+  marksWrong?: number;
   disabled?: boolean;
 }
 
@@ -23,6 +27,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 50,
+    totalMarks: 200,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T01:00:00Z',
   },
   {
@@ -32,6 +40,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T02:00:00Z',
   },
   {
@@ -41,6 +53,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T03:00:00Z',
   },
   {
@@ -50,6 +66,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T04:00:00Z',
   },
   {
@@ -59,6 +79,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '50 Mins',
+    totalQuestions: 50,
+    totalMarks: 200,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T05:00:00Z',
   },
   {
@@ -68,6 +92,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T06:00:00Z',
   },
   {
@@ -77,6 +105,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T07:00:00Z',
   },
   {
@@ -86,6 +118,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T08:00:00Z',
   },
   {
@@ -95,6 +131,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T09:00:00Z',
   },
   {
@@ -104,6 +144,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '56 Mins',
+    totalQuestions: 56,
+    totalMarks: 224,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T10:00:00Z',
   },
   {
@@ -112,7 +156,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Sexual_Reproduction_in_Flowering_Plant_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T11:00:00Z',
     disabled: true,
   },
@@ -122,7 +166,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Molecular_Basis_of_Inheritance_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T12:00:00Z',
     disabled: true,
   },
@@ -132,7 +176,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Principle_of_Inheritance_and_Variation_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T13:00:00Z',
     disabled: true,
   },
@@ -142,7 +186,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Microbes_in_Human_Welfare_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T14:00:00Z',
     disabled: true,
   },
@@ -152,7 +196,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Organisms_and_Population_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T15:00:00Z',
     disabled: true,
   },
@@ -162,7 +206,7 @@ export const staticCbtTests: CBTTest[] = [
     filename: '/cbts/Botany/Kattar Tests/Ecosystem_Final.html',
     subject: 'Botany',
     category: 'Kattar Tests',
-    duration: '180 Mins',
+    duration: '60 Mins',
     dateAdded: '2026-09-17T16:00:00Z',
     disabled: true,
   },
@@ -173,6 +217,10 @@ export const staticCbtTests: CBTTest[] = [
     subject: 'Botany',
     category: 'Kattar Tests',
     duration: '60 Mins',
+    totalQuestions: 60,
+    totalMarks: 240,
+    marksCorrect: 4,
+    marksWrong: 1,
     dateAdded: '2026-09-17T17:00:00Z',
   }
 ];

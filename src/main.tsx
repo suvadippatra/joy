@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import 'katex/dist/katex.min.css';
 import './index.css';
 
 // Always force the application to start on the Home page (main landing page) upon refresh/load.

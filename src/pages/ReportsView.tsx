@@ -1,13 +1,15 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useReports } from '../hooks/useReports';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Trash2, AlertTriangle, Check } from 'lucide-react';
 
 export default function ReportsView() {
   const navigate = useNavigate();
   const { reports, clearAllReports } = useReports();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Group by test ID for specific test graphs, or just show overall accuracy graph
   const chartData = [...reports].reverse().map((report, idx) => ({
@@ -25,7 +27,7 @@ export default function ReportsView() {
     <div className="flex-1 bg-transparent flex flex-col font-sans transition-colors">
       <Header title="Your Reports" showBack onBack={() => navigate('/')} />
       
-      <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 flex flex-col gap-8 mx-auto xl:max-w-[90rem]">
+      <main className="flex-1 w-full p-3 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 mx-auto xl:max-w-[90rem]">
         {reports.length === 0 ? (
           <div className="py-16 text-center text-slate-500 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-blue-100 dark:border-slate-700/50">
             <div className="text-4xl mb-4">📊</div>
@@ -34,26 +36,44 @@ export default function ReportsView() {
           </div>
         ) : (
           <>
-            {/* Top Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm flex flex-col justify-center">
-                <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Exams Attempted</span>
-                <span className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">{reports.length}</span>
+            {/* Top Stats - 2 columns on small tablet/portrait, 3 on desktop */}
+            <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3 sm:gap-4">
+              <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm flex flex-col justify-center">
+                <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">Total Exams</span>
+                <span className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">{reports.length}</span>
               </div>
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm flex flex-col justify-center">
-                <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Overall Accuracy</span>
-                <span className="text-3xl font-bold text-emerald-500 mt-2">{overallAccuracy}%</span>
+              <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm flex flex-col justify-center">
+                <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">Overall Accuracy</span>
+                <span className="text-2xl sm:text-3xl font-bold text-emerald-500 mt-1">{overallAccuracy}%</span>
               </div>
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm flex flex-col justify-center items-start">
-                <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">Actions</span>
-                <button 
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete all reports?')) clearAllReports();
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
-                >
-                  <Trash2 size={16} /> Clear All History
-                </button>
+              <div className="col-span-2 min-[640px]:col-span-1 bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm flex flex-row min-[640px]:flex-col justify-between min-[640px]:justify-center items-center min-[640px]:items-start gap-2">
+                <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">Actions</span>
+                {confirmDelete ? (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={async () => {
+                        await clearAllReports();
+                        setConfirmDelete(false);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-sm"
+                    >
+                      <Check size={14} /> Yes, Delete All
+                    </button>
+                    <button 
+                      onClick={() => setConfirmDelete(false)}
+                      className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs sm:text-sm font-semibold transition-colors dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                  >
+                    <Trash2 size={15} /> Clear All History
+                  </button>
+                )}
               </div>
             </div>
 

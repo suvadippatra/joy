@@ -144,3 +144,48 @@ html, body {
                     radial-gradient(2px 2px at 250px 50px, rgba(100, 100, 200, 0.45), rgba(0,0,0,0)), 
                     radial-gradient(2px 2px at 300px 300px, rgba(100, 100, 200, 0.5), rgba(0,0,0,0));
 }
+
+/* KaTeX Clarity & Exam Typography Fixes */
+.katex {
+  font-size: 1.08em;
+  text-rendering: auto;
+  white-space: nowrap !important;
+  display: inline-block;
+  vertical-align: -0.1em;
+  line-height: 1.25;
+}
+
+.katex .accent-body {
+  overflow: visible !important;
+}
+
+.katex .mord.accent {
+  overflow: visible !important;
+}
+
+.katex-display {
+  display: block;
+  margin: 0.75em 0;
+  text-align: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap !important;
+  padding: 0.25rem 0;
+}
+
+.katex-display > .katex {
+  display: inline-block;
+  white-space: nowrap !important;
+}
+
+/* Ensure sub and sup scripts are well-separated and legible */
+.katex .msupsub {
+  text-align: left;
+}
+
+.katex .vlist-t {
+  border-collapse: collapse;
+  display: inline-table;
+  table-layout: fixed;
+}
+
