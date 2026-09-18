@@ -314,54 +314,147 @@ export function generateCBTString(appState: AppState): string {
   return out.trim();
 }
 
-export function getAIPrompt(mode: 'LATEX' | 'HTML', subject = 'General Science'): string {
+export function getAIPrompt(mode: 'LATEX' | 'HTML', subject = 'General Science', questionCount = 5): string {
   const isLatex = mode === 'LATEX';
 
-  return `You are an expert Question Creator for a Computer Based Test (CBT) platform.
-Generate an exam paper in strict CBT Maker format for: ${subject}.
+  if (isLatex) {
+    return `You are a Senior Question Author & Exam Curator for an NTA-standard Computer Based Test (CBT) platform.
+Create a complete, high-quality test paper for: "${subject}" in STRICT CBT Maker LaTeX Format.
 
-OUTPUT FORMAT RULES (STRICT):
-1. Start with [EXAM_INFO] metadata:
+==================================================
+OUTPUT FORMAT SPECIFICATIONS (LATEX MATH MODE):
+==================================================
+
+1. EXAM METADATA (Header):
 [EXAM_INFO]
 Agency: National Testing Agency
-Title: ${subject} Chapter Test
-Subtitle: Standard NTA / NEET Pattern
+Title: ${subject}
+Subtitle: Comprehensive NTA / NEET / JEE Standard Test
 Duration: 60
 Timer: COUNTDOWN
 Font: 'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif
-MathMode: ${isLatex ? 'LATEX' : 'HTML'}
-Rules: 4 marks for correct answer|-1 mark for wrong answer|No negative mark for NAT
+MathMode: LATEX
+Rules: +4 marks for correct answer|-1 mark penalty for wrong answer|No negative marking for NAT questions|Use scratchpad for rough calculations
 
-2. Add [CONSTANTS] if relevant (e.g. for Physics/Chemistry):
+2. PHYSICAL / CHEMICAL CONSTANTS (Optional, add if relevant):
 [CONSTANTS]
 c: 3.00 × 10^8 m/s
-h: 6.626 × 10^-34 J s
+h: 6.626 × 10^-34 J·s
+R: 8.314 J/(mol·K)
+g: 9.8 m/s^2
+e: 1.602 × 10^-19 C
 
-3. Add sections using [SECTION:SectionName|Marks:4|Neg:1|MaxAtt:0]
+3. SECTION HEADER:
+[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
 
-4. For each question use:
-QType: MCQ (or MSQ or NAT)
-Q: Question statement (Use ${isLatex ? '$...$ for inline math and $$...$$ for block math' : 'sub/sup and unicode characters for math'}). If there is an image required, add [IMAGE] at the end.
-${!isLatex ? '<!-- Use <table>...</table> on T: tag for match the following -->' : ''}
-O: Option 1 text
-O: Option 2 text
-O: Option 3 text
-O: Option 4 text
-A: Correct letter (A, B, C, or D) for MCQ, or A, C for MSQ, or numeric range like "12.5" for NAT.
+4. QUESTION STRUCTURE RULES:
+- QType: Must be "MCQ" (Single Choice), "MSQ" (Multiple Correct Options), or "NAT" (Numerical Answer Type).
+- Q: Question statement. Use $...$ for inline math (e.g. $E = mc^2$, $\\lambda = \\frac{h}{p}$) and $$...$$ for display formulas.
+  * For chemical formulas, use $\\text{H}_2\\text{SO}_4$, $\\text{KMnO}_4$, etc.
+  * For units, use $\\text{m/s}^2$, $\\text{J}\\cdot\\text{s}$, etc.
+- O: Exactly 4 options for MCQ/MSQ (One per line starting with O:).
+- A: Answer key:
+  * For MCQ: Single letter (e.g. A, B, C, or D).
+  * For MSQ: Comma-separated letters (e.g. A, C or B, D).
+  * For NAT: Exact number (e.g. 24) or range (e.g. 23.5-24.5).
+- E: Step-by-step solution / rationale with formulas.
 
-EXAMPLE:
-[SECTION:Physics Section A|Marks:4|Neg:1|MaxAtt:0]
+==================================================
+SAMPLE QUESTIONS TEMPLATE:
+==================================================
+
+[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
+
 QType: MCQ
-Q: The velocity of an electromagnetic wave in vacuum is given by $c = \\frac{1}{\\sqrt{\\mu_0 \\varepsilon_0}}$. What is the dimension of $\\varepsilon_0$?
-O: $[M^{-1} L^{-3} T^4 A^2]$
-O: $[M L^3 T^{-4} A^{-2}]$
-O: $[M^{-1} L^2 T^3 A]$
-O: $[M^0 L^0 T^0 A^0]$
-A: A
+Q: An electron transitions from the $n = 3$ energy level to the $n = 1$ ground state in a hydrogen atom. If the Rydberg constant is $R_H$, what is the wavelength $\\lambda$ of the emitted photon?
+O: $\\frac{8}{9 R_H}$
+O: $\\frac{9}{8 R_H}$
+O: $\\frac{3}{4 R_H}$
+O: $\\frac{4}{3 R_H}$
+A: B
+E: Using the Rydberg formula: $\\frac{1}{\\lambda} = R_H \\left( \\frac{1}{1^2} - \\frac{1}{3^2} \\right) = R_H \\left( 1 - \\frac{1}{9} \\right) = \\frac{8}{9} R_H$. Therefore, $\\lambda = \\frac{9}{8 R_H}$.
+
+QType: MSQ
+Q: Which of the following statements regarding electromagnetic waves in vacuum are TRUE?
+O: The electric and magnetic field vectors $\\vec{E}$ and $\\vec{B}$ oscillate in phase.
+O: The ratio $\\frac{|\\vec{E}|}{|\\vec{B}|}$ is equal to the speed of light $c$.
+O: The energy density stored in the electric field is greater than that in the magnetic field.
+O: EM waves transport both energy and linear momentum.
+A: A, B, D
+E: Statements A, B, and D are correct. The electric and magnetic energy densities are equal ($u_E = u_B$).
 
 QType: NAT
-Q: A photon has energy $E = 3.3 \\text{ eV}$. What is its frequency in units of $10^{14} \\text{ Hz}$?
-A: 7.9-8.1
+Q: A parallel plate capacitor with plate area $A = 100\\text{ cm}^2$ and plate separation $d = 2\\text{ mm}$ is filled with a dielectric of constant $K = 4.0$. Calculate its capacitance in picofarads (pF). (Take $\\varepsilon_0 = 8.85 \\times 10^{-12}\\text{ F/m}$)
+A: 175-180
+E: $C = \\frac{K \\varepsilon_0 A}{d} = \\frac{4.0 \\times 8.85 \\times 10^{-12} \\times 10^{-2}}{2 \\times 10^{-3}} = 1.77 \\times 10^{-10}\\text{ F} = 177\\text{ pF}$.
 
-Output only the formatted text without markdown backticks or commentary so it can be directly pasted into the CBT Studio.`;
+Generate ${questionCount} diverse, conceptually rigorous questions following this exact syntax. Output ONLY the raw test text without markdown fences or extraneous chat commentary.`;
+  }
+
+  // HTML / Unicode Mode AI Prompt
+  return `You are a Senior Question Author & Exam Curator for a Computer Based Test (CBT) platform.
+Create a complete, high-quality test paper for: "${subject}" in STRICT CBT Maker Pure HTML & Unicode Format.
+
+==================================================
+OUTPUT FORMAT SPECIFICATIONS (PURE HTML / UNICODE MODE):
+==================================================
+
+1. EXAM METADATA (Header):
+[EXAM_INFO]
+Agency: National Testing Agency
+Title: ${subject}
+Subtitle: Pure HTML & Unicode High-Legibility Test
+Duration: 60
+Timer: COUNTDOWN
+Font: system-ui, -apple-system, sans-serif
+MathMode: HTML
+Rules: +4 marks for correct answer|-1 mark penalty for wrong answer|No negative marking for NAT questions|All questions are based on standard syllabus
+
+2. SECTION HEADER:
+[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
+
+3. QUESTION STRUCTURE RULES:
+- QType: Must be "MCQ" (Single Choice), "MSQ" (Multiple Correct Options), or "NAT" (Numerical Answer Type).
+- Q: Question statement. Use standard HTML tags:
+  * Subscripts: <sub>2</sub> (e.g. H<sub>2</sub>O, CO<sub>2</sub>, glucose C<sub>6</sub>H<sub>12</sub>O<sub>6</sub>)
+  * Superscripts: <sup>2+</sup>, <sup>-34</sup>, 10<sup>8</sup>
+  * Formatting: <b>bold</b>, <i>italic</i>, <code>code</code>
+  * Unicode Symbols: α, β, γ, θ, λ, μ, π, Ω, Δ, √, ∫, ±, ×, ÷, ≠, ≤, ≥, →, ⇌, °C, ℏ, Å
+- T: (Optional) Match-the-Columns / Matrix HTML Table snippet:
+  T: <table class="w-full border text-sm"><tr class="bg-slate-100 dark:bg-slate-800"><th class="border p-2">Column I</th><th class="border p-2">Column II</th></tr><tr><td class="border p-2">A. Item 1</td><td class="border p-2">P. Match 1</td></tr><tr><td class="border p-2">B. Item 2</td><td class="border p-2">Q. Match 2</td></tr></table>
+- O: Exactly 4 options for MCQ/MSQ (One per line starting with O:).
+- A: Answer key (A, B, C, or D for MCQ; A, C for MSQ; exact numeric value or range like 14.5-15.5 for NAT).
+- E: Step-by-step solution / rationale with clean HTML formatting.
+
+==================================================
+SAMPLE QUESTIONS TEMPLATE:
+==================================================
+
+[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
+
+QType: MCQ
+Q: During aerobic cellular respiration, which of the following processes produces the maximum number of ATP molecules per glucose (C<sub>6</sub>H<sub>12</sub>O<sub>6</sub>) molecule?
+O: Glycolysis in the cytosol
+O: Citric Acid (Krebs) Cycle in mitochondrial matrix
+O: Oxidative Phosphorylation via Electron Transport Chain (ETC)
+O: Lactic acid fermentation
+A: C
+E: Oxidative phosphorylation yields approximately 26–28 ATP per glucose molecule, accounting for the vast majority of cellular ATP production.
+
+QType: MCQ
+Q: Match the hormones listed in <b>Column I</b> with their respective endocrine glands in <b>Column II</b>:
+T: <table class="w-full border text-sm"><tr class="bg-slate-100 dark:bg-slate-800"><th class="border p-2">Column I (Hormone)</th><th class="border p-2">Column II (Gland)</th></tr><tr><td class="border p-2">A. Insulin</td><td class="border p-2">1. Thyroid Gland</td></tr><tr><td class="border p-2">B. Thyroxine (T<sub>4</sub>)</td><td class="border p-2">2. Pancreas (β-cells)</td></tr><tr><td class="border p-2">C. Aldosterone</td><td class="border p-2">3. Adrenal Cortex</td></tr><tr><td class="border p-2">D. Calcitonin</td><td class="border p-2">4. Thyroid Parafollicular cells</td></tr></table>
+O: A-2, B-1, C-3, D-4
+O: A-1, B-2, C-4, D-3
+O: A-2, B-4, C-3, D-1
+O: A-3, B-1, C-2, D-4
+A: A
+E: Insulin is secreted by pancreatic β-cells, Thyroxine by thyroid follicular cells, Aldosterone by adrenal cortex, and Calcitonin by thyroid parafollicular (C) cells.
+
+QType: NAT
+Q: What is the net gain of ATP molecules produced directly during glycolysis from the breakdown of 1 molecule of glucose?
+A: 2
+E: Glycolysis consumes 2 ATP and produces 4 ATP, resulting in a net yield of 2 ATP per glucose.
+
+Generate ${questionCount} diverse, conceptually rigorous questions following this exact syntax. Output ONLY the raw test text without markdown fences or extraneous chat commentary.`;
 }

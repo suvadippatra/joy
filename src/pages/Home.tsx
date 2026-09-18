@@ -4,10 +4,22 @@ import Header from '../components/Header';
 import { subjects, categories, Subject, Category, CBTTest } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight } from 'lucide-react';
+import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight, Edit3, Check, Sparkles, Database } from 'lucide-react';
 import Footer from '../components/Footer';
 import { useReports } from '../hooks/useReports';
 import { StartExamModal } from '../components/StartExamModal';
+
+interface PendingImportData {
+  title: string;
+  rawContent: string;
+  subject: string;
+  category: string;
+  durationStr: string;
+  totalQuestions: number;
+  totalMarks: number;
+  marksCorrect: number;
+  marksWrong: number;
+}
 
 export default function Home() {
   const { tests, addLocalTest } = useCBTData();
@@ -15,10 +27,14 @@ export default function Home() {
   const navigate = useNavigate();
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [uploadSubject, setUploadSubject] = useState<Subject | ''>('');
-  const [uploadCategory, setUploadCategory] = useState<Category | ''>('');
   const [selectedTestToStart, setSelectedTestToStart] = useState<CBTTest | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pending Import State for Renaming before saving
+  const [pendingImport, setPendingImport] = useState<PendingImportData | null>(null);
+  const [customSubject, setCustomSubject] = useState('');
+  const [isCustomSubject, setIsCustomSubject] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Group unique tests in reports by their most recent attempt
   const recentExams = useMemo(() => {
@@ -41,12 +57,12 @@ export default function Home() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadSubject || !uploadCategory) return;
+    if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (evt) => {
+    reader.onload = (evt) => {
       let content = evt.target?.result as string;
       const match = content.match(/<title>(.*?)<\/title>/i);
       const title = match ? match[1].trim() : file.name.replace('.html', '');
@@ -54,7 +70,7 @@ export default function Home() {
       const durationMatch = content.match(/EXAM_DURATION_MINS\s*=\s*(\d+)/) || 
                             content.match(/duration\s*:\s*(\d+)/i) || 
                             content.match(/Duration:?\s*(\d+)\s*(mins?|minutes?)/i);
-      let durationStr = '60 Mins';
+      let durationStr = '90 Mins';
       if (durationMatch && durationMatch[1]) {
         durationStr = `${durationMatch[1]} Mins`;
       }
@@ -90,33 +106,66 @@ export default function Home() {
         if (idMatches && idMatches.length > 0) {
           totalQuestions = idMatches.length;
         } else {
-          totalQuestions = 50;
+          totalQuestions = 45;
         }
       }
 
       const totalMarks = totalQuestions * marksCorrect;
 
-      const newTest: CBTTest = {
-        id: 'local_' + Date.now(),
+      // Guess initial subject from title or content
+      let guessedSubject: string = subjects[0];
+      const lower = (title + ' ' + file.name).toLowerCase();
+      if (lower.includes('botany')) guessedSubject = 'Botany';
+      else if (lower.includes('zoology')) guessedSubject = 'Zoology';
+      else if (lower.includes('physics')) guessedSubject = 'Physics';
+      else if (lower.includes('chemistry')) guessedSubject = 'Chemistry';
+
+      setPendingImport({
         title,
-        subject: uploadSubject as Subject,
-        category: uploadCategory as Category,
-        dateAdded: new Date().toISOString(),
-        isLocal: true,
-        duration: durationStr,
+        rawContent: content,
+        subject: guessedSubject,
+        category: categories[0],
+        durationStr,
         totalQuestions,
         totalMarks,
         marksCorrect,
         marksWrong
-      };
-
-      await addLocalTest(newTest, content);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setIsUploadModalOpen(false);
-      setUploadSubject('');
-      setUploadCategory('');
+      });
+      setIsUploadModalOpen(true);
     };
     reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSaveImportedExam = async () => {
+    if (!pendingImport) return;
+    setIsImporting(true);
+    try {
+      const finalSubject = isCustomSubject && customSubject.trim() ? customSubject.trim() : pendingImport.subject;
+      const newTest: CBTTest = {
+        id: 'local_' + Date.now(),
+        title: pendingImport.title.trim() || 'Custom CBT Test',
+        subject: finalSubject as Subject,
+        category: pendingImport.category as Category,
+        dateAdded: new Date().toISOString(),
+        isLocal: true,
+        duration: pendingImport.durationStr,
+        totalQuestions: pendingImport.totalQuestions,
+        totalMarks: pendingImport.totalMarks,
+        marksCorrect: pendingImport.marksCorrect,
+        marksWrong: pendingImport.marksWrong
+      };
+
+      await addLocalTest(newTest, pendingImport.rawContent);
+      setIsUploadModalOpen(false);
+      setPendingImport(null);
+      setCustomSubject('');
+      setIsCustomSubject(false);
+    } catch (err) {
+      console.error('Failed to import test:', err);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -135,12 +184,20 @@ export default function Home() {
               <span className="text-sm sm:text-base">📊</span>
               <span>Reports</span>
             </Link>
+            
+            <input 
+              type="file" 
+              accept=".html" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleFileSelected} 
+            />
             <button 
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors shadow-md shadow-blue-500/20 whitespace-nowrap"
             >
               <Upload size={15} />
-              <span>Upload Test</span>
+              <span>Import HTML Test</span>
             </button>
           </div>
         </div>
@@ -265,63 +322,137 @@ export default function Home() {
         test={selectedTestToStart}
       />
 
-      {/* Upload Modal */}
-      {isUploadModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 dark:border-slate-700 my-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white">Upload Local Test</h3>
-              <button onClick={() => setIsUploadModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+      {/* Import & Rename Confirmation Modal */}
+      {isUploadModalOpen && pendingImport && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 my-auto space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    Import CBT HTML File
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Review and rename the exam before saving to your library.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  setPendingImport(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
-            
-            <div className="space-y-5">
+
+            {/* Editable Test Title */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <Edit3 size={14} className="text-blue-500" />
+                <span>Exam Title / Name (Editable)</span>
+              </label>
+              <input
+                type="text"
+                value={pendingImport.title}
+                onChange={e => setPendingImport({ ...pendingImport, title: e.target.value })}
+                placeholder="Enter exam title..."
+                className="w-full px-3.5 py-2.5 text-sm font-bold rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            {/* Detected Details */}
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2 text-center text-xs">
               <div>
-                <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Subject</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {subjects.map(s => (
-                    <button 
-                      key={s} 
-                      onClick={() => setUploadSubject(s)}
-                      className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors border ${uploadSubject === s ? 'bg-blue-500 border-blue-500 text-white shadow-md shadow-blue-500/20' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+                <span className="text-slate-400 block text-[11px]">Duration</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{pendingImport.durationStr}</span>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Category</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {categories.map(c => (
-                    <button 
-                      key={c} 
-                      onClick={() => setUploadCategory(c)}
-                      className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors border ${uploadCategory === c ? 'bg-blue-500 border-blue-500 text-white shadow-md shadow-blue-500/20' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
+                <span className="text-slate-400 block text-[11px]">Questions</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{pendingImport.totalQuestions} Qs</span>
               </div>
-              <div className="pt-4 mt-6 border-t border-slate-100 dark:border-slate-700">
-                <input 
-                  type="file" 
-                  accept=".html" 
-                  className="hidden" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
-                />
-                <button 
-                  disabled={!uploadSubject || !uploadCategory}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors ${(!uploadSubject || !uploadCategory) ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20'}`}
-                >
-                  <Upload size={18} />
-                  <span>Choose HTML File</span>
-                </button>
+              <div>
+                <span className="text-slate-400 block text-[11px]">Total Marks</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{pendingImport.totalMarks} M</span>
               </div>
+            </div>
+
+            {/* Subject Selector */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Destination Subject
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {subjects.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setPendingImport({ ...pendingImport, subject: s });
+                      setIsCustomSubject(false);
+                    }}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                      !isCustomSubject && pendingImport.subject === s
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Category Selector */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Destination Category
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setPendingImport({ ...pendingImport, category: c })}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                      pendingImport.category === c
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  setPendingImport(null);
+                }}
+                className="px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveImportedExam}
+                disabled={isImporting}
+                className="flex items-center gap-1.5 px-5 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] disabled:opacity-50"
+              >
+                <Check size={16} />
+                <span>{isImporting ? 'Saving...' : 'Save to CBT Hub'}</span>
+              </button>
             </div>
           </div>
         </div>,

@@ -75,6 +75,9 @@ export function formatMathToHTMLFallback(s: string, isDisplay = false): string {
     : `<span style="font-family: serif;"><i>${s}</i></span>`;
 }
 
+const formatCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 2000;
+
 // Unified Markdown & LaTeX / MathML Formatter
 export function formatContent(
   text: string,
@@ -83,6 +86,12 @@ export function formatContent(
   isLivePreview = false
 ): string {
   if (!text) return '';
+
+  const cacheKey = `${engine}|${mathMode}|${isLivePreview ? 1 : 0}|${text}`;
+  const cached = formatCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
 
   const mathBlocks: { raw: string; content: string; isDisplay: boolean }[] = [];
   let maskedText = text;
@@ -167,6 +176,11 @@ export function formatContent(
 
     maskedText = maskedText.replace(`@@MATH_BLOCK_${i}@@`, processedMath);
   });
+
+  if (formatCache.size > MAX_CACHE_SIZE) {
+    formatCache.clear();
+  }
+  formatCache.set(cacheKey, maskedText);
 
   return maskedText;
 }

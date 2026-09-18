@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Play, Check, Copy, FolderPlus, X, Sparkles, Database } from 'lucide-react';
+import { Download, Play, Check, Copy, FolderPlus, X, Sparkles, Database, Edit3, FileCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppState } from '../../types/cbtMaker';
 import { subjects, categories, CBTTest } from '../../data/cbtData';
@@ -13,6 +13,7 @@ interface ImportToAppModalProps {
   compiledHtml: string;
   filename: string;
   appState: AppState;
+  onUpdateTitle?: (newTitle: string) => void;
 }
 
 export default function ImportToAppModal({
@@ -20,10 +21,16 @@ export default function ImportToAppModal({
   onClose,
   compiledHtml,
   filename,
-  appState
+  appState,
+  onUpdateTitle
 }: ImportToAppModalProps) {
   const navigate = useNavigate();
   const { addLocalTest } = useCBTData();
+
+  const [examTitle, setExamTitle] = useState<string>(appState.examTitle || 'Custom CBT Test');
+  const [downloadFilename, setDownloadFilename] = useState<string>(
+    filename || `${(appState.examTitle || 'CBT_Exam').replace(/[^a-zA-Z0-9_-]/g, '_')}.html`
+  );
 
   const [subject, setSubject] = useState<string>(subjects[0]);
   const [customSubject, setCustomSubject] = useState('');
@@ -52,14 +59,19 @@ export default function ImportToAppModal({
 
   const finalSubject = isCustomSubject && customSubject.trim() ? customSubject.trim() : subject;
   const finalCategory = (isCustomCategory && customCategory.trim() ? customCategory.trim() : category) as any;
+  const finalTitle = examTitle.trim() || appState.examTitle || 'Custom CBT Test';
 
   const handleImportToHub = async () => {
     setIsImporting(true);
     try {
+      if (onUpdateTitle && finalTitle !== appState.examTitle) {
+        onUpdateTitle(finalTitle);
+      }
+
       const newId = `local_cbt_${Date.now()}`;
       const newTest: CBTTest = {
         id: newId,
-        title: appState.examTitle || 'Custom CBT Test',
+        title: finalTitle,
         subject: finalSubject,
         category: finalCategory,
         duration: `${appState.duration || 90} Mins`,
@@ -81,7 +93,8 @@ export default function ImportToAppModal({
   };
 
   const handleDownload = () => {
-    triggerHtmlDownload(filename || 'CBT_Exam_Final.html', compiledHtml);
+    const cleanFilename = downloadFilename.endsWith('.html') ? downloadFilename : `${downloadFilename}.html`;
+    triggerHtmlDownload(cleanFilename, compiledHtml);
   };
 
   const handleCopy = () => {
@@ -101,12 +114,12 @@ export default function ImportToAppModal({
             </div>
             <div>
               <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-slate-100">
-                {importedId ? 'Test Successfully Imported!' : 'Save & Import Test to CBT Hub'}
+                {importedId ? 'Test Successfully Imported!' : 'Rename, Save & Import Test'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {importedId
                   ? 'Your test is now live in your CBT Hub library and ready to take offline.'
-                  : 'Assign destination Subject and Category to import directly into your library.'}
+                  : 'Customize test name, filename, subject, and category before saving.'}
               </p>
             </div>
           </div>
@@ -126,7 +139,7 @@ export default function ImportToAppModal({
                 <Check size={32} />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100">{appState.examTitle}</h4>
+                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100">{finalTitle}</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Stored under <span className="font-semibold text-blue-600 dark:text-blue-400">{finalSubject}</span> &bull;{' '}
                   <span className="font-semibold">{finalCategory}</span>
@@ -157,23 +170,56 @@ export default function ImportToAppModal({
             </div>
           ) : (
             <>
+              {/* Editable Exam Title */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <Edit3 size={14} className="text-blue-500" />
+                  <span>CBT Exam Name / Title (Editable)</span>
+                </label>
+                <input
+                  type="text"
+                  value={examTitle}
+                  onChange={e => {
+                    setExamTitle(e.target.value);
+                    setDownloadFilename(`${e.target.value.replace(/[^a-zA-Z0-9_-]/g, '_')}.html`);
+                  }}
+                  placeholder="e.g. NEET 2026 Botany Mock Test 01"
+                  className="w-full px-3.5 py-2.5 text-sm font-bold rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              {/* Editable Download Filename */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <FileCode size={14} className="text-slate-500" />
+                  <span>Export HTML Filename</span>
+                </label>
+                <input
+                  type="text"
+                  value={downloadFilename}
+                  onChange={e => setDownloadFilename(e.target.value)}
+                  placeholder="e.g. NEET_Botany_Test.html"
+                  className="w-full px-3.5 py-2 text-xs font-mono rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
               {/* Test summary card */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">{appState.examTitle}</div>
+                  <div className="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm">{finalTitle}</div>
                   <div className="text-slate-500 dark:text-slate-400 mt-0.5">
                     {totalQuestions} Questions &bull; {appState.sections.length} Sections &bull; {appState.duration} Mins
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-emerald-600 dark:text-emerald-400">{fileSizeKB} KB</div>
-                  <div className="text-slate-400">100% Offline Ready</div>
+                  <div className="text-slate-400 text-[11px]">100% Offline Ready</div>
                 </div>
               </div>
 
               {/* Destination Subject */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Select Target Subject (Location in CBT Hub)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -220,7 +266,7 @@ export default function ImportToAppModal({
 
               {/* Destination Category */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Select Target Category
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -247,7 +293,7 @@ export default function ImportToAppModal({
               {/* Actions note */}
               <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-xs flex items-center gap-2">
                 <Database size={16} className="shrink-0" />
-                <span>Importing saves this test locally in your device so you can take it or delete it anytime from the Subject view.</span>
+                <span>Importing saves this test locally on your device so you can take it or manage it anytime from the Subject view.</span>
               </div>
             </>
           )}
@@ -260,7 +306,7 @@ export default function ImportToAppModal({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
               >
                 <Download size={14} />
                 <span>Download HTML</span>
@@ -268,7 +314,7 @@ export default function ImportToAppModal({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
               >
                 {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                 <span>{copied ? 'Copied' : 'Copy Code'}</span>
@@ -279,7 +325,7 @@ export default function ImportToAppModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Close
               </button>
@@ -287,7 +333,7 @@ export default function ImportToAppModal({
                 type="button"
                 onClick={handleImportToHub}
                 disabled={isImporting}
-                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] disabled:opacity-50"
+                className="flex items-center gap-1.5 px-5 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] disabled:opacity-50"
               >
                 <FolderPlus size={16} />
                 <span>{isImporting ? 'Importing...' : 'Import to CBT Hub'}</span>

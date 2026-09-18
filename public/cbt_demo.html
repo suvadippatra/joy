@@ -398,19 +398,20 @@
         }
 
         /* Constants Style */
+        #const-panel { width: 94vw; max-width: 680px; }
         .const-list { 
-            display: flex; 
-            flex-direction: column; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
             gap: 4px; 
             padding: 2px; 
         }
         .const-card { 
             background: #ffffff; 
-            padding: 6px 10px; 
+            padding: 5px 8px; 
             border: 1px solid #d1d5db; 
             border-radius: 4px; 
             box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
-            font-size: 0.85rem; 
+            font-size: 0.82rem; 
             font-family: var(--q-font), 'KaTeX_Main', serif; 
             display: flex;
             justify-content: space-between;
