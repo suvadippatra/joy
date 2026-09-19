@@ -25,9 +25,12 @@ import {
   Search,
   RefreshCw,
   AlertTriangle,
+  Columns2,
+  Maximize2,
+  PenTool,
   X
 } from 'lucide-react';
-import { AppState, defaultAppState, Question, QuestionType } from '../types/cbtMaker';
+import { AppState, defaultAppState, cleanAppState, demoShowcaseAppState, Question, QuestionType } from '../types/cbtMaker';
 import { compileCBTHTML } from '../utils/cbtCompiler';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import ImageCropperModal from '../components/maker/ImageCropperModal';
@@ -43,7 +46,7 @@ import Base64ImageGuard from '../components/maker/Base64ImageGuard';
 export default function CBTMaker() {
   const navigate = useNavigate();
 
-  // Load draft from localStorage or fallback to default
+  // Load draft from localStorage or fallback to default (clean initial state)
   const [appState, setAppState] = useState<AppState>(() => {
     try {
       const saved = localStorage.getItem('cbt_maker_draft');
@@ -54,21 +57,29 @@ export default function CBTMaker() {
     } catch (e) {
       console.error('Failed to load cbt_maker_draft', e);
     }
-    return defaultAppState;
+    return cleanAppState;
   });
 
-  // Screen size awareness
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? window.innerWidth >= 1150 : true;
+  // Split-screen & View Layout State ('split' | 'editor' | 'preview')
+  const [layoutMode, setLayoutMode] = useState<'split' | 'editor' | 'preview'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      return 'editor';
+    }
+    return 'split';
   });
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 1150);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const [previewWidthPercent, setPreviewWidthPercent] = useState<number>(() => {
+    try {
+      const savedWidth = localStorage.getItem('cbt_preview_width_percent');
+      if (savedWidth) {
+        const num = Number(savedWidth);
+        if (num >= 20 && num <= 80) return num;
+      }
+    } catch {}
+    return 48; // Default 48% preview width for balanced side-by-side view
+  });
+
+  const [isDraggingSplitter, setIsDraggingSplitter] = useState<boolean>(false);
 
   // Navigation State
   const [activeSectionName, setActiveSectionName] = useState<string>(() => {
@@ -82,12 +93,6 @@ export default function CBTMaker() {
   const [showCleanConfirmModal, setShowCleanConfirmModal] = useState<boolean>(false);
   const [showLoadDemoConfirmModal, setShowLoadDemoConfirmModal] = useState<boolean>(false);
 
-  // Split-screen & View Mode States
-  const [showPreviewPane, setShowPreviewPane] = useState<boolean>(true);
-  const [previewWidthPercent, setPreviewWidthPercent] = useState<number>(45);
-  const [isDraggingSplitter, setIsDraggingSplitter] = useState<boolean>(false);
-  const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor');
-
   // Fast Jump Search Input
   const [jumpQVal, setJumpQVal] = useState<string>('');
 
@@ -99,6 +104,20 @@ export default function CBTMaker() {
   const [isImportToAppOpen, setIsImportToAppOpen] = useState(false);
   const [compiledResult, setCompiledResult] = useState<{ html: string; filename: string } | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
+
+  // Quick In-Place Title Rename
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState(appState.examTitle || 'New CBT Test');
+
+  useEffect(() => {
+    setTempTitle(appState.examTitle || 'New CBT Test');
+  }, [appState.examTitle]);
+
+  const commitTitleRename = () => {
+    const trimmed = tempTitle.trim() || 'New CBT Test';
+    setAppState(prev => ({ ...prev, examTitle: trimmed }));
+    setIsEditingTitle(false);
+  };
 
   // Image Cropper & Optimizer Modal State
   const [cropperData, setCropperData] = useState<{
@@ -117,26 +136,45 @@ export default function CBTMaker() {
     explanation: false
   });
 
-  // Auto-Save Draft to localStorage
+  // Debounced Auto-Save Draft to localStorage (prevents UI lag on rapid typing)
   useEffect(() => {
-    try {
-      localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
-    } catch (e) {
-      console.warn('LocalStorage full or disabled', e);
-    }
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
+      } catch (e) {
+        console.warn('LocalStorage full or disabled', e);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
   }, [appState]);
 
-  // Handle Splitter Dragging for Live Preview
+  // Save preferred width percent to localStorage
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    try {
+      localStorage.setItem('cbt_preview_width_percent', String(previewWidthPercent));
+    } catch {}
+  }, [previewWidthPercent]);
+
+  // Handle Splitter Dragging for Live Preview (Supports both Mouse & Touch on all devices)
+  useEffect(() => {
+    const handleMove = (clientX: number) => {
       if (!isDraggingSplitter) return;
       const totalWidth = window.innerWidth;
-      const mouseX = e.clientX;
-      const newPreviewWidth = Math.min(Math.max(((totalWidth - mouseX) / totalWidth) * 100, 25), 70);
+      const newPreviewWidth = Math.min(Math.max(((totalWidth - clientX) / totalWidth) * 100, 20), 80);
       setPreviewWidthPercent(Math.round(newPreviewWidth));
     };
 
-    const handleMouseUp = () => {
+    const handleMouseMove = (e: MouseEvent) => {
+      handleMove(e.clientX);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches && e.touches[0]) {
+        handleMove(e.touches[0].clientX);
+      }
+    };
+
+    const handleEnd = () => {
       if (isDraggingSplitter) {
         setIsDraggingSplitter(false);
       }
@@ -144,11 +182,15 @@ export default function CBTMaker() {
 
     if (isDraggingSplitter) {
       window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleTouchMove, { passive: true });
+      window.addEventListener('touchend', handleEnd);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleEnd);
     };
   }, [isDraggingSplitter]);
 
@@ -373,36 +415,16 @@ export default function CBTMaker() {
     } catch (e) {
       console.error(e);
     }
-    const freshSection = { name: "Section 1", marks: 4, negative: 1, maxAttempts: 0 };
-    const freshQ: Question = {
-      id: Date.now(),
-      type: 'MCQ',
-      text: '',
-      options: ['', '', '', ''],
-      correct: 0,
-      correctNat: '',
-      image: '',
-      table: '',
-      explanation: ''
-    };
-    setAppState({
-      ...defaultAppState,
-      examTitle: "New CBT Test",
-      examSubtitle: "",
-      sections: [freshSection],
-      questionsBySection: {
-        "Section 1": [freshQ]
-      }
-    });
-    setActiveSectionName("Section 1");
+    setAppState({ ...cleanAppState });
+    setActiveSectionName(cleanAppState.sections[0].name);
     setActiveQuestionIndex(0);
     setShowCleanConfirmModal(false);
   };
 
   // Load Demo CBT Showcase
   const executeLoadDemo = () => {
-    setAppState({ ...defaultAppState });
-    setActiveSectionName(defaultAppState.sections[0].name);
+    setAppState({ ...demoShowcaseAppState });
+    setActiveSectionName(demoShowcaseAppState.sections[0].name);
     setActiveQuestionIndex(0);
     setShowLoadDemoConfirmModal(false);
   };
@@ -1006,9 +1028,45 @@ export default function CBTMaker() {
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <h1 className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 dark:text-slate-100 truncate">
-              {appState.examTitle || 'CBT Maker Studio'}
-            </h1>
+            {isEditingTitle ? (
+              <div className="flex items-center gap-1.5 py-0.5">
+                <input
+                  type="text"
+                  value={tempTitle}
+                  onChange={e => setTempTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') commitTitleRename();
+                    if (e.key === 'Escape') {
+                      setTempTitle(appState.examTitle || 'New CBT Test');
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  onBlur={commitTitleRename}
+                  autoFocus
+                  className="px-2.5 py-1 text-xs sm:text-sm font-extrabold rounded-lg bg-slate-100 dark:bg-slate-800 border border-blue-500 text-slate-900 dark:text-slate-100 focus:outline-none w-44 sm:w-64"
+                  placeholder="Exam title..."
+                />
+                <button
+                  type="button"
+                  onClick={commitTitleRename}
+                  className="p-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  title="Save Title"
+                >
+                  <Check size={14} />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 group cursor-pointer"
+                onClick={() => setIsEditingTitle(true)}
+                title="Click to rename CBT exam"
+              >
+                <h1 className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-[150px] sm:max-w-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  {appState.examTitle || 'CBT Maker Studio'}
+                </h1>
+                <Edit2 size={13} className="text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
+              </div>
+            )}
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate max-w-[200px] sm:max-w-xs font-medium">
               {appState.sections.length} Sections &bull; {Object.values(appState.questionsBySection).flat().length} Questions
             </p>
@@ -1017,6 +1075,49 @@ export default function CBTMaker() {
 
         {/* Action Buttons Toolbar */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* View Mode Segmented Controls: Split | Editor | Preview */}
+          <div className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setLayoutMode('split')}
+              title="Side-by-Side Split View (with Draggable Border)"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all touch-manipulation ${
+                layoutMode === 'split'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Columns2 size={14} />
+              <span className="hidden sm:inline">Split View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('editor')}
+              title="Editor Only"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all touch-manipulation ${
+                layoutMode === 'editor'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <PenTool size={14} />
+              <span className="hidden sm:inline">Editor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('preview')}
+              title="Live Preview Only"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all touch-manipulation ${
+                layoutMode === 'preview'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Eye size={14} />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+          </div>
+
           {/* AI Prompt modal */}
           <button
             type="button"
@@ -1048,7 +1149,7 @@ export default function CBTMaker() {
             <span className="hidden md:inline">Bulk Paste</span>
           </button>
 
-          {/* Exam Global Settings */}
+          {/* Exam Global Settings (Includes Clean Form & Demo loader) */}
           <button
             type="button"
             onClick={() => setIsExamSettingsOpen(true)}
@@ -1056,31 +1157,6 @@ export default function CBTMaker() {
           >
             <Settings size={14} />
             <span className="hidden sm:inline">Settings</span>
-          </button>
-
-          {/* Toggle Live Preview on All Screen Sizes */}
-          <button
-            type="button"
-            onClick={() => {
-              if (isDesktop) {
-                setShowPreviewPane(!showPreviewPane);
-              } else {
-                setMobileTab(mobileTab === 'editor' ? 'preview' : 'editor');
-              }
-            }}
-            title="Toggle Live Preview"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:text-blue-600 transition-colors touch-manipulation"
-          >
-            {isDesktop ? (
-              showPreviewPane ? <EyeOff size={15} /> : <Eye size={15} />
-            ) : (
-              mobileTab === 'preview' ? <EyeOff size={15} /> : <Eye size={15} />
-            )}
-            <span className="hidden sm:inline">
-              {isDesktop
-                ? (showPreviewPane ? 'Hide Preview' : 'Show Preview')
-                : (mobileTab === 'preview' ? 'Show Editor' : 'Show Preview')}
-            </span>
           </button>
 
           {/* Compile & Save / Import */}
@@ -1095,32 +1171,6 @@ export default function CBTMaker() {
           </button>
         </div>
       </header>
-
-      {/* Mobile / Tablet Tab Switcher (Editor vs Live Preview) */}
-      <div className="min-[1150px]:hidden flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold shrink-0">
-        <button
-          type="button"
-          onClick={() => setMobileTab('editor')}
-          className={`flex-1 py-2.5 text-center border-b-2 transition-colors touch-manipulation ${
-            mobileTab === 'editor'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Editor
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('preview')}
-          className={`flex-1 py-2.5 text-center border-b-2 transition-colors touch-manipulation ${
-            mobileTab === 'preview'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Live Preview
-        </button>
-      </div>
 
       {/* Full-width Section Selector Bar */}
       <div className="w-full px-3 sm:px-5 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 overflow-x-auto shrink-0 z-20">
@@ -1386,13 +1436,13 @@ export default function CBTMaker() {
 
       {/* Main Workspace Split Body */}
       <div className="flex-1 flex overflow-hidden w-full relative">
-        {/* Editor Container */}
+        {/* Left / Editor Container */}
         <div
           style={{
-            width: isDesktop ? (showPreviewPane ? `${100 - previewWidthPercent}%` : '100%') : '100%'
+            width: layoutMode === 'split' ? `${100 - previewWidthPercent}%` : layoutMode === 'editor' ? '100%' : '0%'
           }}
-          className={`flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden w-full ${
-            !isDesktop && mobileTab === 'preview' ? 'hidden' : 'flex'
+          className={`flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden shrink-0 ${
+            layoutMode === 'preview' ? 'hidden' : 'flex'
           }`}
         >
           {/* Active Question Editor Area */}
@@ -1410,58 +1460,54 @@ export default function CBTMaker() {
           </div>
         </div>
 
-        {/* Right Side / Live Interactive Preview Pane & Splitter */}
-        {(showPreviewPane || (!isDesktop && mobileTab === 'preview')) && (
-          <>
-            {/* Draggable splitter divider */}
-            {isDesktop && showPreviewPane && (
-              <div
-                onMouseDown={e => {
-                  e.preventDefault();
-                  setIsDraggingSplitter(true);
-                }}
-                onTouchStart={() => setIsDraggingSplitter(true)}
-                onDoubleClick={() => setPreviewWidthPercent(45)}
-                className={`relative w-2.5 hover:w-3 bg-slate-200 dark:bg-slate-800 hover:bg-blue-500 cursor-col-resize transition-all shrink-0 items-center justify-center group select-none flex ${
-                  isDraggingSplitter ? 'bg-blue-600 w-3 shadow-md' : ''
-                }`}
-                title="Drag divider to resize Live Preview (Double-click to reset 45%)"
-              >
-                <div className="flex flex-col gap-1 items-center justify-center pointer-events-none">
-                  <div className="w-1 h-3 rounded-full bg-slate-400 group-hover:bg-white transition-colors" />
-                  <div className="w-1 h-3 rounded-full bg-slate-400 group-hover:bg-white transition-colors" />
-                  <div className="w-1 h-3 rounded-full bg-slate-400 group-hover:bg-white transition-colors" />
-                </div>
-
-                <div
-                  className={`absolute top-4 -left-12 px-2 py-0.5 rounded-md bg-slate-900 text-white text-xs font-mono font-bold shadow-lg pointer-events-none transition-opacity ${
-                    isDraggingSplitter ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100'
-                  }`}
-                >
-                  {previewWidthPercent}%
-                </div>
-              </div>
-            )}
+        {/* Draggable Divider Bar (Rendered in Split View) */}
+        {layoutMode === 'split' && (
+          <div
+            onMouseDown={e => {
+              e.preventDefault();
+              setIsDraggingSplitter(true);
+            }}
+            onTouchStart={() => setIsDraggingSplitter(true)}
+            onDoubleClick={() => setPreviewWidthPercent(48)}
+            className={`relative w-2.5 hover:w-3.5 bg-slate-200 dark:bg-slate-800 hover:bg-blue-500 cursor-col-resize transition-all shrink-0 items-center justify-center group select-none flex z-30 ${
+              isDraggingSplitter ? 'bg-blue-600 w-3.5 shadow-lg' : ''
+            }`}
+            title="Drag divider to resize Live Preview (Double-click to reset 48%)"
+          >
+            <div className="flex flex-col gap-1 items-center justify-center pointer-events-none">
+              <div className="w-1 h-3 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-white transition-colors" />
+              <div className="w-1 h-3 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-white transition-colors" />
+              <div className="w-1 h-3 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-white transition-colors" />
+            </div>
 
             <div
-              style={{
-                width: isDesktop ? `${previewWidthPercent}%` : '100%'
-              }}
-              className={`h-full shrink-0 ${
-                !isDesktop && mobileTab === 'editor' ? 'hidden' : 'flex w-full'
+              className={`absolute top-4 -left-12 px-2 py-0.5 rounded-md bg-slate-900 text-white text-xs font-mono font-bold shadow-lg pointer-events-none transition-opacity ${
+                isDraggingSplitter ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100'
               }`}
             >
-              <QuestionLivePreview
-                question={activeQuestion}
-                questionIndex={activeQuestionIndex}
-                section={activeSection || { name: 'Default', marks: 4, negative: 1, maxAttempts: 0 }}
-                fontName={appState.fontName}
-                mathMode={appState.mathMode}
-                renderEngine={appState.renderEngine}
-              />
+              {previewWidthPercent}%
             </div>
-          </>
+          </div>
         )}
+
+        {/* Right / Live Interactive Preview Pane */}
+        <div
+          style={{
+            width: layoutMode === 'split' ? `${previewWidthPercent}%` : layoutMode === 'preview' ? '100%' : '0%'
+          }}
+          className={`h-full shrink-0 ${
+            layoutMode === 'editor' ? 'hidden' : 'flex'
+          }`}
+        >
+          <QuestionLivePreview
+            question={activeQuestion}
+            questionIndex={activeQuestionIndex}
+            section={activeSection || { name: 'Default', marks: 4, negative: 1, maxAttempts: 0 }}
+            fontName={appState.fontName}
+            mathMode={appState.mathMode}
+            renderEngine={appState.renderEngine}
+          />
+        </div>
       </div>
 
       {/* Fullscreen overlay while dragging divider */}
@@ -1632,7 +1678,7 @@ export default function CBTMaker() {
           isOpen={isExamSettingsOpen}
           onClose={() => setIsExamSettingsOpen(false)}
           appState={appState}
-          onUpdateState={updates => setAppState(prev => ({ ...prev, ...updates }))}
+          onSave={updates => setAppState(prev => ({ ...prev, ...updates }))}
           onResetDraft={executeResetDraft}
           onLoadDemo={executeLoadDemo}
         />

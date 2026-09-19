@@ -17,7 +17,7 @@ export default function LaTeXGuideModal({
   const [activeTab, setActiveTab] = useState<'latex' | 'html' | 'playground'>('latex');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [fontSizeMultiplier, setFontSizeMultiplier] = useState<number>(1.2); // Default large readable scale
+  const [fontSizeMultiplier, setFontSizeMultiplier] = useState<number>(1.35); // Large readable scale
   const [playgroundText, setPlaygroundText] = useState<string>(
     'The dimensional formula of resistance is $[\\text{M L}^2 \\text{T}^{-3} \\text{I}^{-2}]$.\nElectric field vector: $\\vec{E} = 2\\hat{i} + 3\\hat{j}$ with flux $$\\Phi = \\oint \\vec{E} \\cdot d\\vec{A}$$.\nWater molecule $\\text{H}_2\\text{O}$ has dipole moment $\\mu = 1.85\\ \\text{D}$.\nFractions: $$\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$'
   );

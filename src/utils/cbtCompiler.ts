@@ -11,77 +11,163 @@ const KATEX_MACROS = {
   "\\unit": "\\,\\text{#1}"
 };
 
-// Format math to HTML Fallback for non-LaTeX modes
+// Rich HTML & Unicode Math Formatter for Pure HTML Engine
 export function formatMathToHTMLFallback(s: string, isDisplay = false): string {
   if (!s) return '';
 
-  // Normalize common shortcuts
-  s = s.replace(/\\cbrt\{([^}]+)\}/g, '\\sqrt[3]{$1}')
-       .replace(/\\root\{([^}]+)\}\\of\{([^}]+)\}/g, '\\sqrt[$1]{$2}')
-       .replace(/\\(dfrac|tfrac|cfrac)\{/g, '\\frac{');
+  let out = s;
 
-  s = s.replace(/\\dagger/g, '†').replace(/\\ddagger/g, '‡')
-       .replace(/\\times/g, '×').replace(/\\cdot/g, '·')
-       .replace(/\\div/g, '÷').replace(/\\pm/g, '±').replace(/\\mp/g, '∓')
-       .replace(/\\approx/g, '≈').replace(/\\neq/g, '≠').replace(/\\ne\b/g, '≠')
-       .replace(/\\leq/g, '≤').replace(/\\geq/g, '≥').replace(/\\le\b/g, '≤').replace(/\\ge\b/g, '≥')
-       .replace(/\\lt\b/g, '<').replace(/\\gt\b/g, '>')
-       .replace(/\\ll\b/g, '≪').replace(/\\gg\b/g, '≫')
-       .replace(/\\equiv/g, '≡').replace(/\\propto/g, '∝')
-       .replace(/\\infty/g, '∞').replace(/\\partial/g, '∂').replace(/\\nabla/g, '∇')
-       .replace(/\\degree/g, '°').replace(/\\circ/g, '°')
-       .replace(/\\in\b/g, '∈').replace(/\\notin/g, '∉')
-       .replace(/\\subset/g, '⊂').replace(/\\subseteq/g, '⊆')
-       .replace(/\\cap/g, '∩').replace(/\\cup/g, '∪')
-       .replace(/\\forall/g, '∀').replace(/\\exists/g, '∃')
-       .replace(/\\hbar/g, 'ℏ');
+  // 1. Normalize macros
+  out = out.replace(/\\cbrt\{([^}]+)\}/g, '\\sqrt[3]{$1}')
+           .replace(/\\root\{([^}]+)\}\\of\{([^}]+)\}/g, '\\sqrt[$1]{$2}')
+           .replace(/\\(dfrac|tfrac|cfrac)\{/g, '\\frac{');
 
-  s = s.replace(/\\text\{([^}]+)\}/g, '$1')
-       .replace(/\\mathrm\{([^}]+)\}/g, '$1')
-       .replace(/\\mathbf\{([^}]+)\}/g, '<b>$1</b>')
-       .replace(/\\mathit\{([^}]+)\}/g, '<i>$1</i>');
+  // 2. Greek symbols
+  out = out
+    .replace(/\\alpha\b/g, 'α')
+    .replace(/\\beta\b/g, 'β')
+    .replace(/\\gamma\b/g, 'γ')
+    .replace(/\\Gamma\b/g, 'Γ')
+    .replace(/\\delta\b/g, 'δ')
+    .replace(/\\Delta\b/g, 'Δ')
+    .replace(/\\epsilon\b/g, 'ε')
+    .replace(/\\varepsilon\b/g, 'ε')
+    .replace(/\\zeta\b/g, 'ζ')
+    .replace(/\\eta\b/g, 'η')
+    .replace(/\\theta\b/g, 'θ')
+    .replace(/\\Theta\b/g, 'Θ')
+    .replace(/\\iota\b/g, 'ι')
+    .replace(/\\kappa\b/g, 'κ')
+    .replace(/\\lambda\b/g, 'λ')
+    .replace(/\\Lambda\b/g, 'Λ')
+    .replace(/\\mu\b/g, 'μ')
+    .replace(/\\nu\b/g, 'ν')
+    .replace(/\\xi\b/g, 'ξ')
+    .replace(/\\pi\b/g, 'π')
+    .replace(/\\Pi\b/g, 'Π')
+    .replace(/\\rho\b/g, 'ρ')
+    .replace(/\\sigma\b/g, 'σ')
+    .replace(/\\Sigma\b/g, 'Σ')
+    .replace(/\\tau\b/g, 'τ')
+    .replace(/\\upsilon\b/g, 'υ')
+    .replace(/\\phi\b/g, 'φ')
+    .replace(/\\varphi\b/g, 'φ')
+    .replace(/\\Phi\b/g, 'Φ')
+    .replace(/\\chi\b/g, 'χ')
+    .replace(/\\psi\b/g, 'ψ')
+    .replace(/\\Psi\b/g, 'Ψ')
+    .replace(/\\omega\b/g, 'ω')
+    .replace(/\\Omega\b/g, 'Ω');
 
-  s = s.replace(/\\vec\{([^}]+)\}/g, '$1&#x20D7;').replace(/\\hat\{([^}]+)\}/g, '$1&#x0302;')
-       .replace(/\\bar\{([^}]+)\}/g, '$1&#x0304;').replace(/\\dot\{([^}]+)\}/g, '$1&#x0307;')
-       .replace(/\\ddot\{([^}]+)\}/g, '$1&#x0308;');
+  // 3. Operators & Relations
+  out = out
+    .replace(/\\dagger/g, '†')
+    .replace(/\\ddagger/g, '‡')
+    .replace(/\\times/g, ' × ')
+    .replace(/\\cdot/g, ' · ')
+    .replace(/\\div/g, ' ÷ ')
+    .replace(/\\pm/g, ' ± ')
+    .replace(/\\mp/g, ' ∓ ')
+    .replace(/\\approx/g, ' ≈ ')
+    .replace(/\\neq/g, ' ≠ ')
+    .replace(/\\ne\b/g, ' ≠ ')
+    .replace(/\\leq/g, ' ≤ ')
+    .replace(/\\geq/g, ' ≥ ')
+    .replace(/\\le\b/g, ' ≤ ')
+    .replace(/\\ge\b/g, ' ≥ ')
+    .replace(/\\ll\b/g, ' ≪ ')
+    .replace(/\\gg\b/g, ' ≫ ')
+    .replace(/\\equiv/g, ' ≡ ')
+    .replace(/\\propto/g, ' ∝ ')
+    .replace(/\\infty/g, '∞')
+    .replace(/\\partial/g, '∂')
+    .replace(/\\nabla/g, '∇')
+    .replace(/\\degree/g, '°')
+    .replace(/\\circ/g, '°')
+    .replace(/\\in\b/g, ' ∈ ')
+    .replace(/\\notin/g, ' ∉ ')
+    .replace(/\\subset/g, ' ⊂ ')
+    .replace(/\\subseteq/g, ' ⊆ ')
+    .replace(/\\cap/g, ' ∩ ')
+    .replace(/\\cup/g, ' ∪ ')
+    .replace(/\\forall/g, '∀')
+    .replace(/\\exists/g, '∃')
+    .replace(/\\hbar/g, 'ℏ')
+    .replace(/\\rightarrow/g, ' → ')
+    .replace(/\\leftarrow/g, ' ← ')
+    .replace(/\\rightleftharpoons/g, ' ⇌ ')
+    .replace(/\\uparrow/g, ' ↑ ')
+    .replace(/\\downarrow/g, ' ↓ ')
+    .replace(/\\int/g, '∫')
+    .replace(/\\oint/g, '∮')
+    .replace(/\\sum/g, '∑')
+    .replace(/\\prod/g, '∏');
 
-  s = s.replace(/\\(sin|cos|tan|cot|sec|csc|log|ln|exp|lim|max|min)\b/g, '$1');
+  // 4. Text and Font Modifiers
+  out = out
+    .replace(/\\text\{([^}]+)\}/g, '$1')
+    .replace(/\\mathrm\{([^}]+)\}/g, '$1')
+    .replace(/\\mathbf\{([^}]+)\}/g, '<b>$1</b>')
+    .replace(/\\mathit\{([^}]+)\}/g, '<i>$1</i>');
 
-  // Multi-pass fraction optimization with genuine vertical fraction vinculum
+  // 5. Accents & Diacritics
+  out = out
+    .replace(/\\vec\{([^}]+)\}/g, '$1&#x20D7;')
+    .replace(/\\hat\{([^}]+)\}/g, '$1&#x0302;')
+    .replace(/\\bar\{([^}]+)\}/g, '$1&#x0304;')
+    .replace(/\\dot\{([^}]+)\}/g, '$1&#x0307;')
+    .replace(/\\ddot\{([^}]+)\}/g, '$1&#x0308;');
+
+  // 6. Common functions (sine, cos, etc.)
+  out = out.replace(/\\(sin|cos|tan|cot|sec|csc|log|ln|exp|lim|max|min)\b/g, '<span style="font-style:normal;">$1</span>');
+
+  // 7. Multi-pass Fractions for HTML with clean fraction vinculum
   let prevS = '';
-  while (prevS !== s) {
-    prevS = s;
-    s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, 
-      '<span style="display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; font-size:0.9em; line-height:1.1; margin:0 3px;"><span style="border-bottom:1px solid currentColor; padding:0 2px 1px 2px;">$1</span><span style="padding:1px 2px 0 2px;">$2</span></span>'
+  while (prevS !== out) {
+    prevS = out;
+    out = out.replace(
+      /\\frac\{([^{}]+)\}\{([^{}]+)\}/g,
+      '<span class="html-fraction" style="display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; font-size:0.9em; line-height:1.15; padding:0 3px; font-family:inherit;"><span style="border-bottom:1.5px solid currentColor; padding:0 2px 1px 2px;">$1</span><span style="padding:1px 2px 0 2px;">$2</span></span>'
     );
   }
 
-  // Optimized root-over and cube-root radicals with overline vinculum
-  s = s.replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, 
-    '<span style="white-space:nowrap; vertical-align:baseline; display:inline-flex; align-items:baseline;"><sup style="font-size:0.65em; margin-right:-3px; vertical-align:top;">$1</sup><span style="font-size:1.15em; line-height:1;">√</span><span style="border-top:1px solid currentColor; padding:0 2px; margin-left:-1px;">$2</span></span>'
+  // 8. Radicals & Roots
+  out = out.replace(
+    /\\sqrt\[([^\]]+)\]\{([^}]+)\}/g,
+    '<span style="white-space:nowrap; vertical-align:baseline; display:inline-flex; align-items:baseline; font-family:inherit;"><sup style="font-size:0.68em; margin-right:-2px; vertical-align:top;">$1</sup><span style="font-size:1.15em; line-height:1;">√</span><span style="border-top:1.5px solid currentColor; padding:0 2px; margin-left:-1px;">$2</span></span>'
   );
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, 
-    '<span style="white-space:nowrap; vertical-align:baseline; display:inline-flex; align-items:baseline;"><span style="font-size:1.15em; line-height:1;">√</span><span style="border-top:1px solid currentColor; padding:0 2px; margin-left:-1px;">$1</span></span>'
+  out = out.replace(
+    /\\sqrt\{([^}]+)\}/g,
+    '<span style="white-space:nowrap; vertical-align:baseline; display:inline-flex; align-items:baseline; font-family:inherit;"><span style="font-size:1.15em; line-height:1;">√</span><span style="border-top:1.5px solid currentColor; padding:0 2px; margin-left:-1px;">$1</span></span>'
   );
-  s = s.replace(/\\sqrt\b/g, '√');
+  out = out.replace(/\\sqrt\b/g, '√');
 
-  s = s.replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>').replace(/\^([0-9a-zA-Z+-])/g, '<sup>$1</sup>');
-  s = s.replace(/_\{([^}]+)\}/g, '<sub>$1</sub>').replace(/_([0-9a-zA-Z+-])/g, '<sub>$1</sub>');
-  s = s.replace(/\\[;,!]/g, ' ').replace(/\\quad/g, ' &nbsp; ').replace(/\\qquad/g, ' &nbsp;&nbsp; ')
-       .replace(/\\([a-zA-Z]+)/g, '$1');
+  // 9. Superscripts & Subscripts
+  out = out.replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>').replace(/\^([0-9a-zA-Z+-])/g, '<sup>$1</sup>');
+  out = out.replace(/_\{([^}]+)\}/g, '<sub>$1</sub>').replace(/_([0-9a-zA-Z+-])/g, '<sub>$1</sub>');
 
-  return isDisplay 
-    ? `<div style="text-align:center; margin: 6px 0; font-family: serif;"><i>${s}</i></div>` 
-    : `<span style="font-family: serif;"><i>${s}</i></span>`;
+  // 10. Spacing & Escaped characters
+  out = out.replace(/\\[;,!]/g, ' ')
+           .replace(/\\quad/g, ' &nbsp; ')
+           .replace(/\\qquad/g, ' &nbsp;&nbsp; ')
+           .replace(/\\([a-zA-Z]+)/g, '$1');
+
+  // 11. Wrap in styling
+  return isDisplay
+    ? `<div class="html-display-math" style="text-align:center; margin: 8px 0; font-family: inherit; font-size: 1.05em;">${out}</div>`
+    : `<span class="html-inline-math" style="font-family: inherit;">${out}</span>`;
 }
 
 const formatCache = new Map<string, string>();
-const MAX_CACHE_SIZE = 2000;
+const MAX_CACHE_SIZE = 3000;
 
-// Unified Markdown & LaTeX / MathML Formatter
+/**
+ * Unified Markdown, LaTeX, MathML & HTML Formatter
+ * Accurately honors mathMode ('LATEX' | 'HTML') and renderEngine ('KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE')
+ */
 export function formatContent(
   text: string,
-  engine = 'KATEX_LOCAL',
+  engine: 'KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE' = 'KATEX_LOCAL',
   mathMode: 'LATEX' | 'HTML' = 'LATEX',
   isLivePreview = false
 ): string {
@@ -99,8 +185,7 @@ export function formatContent(
   // 1. Protect explicitly escaped dollars
   maskedText = maskedText.replace(/\\\$/g, '@@ESC_DOLLAR@@');
 
-  // 2. Math Masking: Support $$, \[, $, and \(
-  // Display math first: $$...$$ or \[...\]
+  // 2. Display math: $$...$$ or \[...\]
   maskedText = maskedText.replace(/\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g, (match, d1, d2) => {
     const content = (d1 !== undefined ? d1 : d2) || '';
     mathBlocks.push({
@@ -111,7 +196,7 @@ export function formatContent(
     return `@@MATH_BLOCK_${mathBlocks.length - 1}@@`;
   });
 
-  // Inline math: $...$ or \(...\)
+  // 3. Inline math: $...$ or \(...\)
   maskedText = maskedText.replace(/\$([^\$\n]+?)\$|\\\(([\s\S]*?)\\\)/g, (match, i1, i2) => {
     const content = (i1 !== undefined ? i1 : i2) || '';
     mathBlocks.push({
@@ -122,10 +207,7 @@ export function formatContent(
     return `@@MATH_BLOCK_${mathBlocks.length - 1}@@`;
   });
 
-  // 3. Smart HTML Escaping for isolated angle brackets
-  maskedText = maskedText.replace(/<(\s|[0-9])/g, '&lt;$1').replace(/(\s|[0-9])>/g, '$1&gt;');
-
-  // 4. Markdown Parsing (Bold, Underline, Italic, Line breaks)
+  // 4. Markdown Parsing (Bold, Underline, Italic, Strikethrough)
   maskedText = maskedText.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>')
                          .replace(/__([\s\S]*?)__/g, '<u>$1</u>')
                          .replace(/\*([^\*]+?)\*/g, '<em>$1</em>');
@@ -133,16 +215,20 @@ export function formatContent(
   // 5. Restore escaped dollars
   maskedText = maskedText.replace(/@@ESC_DOLLAR@@/g, '$');
 
-  // 6. Process Math & Unmask
+  // 6. Process Math Blocks based on specific engine and mode
   mathBlocks.forEach((block, i) => {
     let processedMath = '';
     const rawContent = block.content.trim();
 
-    if (isLivePreview) {
-      // Live preview: always attempt KaTeX renderToString for instant, high-fidelity rendering
+    if (mathMode === 'HTML' || engine === 'HTML_FALLBACK') {
+      // Pure HTML Engine: Formatted with standard HTML & Unicode symbols
+      processedMath = formatMathToHTMLFallback(rawContent, block.isDisplay);
+    } else if (engine === 'MATHML') {
+      // MathML Engine: Render native MathML
       try {
         processedMath = katex.renderToString(rawContent, {
           displayMode: block.isDisplay,
+          output: 'mathml',
           throwOnError: false,
           macros: KATEX_MACROS
         });
@@ -150,27 +236,20 @@ export function formatContent(
         processedMath = formatMathToHTMLFallback(rawContent, block.isDisplay);
       }
     } else {
-      // Standalone CBT compilation
-      if (mathMode === 'LATEX') {
-        if (engine === 'MATHML') {
-          try {
-            processedMath = katex.renderToString(rawContent, {
-              displayMode: block.isDisplay,
-              output: 'mathml',
-              throwOnError: false,
-              macros: KATEX_MACROS
-            });
-          } catch {
-            processedMath = block.isDisplay ? `$$${rawContent}$$` : `$${rawContent}$`;
-          }
-        } else if (engine === 'HTML_FALLBACK') {
+      // LaTeX KaTeX Engine (Local or Online)
+      if (isLivePreview) {
+        try {
+          processedMath = katex.renderToString(rawContent, {
+            displayMode: block.isDisplay,
+            throwOnError: false,
+            macros: KATEX_MACROS
+          });
+        } catch {
           processedMath = formatMathToHTMLFallback(rawContent, block.isDisplay);
-        } else {
-          // Keep standard $...$ or $$...$$ delimiters for KaTeX auto-render in the standalone player
-          processedMath = block.isDisplay ? `$$${rawContent}$$` : `$${rawContent}$`;
         }
       } else {
-        processedMath = formatMathToHTMLFallback(rawContent, block.isDisplay);
+        // In standalone compiled CBT: keep $...$ / $$...$$ for KaTeX auto-render
+        processedMath = block.isDisplay ? `$$${rawContent}$$` : `$${rawContent}$`;
       }
     }
 
@@ -233,7 +312,7 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   }
 
   // Math Rendering Engine configuration
-  const engineVal = appState.renderEngine === 'HTML_FALLBACK' 
+  const engineVal = appState.mathMode === 'HTML' || appState.renderEngine === 'HTML_FALLBACK'
     ? 'html_fallback' 
     : (appState.renderEngine === 'MATHML' ? 'mathml' : 'katex_local');
   txt = txt.replace(/window\.mathRenderEngine\s*=\s*['"].*?['"];/i, `window.mathRenderEngine = '${engineVal}';`);
@@ -282,7 +361,7 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   const safeInstInject = `/*<INST_START>*/\nconst EXAM_S_HTML = \`${instHtml.replace(/`/g, '\\`')}\`;\n/*<INST_END>*/`;
   txt = txt.replace(instRegex, safeInstInject);
 
-  // KaTeX CSS & JS Injections (Offline-first with online CDN fallback)
+  // KaTeX CSS & JS Injections (Only for LaTeX engine)
   let katexCSS = '';
   let katexJS = '';
   if (appState.mathMode === 'LATEX' && appState.renderEngine !== 'HTML_FALLBACK') {
@@ -298,8 +377,8 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   const qb: any[] = [];
   for (const sec of appState.sections) {
     const qs = (appState.questionsBySection[sec.name] || []).map((q, i) => {
-      const processedText = formatContent(q.text, appState.renderEngine, appState.mathMode);
-      const processedTable = q.table ? formatContent(q.table, appState.renderEngine, appState.mathMode) : '';
+      const processedText = formatContent(q.text, appState.renderEngine, appState.mathMode, false);
+      const processedTable = q.table ? formatContent(q.table, appState.renderEngine, appState.mathMode, false) : '';
 
       const finalOptionsHtmlReady: string[] = [];
       (q.options || []).forEach(o => {
@@ -311,7 +390,7 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
           optText = optText.replace(imgMatch[0], '');
         }
 
-        let processedOpt = formatContent(optText, appState.renderEngine, appState.mathMode);
+        let processedOpt = formatContent(optText, appState.renderEngine, appState.mathMode, false);
         if (optImg && optImg !== 'PLACEHOLDER') {
           processedOpt += `<br><img src="${optImg}" onclick="openLightbox(this.src)" style="max-height:25vh; max-width:100%; object-fit:contain; border-radius:4px; margin-top:5px; border:1px solid #ccc; cursor:pointer; background:white;">`;
         }
@@ -352,11 +431,15 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   const safeQBInject = `/*<QB_START>*/\nconst QUESTION_BANK = ${JSON.stringify(qb, null, 2)};\n/*<QB_END>*/`;
   txt = txt.replace(qbRegex, safeQBInject);
 
-  // Virtual Keyboard & layout enhancements
+  // Styling & table cleanup
   if (!txt.includes('.q-text, .opt-text { white-space: pre-wrap !important; }')) {
     const vkPatch = `
     <style>
     .q-text, .opt-text { white-space: pre-wrap !important; }
+    .html-fraction { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.15; font-size: 0.9em; padding: 0 3px; }
+    .question-content table { border-collapse: collapse; width: 100%; max-width: 800px; margin: 12px 0; }
+    .question-content th, .question-content td { border: 1px solid var(--border-color, #cbd5e1); padding: 8px 12px; text-align: left; }
+    .question-content th { background: var(--bg-main, #f1f5f9); font-weight: 600; }
     @media (max-width: 768px) {
         #virtual-keyboard, .keyboard-container, .virtual-keyboard { transform: scale(0.85); transform-origin: bottom center; bottom: 0 !important; left: 0 !important; right: 0 !important; width: 100% !important; z-index: 9999 !important; }
     }
@@ -377,34 +460,19 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   return { html: txt, filename };
 }
 
-/**
- * Converts local assets and dependency links in any CBT Exam HTML into
- * reliable worldwide CDN links for standalone downloads.
- */
 export function prepareHtmlForDownload(html: string): string {
   if (!html) return '';
-
   let out = html;
-
-  // 1. Replace KaTeX CSS local paths with jsDelivr CDN
   out = out.replace(/(?:href=["'])(?:\.\/|\/)?libs\/katex\.min\.css["']/gi, 'href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"');
   out = out.replace(/href=["'](?:\.\/|\/)?katex-minimal\/css\/katex\.min\.css["']/gi, 'href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"');
-
-  // 2. Replace KaTeX JS and auto-render JS local paths with jsDelivr CDN
   out = out.replace(/(?:src=["'])(?:\.\/|\/)?libs\/katex\.min\.js["']/gi, 'src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"');
   out = out.replace(/(?:src=["'])(?:\.\/|\/)?libs\/auto-render\.min\.js["']/gi, 'src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"');
   out = out.replace(/src=["'](?:\.\/|\/)?katex-minimal\/js\/katex\.min\.js["']/gi, 'src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"');
-
-  // 3. Remove onerror fallbacks since primary is now the live CDN
   out = out.replace(/onerror="this\.onerror=null;this\.href='https:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^']+'"/gi, '');
   out = out.replace(/onerror="this\.onerror=null;this\.src='https:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^']+'"/gi, '');
-
   return out;
 }
 
-/**
- * Triggers a direct browser file download for any exam HTML with CDN enabled
- */
 export function triggerHtmlDownload(filename: string, rawHtml: string) {
   const cdnHtml = prepareHtmlForDownload(rawHtml);
   const blob = new Blob([cdnHtml], { type: 'text/html;charset=utf-8' });

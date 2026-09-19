@@ -189,3 +189,58 @@ html, body {
   table-layout: fixed;
 }
 
+/* CBT Simple Table Standards (Matching cbt_demo.html) */
+.cbt-rendered-content table,
+.preview-table,
+.question-content table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 12px 0 !important;
+}
+
+.cbt-rendered-content th,
+.cbt-rendered-content td,
+.preview-table th,
+.preview-table td,
+.question-content th,
+.question-content td {
+  border: 1px solid #cbd5e1 !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  vertical-align: top !important;
+  font-size: 0.95em !important;
+  line-height: 1.5 !important;
+}
+
+.dark .cbt-rendered-content th,
+.dark .cbt-rendered-content td,
+.dark .preview-table th,
+.dark .preview-table td {
+  border-color: #334155 !important;
+}
+
+.cbt-rendered-content th,
+.preview-table th,
+.question-content th {
+  background-color: #f1f5f9 !important;
+  font-weight: 600 !important;
+}
+
+.dark .cbt-rendered-content th,
+.dark .preview-table th {
+  background-color: #1e293b !important;
+}
+
+/* Pure HTML Engine Fractions */
+.html-fraction {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 0.9em;
+  line-height: 1.15;
+  padding: 0 3px;
+  font-family: inherit;
+}
+
+

@@ -13,7 +13,7 @@ interface QuestionLivePreviewProps {
   renderEngine: 'KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE';
 }
 
-function QuestionLivePreview({
+const QuestionLivePreview = memo(function QuestionLivePreview({
   question,
   questionIndex,
   section,
@@ -46,9 +46,16 @@ function QuestionLivePreview({
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuestion(question);
-    }, 120);
+    }, 80);
     return () => clearTimeout(handler);
   }, [question]);
+
+  // Reset local selection when question changes
+  useEffect(() => {
+    setSelectedOption(null);
+    setSelectedMsq([]);
+    setNatAnswer('');
+  }, [questionIndex, section.name]);
 
   // Question image countdown
   useEffect(() => {
@@ -211,7 +218,12 @@ function QuestionLivePreview({
             {mathMode === 'LATEX' ? (
               <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
                 <Code size={13} />
-                <span>LaTeX Engine</span>
+                <span>LaTeX Engine (KaTeX)</span>
+              </span>
+            ) : renderEngine === 'MATHML' ? (
+              <span className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800">
+                <Code size={13} />
+                <span>MathML Engine</span>
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
@@ -229,7 +241,7 @@ function QuestionLivePreview({
             className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 border border-slate-200 dark:border-slate-700"
           >
             <Clock size={12} className={mediaMode === 'on-demand' ? 'text-amber-500' : 'text-slate-400'} />
-            <span className="hidden sm:inline">{mediaMode === 'on-demand' ? '10s Auto-Hide (Fast)' : 'Always Render'}</span>
+            <span className="hidden sm:inline">{mediaMode === 'on-demand' ? '10s Auto-Hide' : 'Always Render'}</span>
           </button>
 
           {/* Viewport switcher */}
@@ -298,7 +310,7 @@ function QuestionLivePreview({
 
           {/* Question Text */}
           <div
-            className="text-base sm:text-lg text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-line select-text mb-5 font-medium"
+            className="cbt-rendered-content text-base sm:text-lg text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-line select-text mb-5 font-medium"
             dangerouslySetInnerHTML={{
               __html: processedText || '<span class="text-slate-400 italic">No question statement entered yet...</span>'
             }}
@@ -361,10 +373,10 @@ function QuestionLivePreview({
             </div>
           )}
 
-          {/* Table if any */}
+          {/* Table if any - Styled matching cbt_demo.html simplicity */}
           {processedTable && (
             <div
-              className="my-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 text-xs sm:text-sm"
+              className="cbt-rendered-content my-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 text-xs sm:text-sm bg-slate-50/50 dark:bg-slate-950/40"
               dangerouslySetInnerHTML={{ __html: processedTable }}
             />
           )}
@@ -408,8 +420,8 @@ function QuestionLivePreview({
                       {String.fromCharCode(65 + oi)}
                     </div>
 
-                    <div className="flex-1 text-base sm:text-lg text-slate-800 dark:text-slate-200 leading-relaxed min-w-0 font-normal">
-                      <div dangerouslySetInnerHTML={{ __html: optItem.html || '...' }} />
+                    <div className="flex-1 text-base sm:text-lg text-slate-800 dark:text-slate-200 leading-relaxed min-w-0 font-normal break-words">
+                      <div className="cbt-rendered-content" dangerouslySetInnerHTML={{ __html: optItem.html || '...' }} />
                       
                       {/* Attached Option Image with 10s on-demand render */}
                       {optItem.imgSrc && (
@@ -485,7 +497,7 @@ function QuestionLivePreview({
                 <span>Solution / Explanation</span>
               </div>
               <div
-                className="text-sm sm:text-base text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line bg-amber-50/60 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50"
+                className="cbt-rendered-content text-sm sm:text-base text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line bg-amber-50/60 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50"
                 dangerouslySetInnerHTML={{ __html: processedExp }}
               />
             </div>
@@ -517,6 +529,6 @@ function QuestionLivePreview({
       )}
     </div>
   );
-}
+});
 
-export default memo(QuestionLivePreview);
+export default QuestionLivePreview;
