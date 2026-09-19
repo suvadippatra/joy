@@ -82,7 +82,7 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuestion(question);
-    }, 80);
+    }, 250);
     return () => clearTimeout(timer);
   }, [question]);
 
