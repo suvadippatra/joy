@@ -43,6 +43,8 @@
         }
 
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .katex, .katex *, .katex *:before, .katex *:after { box-sizing: content-box !important; }
+        .katex, body, table, td, th, .q-text, .opt-text { font-variant-numeric: lining-nums tabular-nums !important; font-feature-settings: "lnum" 1, "tnum" 1 !important; }
         
         body { 
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
@@ -1164,43 +1166,40 @@ const QUESTION_BANK = [
     let activeSectionIndex = 0; 
     
     // CRITICAL MATH RENDER: Triggers KaTeX auto-render asynchronously scoped to the active container
-    function triggerMathRender(el) {
-        function doRender() {
-            if (window.renderMathInElement) {
+    var renderScheduledInDemo = false;
+    function triggerMathRender(el, force) {
+        var target = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+        if (!target) return;
+        if (force) {
+            delete target.dataset.mathRendered;
+        } else if (target.dataset.mathRendered === 'true') {
+            return;
+        }
+
+        if (renderScheduledInDemo) return;
+        renderScheduledInDemo = true;
+
+        requestAnimationFrame(function() {
+            renderScheduledInDemo = false;
+            var currentTarget = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+            if (window.renderMathInElement && currentTarget) {
                 try {
-                    var target = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
-                    if (target) {
-                        renderMathInElement(target, {
-                            delimiters: [
-                                {left: "$$", right: "$$", display: true},
-                                {left: "\\[", right: "\\]", display: true},
-                                {left: "\\(", right: "\\)", display: false},
-                                {left: "$", right: "$", display: false}
-                            ],
-                            throwOnError: false,
-                            ignoredClasses: ["no-math", "inst-section", "exam-title", "header-left"]
-                        });
-                    }
+                    renderMathInElement(currentTarget, {
+                        delimiters: [
+                            {left: "$$", right: "$$", display: true},
+                            {left: "\\[", right: "\\]", display: true},
+                            {left: "\\(", right: "\\)", display: false},
+                            {left: "$", right: "$", display: false}
+                        ],
+                        throwOnError: false,
+                        ignoredClasses: ["no-math", "inst-section", "exam-title", "header-left"]
+                    });
+                    currentTarget.dataset.mathRendered = 'true';
                 } catch (e) {
                     console.warn("Math rendering failed: ", e);
                 }
             }
-        }
-
-        doRender();
-
-        if (!window.renderMathInElement) {
-            var attempts = 0;
-            var pollTimer = setInterval(function() {
-                attempts++;
-                if (window.renderMathInElement) {
-                    clearInterval(pollTimer);
-                    doRender();
-                } else if (attempts > 40) {
-                    clearInterval(pollTimer);
-                }
-            }, 50);
-        }
+        });
     }
 
     if (typeof Q_FONT_FAMILY !== 'undefined') {
@@ -1496,7 +1495,6 @@ const QUESTION_BANK = [
         const g = document.getElementById('palette-grid');
         g.innerHTML = ''; 
         g.classList.remove('fade-in');
-        void g.offsetWidth; 
         g.classList.add('fade-in');
 
         const sec = EXAM_SECTIONS[secIdx];
@@ -1615,7 +1613,7 @@ const QUESTION_BANK = [
         }
         
         // Critical Render call for KaTeX Online Mode (Asynchronous to prevent lag)
-        triggerMathRender();
+        triggerMathRender(null, true);
     }
 
     function selectOpt(i) { 
