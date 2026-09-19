@@ -233,7 +233,7 @@ To convert this single-tenant app into a multi-user platform with accounts and a
                     |
                     v
       +----------------------------+
-      |  Database (PostgreSQL/    |
+      |  Database (PostgreSQL/     |
       |  MongoDB / Firestore)      |
       +----------------------------+
 ```
@@ -270,36 +270,9 @@ To convert this single-tenant app into a multi-user platform with accounts and a
    - Redirect unauthenticated users to `/login` when accessing exam reports or test creation pages.
    - Sync local IndexedDB test reports to `/api/reports` whenever the device is online.
 
----
-
-## ⚖️ License Recommendation (Restricting Commercial Use)
-
-If you want to keep the repository open-source for educational and personal use while **strictly prohibiting any commercial use, reselling, or SaaS monetization**, standard open-source licenses like MIT or Apache-2.0 **will not protect you**.
-
-### Recommended Licenses
-
-#### 1. PolyForm Noncommercial License 1.0.0 (*Top Recommendation for Code*)
-* **Website**: [polyformproject.org](https://polyformproject.org/licenses/noncommercial/1.0.0/)
-* **Why Choose This**: Designed specifically by legal experts to permit personal, academic, and open research use while explicitly banning commercial use, paid distribution, or hosting as a paid service.
-
-#### 2. Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
-* **Website**: [creativecommons.org](https://creativecommons.org/licenses/by-nc/4.0/)
-* **Why Choose This**: Ideal if your repository contains educational question banks, test templates, and visual assets alongside the codebase.
-
-#### 3. Business Source License 1.1 (BSL / BUSL)
-* **Why Choose This**: Used by companies like HashiCorp and CockroachDB. Permits free non-commercial and development use, but requires paid licensing for commercial hosting or production deployments.
-
-### License Header Notice Example
-
-To enforce commercial protection, add a `LICENSE` file containing the **PolyForm Noncommercial License 1.0.0** and place the following header at the top of key files:
-
 ```text
-Copyright (c) 2026 [Your Name / Organization]. All rights reserved.
-
-This source code is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use, reselling, or hosting this software as a paid service is strictly prohibited without explicit written permission from the copyright holder.
+Copyright (c) 2026 @suvadippatra. All rights reserved.
 ```
-
 ---
 
 <p center>
