@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, memo, useCallback } from 'react';
+import React, { useEffect, useRef, memo, useCallback } from 'react';
 
 export interface AutoExpandingTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
@@ -21,18 +21,15 @@ const AutoExpandingTextarea = memo(function AutoExpandingTextarea({
   const resize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    window.requestAnimationFrame(() => {
-      if (!el) return;
-      el.style.height = 'auto';
-      const computedLineHeight = 24;
-      const minH = minRows * computedLineHeight + 12;
-      const scrollH = el.scrollHeight;
-      const finalH = Math.max(scrollH + 4, minH);
-      el.style.height = `${finalH}px`;
-    });
+    el.style.height = 'auto';
+    const computedLineHeight = 22;
+    const minH = minRows * computedLineHeight + 12;
+    const scrollH = el.scrollHeight;
+    const finalH = Math.max(scrollH + 4, minH);
+    el.style.height = `${finalH}px`;
   }, [minRows]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     resize();
   }, [value, resize]);
 

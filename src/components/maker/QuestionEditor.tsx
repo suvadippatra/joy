@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import {
   Plus,
   Trash2,
@@ -88,10 +88,62 @@ const QuestionEditor = memo(function QuestionEditor({
   const [rawMarksStr, setRawMarksStr] = useState<string | null>(null);
   const [rawPenaltyStr, setRawPenaltyStr] = useState<string | null>(null);
 
+  // Local input state for 0ms fluid typing response
+  const [localText, setLocalText] = useState<string>(() => question?.text || '');
+  const [localOptions, setLocalOptions] = useState<string[]>(() => question?.options || []);
+  const [localCorrectNat, setLocalCorrectNat] = useState<string>(() => question?.correctNat || '');
+
+  // Track active question ID to only reset local state when switching questions
+  const activeQIdRef = useRef<number | string | null>(question?.id ?? null);
+
+  useEffect(() => {
+    if (question && question.id !== activeQIdRef.current) {
+      activeQIdRef.current = question.id;
+      setLocalText(question.text || '');
+      setLocalOptions(question.options || []);
+      setLocalCorrectNat(question.correctNat || '');
+    }
+  }, [question?.id, questionIndex]);
+
+  // Debounce sync localText -> parent onUpdateQuestion
+  useEffect(() => {
+    if (!question) return;
+    const timer = setTimeout(() => {
+      if (question.id === activeQIdRef.current && localText !== question.text) {
+        onUpdateQuestion({ text: localText });
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [localText]);
+
+  // Debounce sync localOptions -> parent onUpdateQuestion
+  useEffect(() => {
+    if (!question) return;
+    const timer = setTimeout(() => {
+      if (question.id === activeQIdRef.current && JSON.stringify(localOptions) !== JSON.stringify(question.options)) {
+        onUpdateQuestion({ options: localOptions });
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [localOptions]);
+
+  // Debounce sync localCorrectNat -> parent onUpdateQuestion
+  useEffect(() => {
+    if (!question) return;
+    const timer = setTimeout(() => {
+      if (question.id === activeQIdRef.current && localCorrectNat !== question.correctNat) {
+        onUpdateQuestion({ correctNat: localCorrectNat });
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [localCorrectNat]);
+
   if (!question) return null;
 
   const insertMathSnippet = (snippet: string) => {
-    onUpdateQuestion({ text: (question.text || '') + snippet });
+    const newText = (localText || '') + snippet;
+    setLocalText(newText);
+    onUpdateQuestion({ text: newText });
   };
 
   const sLabel = `S${sectionIndex + 1}Q${questionIndex + 1}`;
@@ -285,8 +337,8 @@ const QuestionEditor = memo(function QuestionEditor({
         </div>
 
         <AutoExpandingTextarea
-          value={question.text}
-          onChange={e => onUpdateQuestion({ text: e.target.value })}
+          value={localText}
+          onChange={e => setLocalText(e.target.value)}
           placeholder="Enter question statement..."
           className="w-full min-h-[90px] p-3 text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
           minRows={3}
@@ -368,7 +420,7 @@ const QuestionEditor = memo(function QuestionEditor({
             </div>
 
             <div className="space-y-2 w-full">
-              {(question.options || []).map((opt, oi) => {
+              {(localOptions || []).map((opt, oi) => {
                 const { text: optText, image: optImgSrc } = parseOptionData(opt);
 
                 const isCorrect =
@@ -413,10 +465,10 @@ const QuestionEditor = memo(function QuestionEditor({
                         <AutoExpandingTextarea
                           value={optText}
                           onChange={e => {
-                            const currentOpts = [...(question.options || [])];
+                            const currentOpts = [...(localOptions || [])];
                             const newText = e.target.value;
                             currentOpts[oi] = optImgSrc ? `${newText} ||IMG:${optImgSrc}||` : newText;
-                            onUpdateQuestion({ options: currentOpts });
+                            setLocalOptions(currentOpts);
                           }}
                           placeholder={`Option ${String.fromCharCode(65 + oi)} statement...`}
                           className="w-full px-2 py-1 text-xs sm:text-sm rounded-lg bg-transparent border-0 text-slate-800 dark:text-slate-100 focus:outline-none min-h-[32px] leading-relaxed"
@@ -441,11 +493,12 @@ const QuestionEditor = memo(function QuestionEditor({
                           </label>
                         )}
 
-                        {(question.options || []).length > 2 && (
+                        {(localOptions || []).length > 2 && (
                           <button
                             type="button"
                             onClick={() => {
-                              const currentOpts = (question.options || []).filter((_, i) => i !== oi);
+                              const currentOpts = (localOptions || []).filter((_, i) => i !== oi);
+                              setLocalOptions(currentOpts);
                               onUpdateQuestion({ options: currentOpts });
                             }}
                             className="p-1 rounded-lg text-slate-400 hover:text-red-500 shrink-0"
@@ -468,8 +521,9 @@ const QuestionEditor = memo(function QuestionEditor({
                           }}
                           onReplaceImage={e => onImageFilePicked(e, { optionIndex: oi })}
                           onRemoveImage={() => {
-                            const currentOpts = [...(question.options || [])];
+                            const currentOpts = [...(localOptions || [])];
                             currentOpts[oi] = optText;
+                            setLocalOptions(currentOpts);
                             onUpdateQuestion({ options: currentOpts });
                           }}
                           compact={true}
@@ -489,8 +543,8 @@ const QuestionEditor = memo(function QuestionEditor({
             </label>
             <input
               type="text"
-              value={question.correctNat || ''}
-              onChange={e => onUpdateQuestion({ correctNat: e.target.value })}
+              value={localCorrectNat}
+              onChange={e => setLocalCorrectNat(e.target.value)}
               placeholder="e.g. 15 or 14.5-15.5"
               className="w-full px-3 py-1.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-mono font-bold focus:outline-none"
             />

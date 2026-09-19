@@ -134,11 +134,12 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
       /* --- Question Body & Math Precision Styling --- */
       :root {
-        --q-font: ${fontStr};
+        --q-font: ${fontStr} !important;
+        --q-font-family: ${fontStr} !important;
       }
       
-      body, .question-content, .q-text, .opt-text, .question-container, .option-item, table, td, th {
-        font-family: var(--q-font) !important;
+      html, body, div, span, p, label, button, input, textarea, select, table, tr, td, th, .question-content, .q-text, .opt-text, .question-container, .option-item, .q-num-inline, .nat-container, .q-block-item, .nat-input {
+        font-family: ${fontStr} !important;
         font-variant-numeric: lining-nums tabular-nums !important;
         font-feature-settings: "lnum" 1, "tnum" 1 !important;
       }
