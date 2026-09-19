@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
-import { subjects, categories, Subject, Category, CBTTest } from '../data/cbtData';
+import { CBTTest } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
+import { useSubjectCategories } from '../hooks/useSubjectCategories';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight, Edit3, Check, Sparkles, Database } from 'lucide-react';
+import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight, Edit3, Check, Sparkles, Database, Calculator, BookOpen, GraduationCap, Layers } from 'lucide-react';
 import Footer from '../components/Footer';
 import { useReports } from '../hooks/useReports';
 import { StartExamModal } from '../components/StartExamModal';
@@ -24,6 +25,7 @@ interface PendingImportData {
 export default function Home() {
   const { tests, addLocalTest } = useCBTData();
   const { reports } = useReports();
+  const { subjects, getCategoriesForSubject, addSubject } = useSubjectCategories();
   const navigate = useNavigate();
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -48,13 +50,15 @@ export default function Home() {
   }, [reports]);
 
   const getSubjectIcon = (subject: string) => {
-    switch (subject) {
-      case 'Botany': return <Leaf size={22} className="text-white drop-shadow-sm" />;
-      case 'Zoology': return <Dna size={22} className="text-white drop-shadow-sm" />;
-      case 'Physics': return <Activity size={22} className="text-white drop-shadow-sm" />;
-      case 'Chemistry': return <FlaskConical size={22} className="text-white drop-shadow-sm" />;
-      default: return <Microscope size={22} className="text-white drop-shadow-sm" />;
-    }
+    const lower = subject.toLowerCase();
+    if (lower.includes('botan')) return <Leaf size={22} className="text-white drop-shadow-sm" />;
+    if (lower.includes('zool')) return <Dna size={22} className="text-white drop-shadow-sm" />;
+    if (lower.includes('physic')) return <Activity size={22} className="text-white drop-shadow-sm" />;
+    if (lower.includes('chem')) return <FlaskConical size={22} className="text-white drop-shadow-sm" />;
+    if (lower.includes('math')) return <Calculator size={22} className="text-white drop-shadow-sm" />;
+    if (lower.includes('eng') || lower.includes('lit')) return <BookOpen size={22} className="text-white drop-shadow-sm" />;
+    if (lower.includes('bio')) return <Dna size={22} className="text-white drop-shadow-sm" />;
+    return <Layers size={22} className="text-white drop-shadow-sm" />;
   };
 
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,18 +117,22 @@ export default function Home() {
       const totalMarks = totalQuestions * marksCorrect;
 
       // Guess initial subject from title or content
-      let guessedSubject: string = subjects[0];
+      let guessedSubject: string = subjects[0] || 'Botany';
       const lower = (title + ' ' + file.name).toLowerCase();
-      if (lower.includes('botany')) guessedSubject = 'Botany';
-      else if (lower.includes('zoology')) guessedSubject = 'Zoology';
-      else if (lower.includes('physics')) guessedSubject = 'Physics';
-      else if (lower.includes('chemistry')) guessedSubject = 'Chemistry';
+      for (const s of subjects) {
+        if (lower.includes(s.toLowerCase())) {
+          guessedSubject = s;
+          break;
+        }
+      }
+
+      const availableCats = getCategoriesForSubject(guessedSubject);
 
       setPendingImport({
         title,
         rawContent: content,
         subject: guessedSubject,
-        category: categories[0],
+        category: availableCats[0] || 'Kattar Tests',
         durationStr,
         totalQuestions,
         totalMarks,
@@ -142,11 +150,15 @@ export default function Home() {
     setIsImporting(true);
     try {
       const finalSubject = isCustomSubject && customSubject.trim() ? customSubject.trim() : pendingImport.subject;
+      if (isCustomSubject && customSubject.trim()) {
+        addSubject(customSubject.trim());
+      }
+
       const newTest: CBTTest = {
         id: 'local_' + Date.now(),
         title: pendingImport.title.trim() || 'Custom CBT Test',
-        subject: finalSubject as Subject,
-        category: pendingImport.category as Category,
+        subject: finalSubject,
+        category: pendingImport.category,
         dateAdded: new Date().toISOString(),
         isLocal: true,
         duration: pendingImport.durationStr,
@@ -203,7 +215,7 @@ export default function Home() {
         </div>
 
         {/* Subject Grid - Equal compact dimensions, no wrapping, clearly visible graphics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-5">
           {subjects.map((subject) => (
             <Link 
               key={subject} 
@@ -394,7 +406,12 @@ export default function Home() {
                     key={s}
                     type="button"
                     onClick={() => {
-                      setPendingImport({ ...pendingImport, subject: s });
+                      const nextCats = getCategoriesForSubject(s);
+                      setPendingImport({ 
+                        ...pendingImport, 
+                        subject: s,
+                        category: nextCats[0] || 'Kattar Tests'
+                      });
                       setIsCustomSubject(false);
                     }}
                     className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
@@ -414,8 +431,8 @@ export default function Home() {
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                 Destination Category
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                {categories.map(c => (
+              <div className="flex flex-wrap gap-2">
+                {getCategoriesForSubject(pendingImport.subject).map(c => (
                   <button
                     key={c}
                     type="button"

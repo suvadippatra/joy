@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { CBTTest, Category, subjects } from '../data/cbtData';
+import { CBTTest } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
+import { useSubjectCategories } from '../hooks/useSubjectCategories';
 import { useOfflineCache } from '../hooks/useOfflineCache';
 import { Play, MoreVertical, Trash2, CloudDownload, CloudOff, Loader2, Download } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -11,8 +12,29 @@ import { triggerHtmlDownload } from '../utils/cbtCompiler';
 
 export default function SubjectView() {
   const { subject: subjectParam } = useParams<{ subject: string }>();
-  const [activeCategory, setActiveCategory] = useState<Category>(() => { const saved = sessionStorage.getItem(`activeCategory_${subjectParam}`); return (saved as Category) || 'Kattar Tests'; });
-  useEffect(() => { sessionStorage.setItem(`activeCategory_${subjectParam}`, activeCategory); }, [activeCategory, subjectParam]);
+  const { subjects, getCategoriesForSubject } = useSubjectCategories();
+
+  const subject = subjects.find(s => s.toLowerCase() === subjectParam?.toLowerCase()) || (subjectParam ? (subjectParam.charAt(0).toUpperCase() + subjectParam.slice(1)) : 'Botany');
+  const availableCategories = getCategoriesForSubject(subject);
+
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    const saved = sessionStorage.getItem(`activeCategory_${subjectParam}`);
+    if (saved && availableCategories.some(c => c.toLowerCase() === saved.toLowerCase())) {
+      return saved;
+    }
+    return availableCategories[0] || 'Kattar Tests';
+  });
+
+  // Keep activeCategory synced if categories change or subject changes
+  useEffect(() => {
+    if (!availableCategories.some(c => c.toLowerCase() === activeCategory.toLowerCase())) {
+      setActiveCategory(availableCategories[0] || 'Kattar Tests');
+    }
+  }, [availableCategories, activeCategory]);
+
+  useEffect(() => { 
+    sessionStorage.setItem(`activeCategory_${subjectParam}`, activeCategory); 
+  }, [activeCategory, subjectParam]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedTestToStart, setSelectedTestToStart] = useState<CBTTest | null>(null);
@@ -20,12 +42,9 @@ export default function SubjectView() {
   
   const { tests, deleteLocalTest, getLocalTestHTML } = useCBTData();
   const { downloadedTests, isDownloading, downloadTest, removeDownload } = useOfflineCache();
-  const subject = subjects.find(s => s.toLowerCase() === subjectParam?.toLowerCase()) || 'Botany';
-  const subjectTests = tests.filter(test => test.subject === subject);
   
-  const kattarCount = subjectTests.filter(t => t.category === 'Kattar Tests').length;
-  const practiceCount = subjectTests.filter(t => t.category === 'Practice Sets').length;
-  const displayTests = subjectTests.filter(t => t.category === activeCategory);
+  const subjectTests = tests.filter(test => test.subject.toLowerCase() === subject.toLowerCase());
+  const displayTests = subjectTests.filter(t => t.category.toLowerCase() === activeCategory.toLowerCase());
 
   // Always scroll to the top cleanly when opening a subject or switching categories
   useEffect(() => {
@@ -46,44 +65,34 @@ export default function SubjectView() {
       
       <main className="flex-1 w-full px-3 py-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 mx-auto xl:max-w-[90rem]">
         
-        {/* Categories Tabs - Centered in that line */}
-        <div className="flex items-center justify-center border-b-2 border-blue-200/80 dark:border-slate-700 w-full">
-          <div className="flex items-center justify-center gap-6 sm:gap-12">
-            <button 
-              onClick={() => setActiveCategory('Kattar Tests')}
-              className={clsx(
-                "flex items-center gap-2 pb-2.5 sm:pb-3 text-base sm:text-xl font-bold transition-colors relative",
-                activeCategory === 'Kattar Tests' 
-                  ? "text-blue-600 dark:text-blue-400" 
-                  : "text-slate-400 dark:text-slate-500 hover:text-blue-500"
-              )}
-            >
-              <span>Kattar Tests</span>
-              <span className="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-current text-[11px] sm:text-xs shrink-0 font-bold">
-                {kattarCount}
-              </span>
-              {activeCategory === 'Kattar Tests' && (
-                <div className="absolute bottom-[-2px] left-0 w-full h-1 bg-blue-600 dark:bg-blue-400 rounded-t-full shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
-              )}
-            </button>
-            
-            <button 
-              onClick={() => setActiveCategory('Practice Sets')}
-              className={clsx(
-                "flex items-center gap-2 pb-2.5 sm:pb-3 text-base sm:text-xl font-bold transition-colors relative",
-                activeCategory === 'Practice Sets' 
-                  ? "text-blue-600 dark:text-blue-400" 
-                  : "text-slate-400 dark:text-slate-500 hover:text-blue-500"
-              )}
-            >
-              <span>Practice Tests</span>
-              <span className="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-current text-[11px] sm:text-xs shrink-0 font-bold">
-                {practiceCount}
-              </span>
-              {activeCategory === 'Practice Sets' && (
-                <div className="absolute bottom-[-2px] left-0 w-full h-1 bg-blue-600 dark:bg-blue-400 rounded-t-full shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
-              )}
-            </button>
+        {/* Categories Tabs - Centered with smooth horizontal scroll if many categories */}
+        <div className="flex items-center justify-center border-b-2 border-blue-200/80 dark:border-slate-700 w-full overflow-x-auto no-scrollbar">
+          <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-8 md:gap-12 min-w-max px-2">
+            {availableCategories.map((cat) => {
+              const count = subjectTests.filter(t => t.category.toLowerCase() === cat.toLowerCase()).length;
+              const isActive = activeCategory.toLowerCase() === cat.toLowerCase();
+
+              return (
+                <button 
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={clsx(
+                    "flex items-center gap-2 pb-2.5 sm:pb-3 text-sm sm:text-lg lg:text-xl font-bold transition-colors relative whitespace-nowrap shrink-0",
+                    isActive 
+                      ? "text-blue-600 dark:text-blue-400" 
+                      : "text-slate-400 dark:text-slate-500 hover:text-blue-500"
+                  )}
+                >
+                  <span>{cat}</span>
+                  <span className="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-current text-[11px] sm:text-xs shrink-0 font-bold">
+                    {count}
+                  </span>
+                  {isActive && (
+                    <div className="absolute bottom-[-2px] left-0 w-full h-1 bg-blue-600 dark:bg-blue-400 rounded-t-full shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 

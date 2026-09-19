@@ -3,7 +3,7 @@ export interface CBTTest {
   title: string;
   filename?: string;
   subject: string;
-  category: 'Kattar Tests' | 'Practice Sets';
+  category: string;
   dateAdded: string;
   isLocal?: boolean;
   duration?: string;
@@ -14,10 +14,12 @@ export interface CBTTest {
   disabled?: boolean;
 }
 
-export const subjects = ['Physics', 'Chemistry', 'Botany', 'Zoology'] as const;
-export type Subject = typeof subjects[number];
+export const defaultSubjects = ['Botany', 'Zoology', 'Physics', 'Chemistry'] as const;
+export const subjects = ['Botany', 'Zoology', 'Physics', 'Chemistry'] as const;
+export type Subject = string;
+export const defaultCategories = ['Kattar Tests', 'Practice Sets'] as const;
 export const categories = ['Kattar Tests', 'Practice Sets'] as const;
-export type Category = typeof categories[number];
+export type Category = string;
 
 export const staticCbtTests: CBTTest[] = [
   {

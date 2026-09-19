@@ -1,4 +1,4 @@
-import { Moon, Sun, Search, ChevronLeft, X, Settings, GraduationCap, Sparkles } from 'lucide-react';
+import { Moon, Sun, Search, ChevronLeft, X, Settings, Sparkles } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useRef, useEffect, ReactNode } from 'react';
@@ -55,9 +55,11 @@ export default function Header({
           )}
           
           {isHome && (
-            <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 shadow-md shadow-blue-500/20 shrink-0">
-              <GraduationCap size={18} className="text-white" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="CBT Logo" 
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain shadow-sm shrink-0 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" 
+            />
           )}
           
           <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent truncate tracking-tight ml-0.5 sm:ml-1">

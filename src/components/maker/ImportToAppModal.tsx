@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { Download, Play, Check, Copy, FolderPlus, X, Sparkles, Database, Edit3, FileCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppState } from '../../types/cbtMaker';
-import { subjects, categories, CBTTest } from '../../data/cbtData';
+import { CBTTest } from '../../data/cbtData';
 import { useCBTData } from '../../hooks/useCBTData';
+import { useSubjectCategories } from '../../hooks/useSubjectCategories';
 import { triggerHtmlDownload } from '../../utils/cbtCompiler';
 
 interface ImportToAppModalProps {
@@ -26,17 +27,18 @@ function ImportToAppModal({
 }: ImportToAppModalProps) {
   const navigate = useNavigate();
   const { addLocalTest } = useCBTData();
+  const { subjects, getCategoriesForSubject, addSubject, addCategory } = useSubjectCategories();
 
   const [examTitle, setExamTitle] = useState<string>(appState.examTitle || 'Custom CBT Test');
   const [downloadFilename, setDownloadFilename] = useState<string>(
     filename || `${(appState.examTitle || 'CBT_Exam').replace(/[^a-zA-Z0-9_-]/g, '_')}.html`
   );
 
-  const [subject, setSubject] = useState<string>(subjects[0]);
+  const [subject, setSubject] = useState<string>(() => subjects[0] || 'Botany');
   const [customSubject, setCustomSubject] = useState('');
   const [isCustomSubject, setIsCustomSubject] = useState(false);
 
-  const [category, setCategory] = useState<string>(categories[0]);
+  const [category, setCategory] = useState<string>(() => getCategoriesForSubject(subjects[0] || 'Botany')[0] || 'Kattar Tests');
   const [customCategory, setCustomCategory] = useState('');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
 
@@ -58,7 +60,7 @@ function ImportToAppModal({
   const fileSizeKB = Math.round(new Blob([compiledHtml]).size / 1024);
 
   const finalSubject = isCustomSubject && customSubject.trim() ? customSubject.trim() : subject;
-  const finalCategory = (isCustomCategory && customCategory.trim() ? customCategory.trim() : category) as any;
+  const finalCategory = isCustomCategory && customCategory.trim() ? customCategory.trim() : category;
   const finalTitle = examTitle.trim() || appState.examTitle || 'Custom CBT Test';
 
   const handleImportToHub = async () => {
@@ -66,6 +68,13 @@ function ImportToAppModal({
     try {
       if (onUpdateTitle && finalTitle !== appState.examTitle) {
         onUpdateTitle(finalTitle);
+      }
+
+      if (isCustomSubject && customSubject.trim()) {
+        addSubject(customSubject.trim());
+      }
+      if (isCustomCategory && customCategory.trim()) {
+        addCategory(finalSubject, customCategory.trim());
       }
 
       const newId = `local_cbt_${Date.now()}`;
@@ -230,6 +239,9 @@ function ImportToAppModal({
                       onClick={() => {
                         setSubject(s);
                         setIsCustomSubject(false);
+                        const nextCats = getCategoriesForSubject(s);
+                        setCategory(nextCats[0] || 'Kattar Tests');
+                        setIsCustomCategory(false);
                       }}
                       className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                         !isCustomSubject && subject === s
@@ -269,8 +281,8 @@ function ImportToAppModal({
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Select Target Category
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {categories.map(c => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {getCategoriesForSubject(finalSubject).map(c => (
                     <button
                       key={c}
                       type="button"
@@ -287,7 +299,28 @@ function ImportToAppModal({
                       {c}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomCategory(true)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                      isCustomCategory
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300'
+                    }`}
+                  >
+                    + Custom Category
+                  </button>
                 </div>
+                {isCustomCategory && (
+                  <input
+                    type="text"
+                    value={customCategory}
+                    onChange={e => setCustomCategory(e.target.value)}
+                    placeholder="Enter custom category name (e.g. Chapterwise)"
+                    className="mt-2 w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    autoFocus
+                  />
+                )}
               </div>
 
               {/* Actions note */}
