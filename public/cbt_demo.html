@@ -42,7 +42,7 @@
             --border-color: #334155;
         }
 
-        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; -webkit-print-color-adjust: exact; print-color-adjust: exact; touch-action: manipulation; }
         .katex, .katex *, .katex *:before, .katex *:after { box-sizing: content-box !important; }
         .katex, body, table, td, th, .q-text, .opt-text { font-variant-numeric: lining-nums tabular-nums !important; font-feature-settings: "lnum" 1, "tnum" 1 !important; }
         
@@ -215,7 +215,7 @@
 
         /* FIX: Reduced padding for Options to avoid overheight */
         .option-item { 
-            display: flex; align-items: center; gap: 15px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: 0.2s; font-size: 1.1rem; white-space: pre-wrap; 
+            display: flex; align-items: center; gap: 15px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: background-color 0.05s, border-color 0.05s; touch-action: manipulation; font-size: 1.1rem; white-space: pre-wrap; 
             font-family: var(--q-font); color: var(--text-dark);
         }
         .option-item:hover { background: var(--bg-main); border-color: var(--primary); }

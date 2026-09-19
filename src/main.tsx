@@ -3,6 +3,10 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import 'katex/dist/katex.min.css';
 import './index.css';
+import { registerSW } from 'virtual:pwa-register';
+
+// Register Service Worker for 100% offline KaTeX font and test asset caching
+registerSW({ immediate: true });
 
 // Always force the application to start on the Home page (main landing page) upon refresh/load.
 // This also cleans up any malformed GitHub Pages URLs.

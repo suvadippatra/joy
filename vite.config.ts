@@ -29,9 +29,25 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf}'],
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // Exclude the large test HTML files from being precached to prevent memory/bandwidth spikes on initial load
           globIgnores: ['cbts/**/*.html'],
           runtimeCaching: [
+            {
+              // Dynamically cache KaTeX local libraries and font assets with CacheFirst strategy for 100% offline math rendering
+              urlPattern: ({ url }) => url.pathname.includes('/libs/') || url.pathname.includes('/fonts/'),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'local-katex-assets-cache',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
             {
               // Dynamically cache CBT tests only when they are actually opened
               urlPattern: ({ url }) => url.pathname.includes('/cbts/'),

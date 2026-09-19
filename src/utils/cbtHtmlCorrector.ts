@@ -137,19 +137,25 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
         --q-font: ${fontStr};
       }
       
-      body, .question-content, .q-text, .opt-text, table, td, th {
-        font-family: var(--q-font);
-        white-space: normal;
+      body, .question-content, .q-text, .opt-text, .question-container, .option-item, table, td, th {
+        font-family: var(--q-font) !important;
         font-variant-numeric: lining-nums tabular-nums !important;
         font-feature-settings: "lnum" 1, "tnum" 1 !important;
       }
 
-      /* Mandatory KaTeX Box-Sizing & Layout Precision */
+      /* Preserve Assertion-Reason & multiline question formatting */
+      .q-text, .opt-text, .question-content p, .question-content div {
+        white-space: pre-wrap !important;
+        line-height: 1.6 !important;
+      }
+
+      /* Mandatory KaTeX Box-Sizing, Font & Layout Precision */
       .katex, .katex *, .katex *:before, .katex *:after {
         box-sizing: content-box !important;
       }
 
       .katex {
+        font-family: 'KaTeX_Main', 'KaTeX_Math', 'KaTeX_AMS', serif !important;
         font-size: 1.08em;
         text-indent: 0;
         font-variant-numeric: lining-nums tabular-nums !important;
