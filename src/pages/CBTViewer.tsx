@@ -93,28 +93,60 @@ export default function CBTViewer() {
       try {
         let html = '';
 
-        // 1. Check memory cache first (instant 0ms)
+        // 1. Check memory cache first
         if (htmlMemoryCache.has(test.id)) {
           html = htmlMemoryCache.get(test.id)!;
-        } else if (test.isLocal) {
-          // 2. Fetch imported test directly from localforage
-          const cachedHtml = await localforage.getItem(test.id + '_html');
-          html = (cachedHtml as string) || '';
-          if (!html) {
-            console.error('Local test HTML not found in storage for id:', test.id);
-          }
-        } else {
-          // 3. Fetch static demo file from bundle
-          const basePath = import.meta.env.BASE_URL;
-          const normalizedPath = test.filename?.startsWith('/') ? test.filename.slice(1) : (test.filename || '');
-          const res = await fetch(basePath + normalizedPath);
-          if (!res.ok) {
-            throw new Error(`Failed to fetch test file: ${res.statusText}`);
-          }
-          html = await res.text();
         }
 
-        if (html) {
+        // 2. Try fetching imported/local test directly from localforage storage
+        if (!html) {
+          const cachedHtml = (await localforage.getItem(test.id + '_html')) || (await localforage.getItem(test.id));
+          if (cachedHtml && typeof cachedHtml === 'string' && cachedHtml.trim()) {
+            html = cachedHtml;
+          }
+        }
+
+        // 3. Fallback to static bundled demo files if not in localforage
+        if (!html && test.filename) {
+          try {
+            const basePath = import.meta.env.BASE_URL;
+            const normalizedPath = test.filename.startsWith('/') ? test.filename.slice(1) : test.filename;
+            const res = await fetch(basePath + normalizedPath);
+            if (res.ok) {
+              html = await res.text();
+            }
+          } catch (e) {
+            console.warn("Could not fetch static test file:", e);
+          }
+        }
+
+        // 4. Handle blank or missing HTML gracefully with an informative status view
+        if (!html || !html.trim()) {
+          html = `<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Test Content Not Found</title>
+            <style>
+              body { font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; text-align: center; padding: 24px; }
+              .card { background: white; padding: 36px 28px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); max-width: 440px; width: 100%; border: 1px solid #e2e8f0; }
+              .icon { font-size: 40px; margin-bottom: 12px; }
+              h2 { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+              p { font-size: 14px; color: #64748b; line-height: 1.5; margin: 0 0 24px 0; }
+              button { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.15s ease; }
+              button:hover { background: #1d4ed8; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="icon">📄</div>
+              <h2>Test File Content Unavailable</h2>
+              <p>The stored HTML content for "<strong>${test.title || 'Selected Test'}</strong>" could not be retrieved from local storage or network.</p>
+              <button onclick="window.parent.location.hash='#/'">Return to Dashboard</button>
+            </div>
+          </body>
+          </html>`;
+        } else {
           htmlMemoryCache.set(test.id, html);
         }
 

@@ -64,8 +64,8 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   const [fontScale, setFontScale] = useState<number>(1.15); // Default 115% high-readability scale
   const [isSectionMenuOpen, setIsSectionMenuOpen] = useState<boolean>(false);
 
-  // Global Media Mode: 'always' (instant image rendering) or 'on-demand'
-  const [mediaMode, setMediaMode] = useState<'on-demand' | 'always'>('always');
+  // Global Media Mode: 'on-demand' (10-second memory saver mode) or 'always'
+  const [mediaMode, setMediaMode] = useState<'on-demand' | 'always'>('on-demand');
 
   // Question Diagram 10s timer state
   const [showQuestionImage, setShowQuestionImage] = useState<boolean>(false);
@@ -76,15 +76,25 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   const [activeOptionImagePreviews, setActiveOptionImagePreviews] = useState<Record<number, number>>({});
   const optImageIntervalRef = useRef<any>(null);
 
-  // Deferred question state for non-blocking KaTeX parsing
-  const deferredQuestion = useDeferredValue(question);
+  // Debounced question state for non-blocking KaTeX parsing during typing
+  const [debouncedQuestion, setDebouncedQuestion] = useState<Question | null>(question);
 
-  // Reset local selection when question changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuestion(question);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [question]);
+
+  // Reset local selection & image timers when question changes
   useEffect(() => {
     setSelectedOption(null);
     setSelectedMsq([]);
     setNatAnswer('');
-  }, [questionIndex, section.name]);
+    setShowQuestionImage(false);
+    setQImageSecondsLeft(10);
+    setActiveOptionImagePreviews({});
+  }, [questionIndex, question?.id, section.name]);
 
   // Question image countdown
   useEffect(() => {
@@ -154,22 +164,22 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
     });
   };
 
-  // Memoized LaTeX & Markdown parsing using deferredQuestion
+  // Memoized LaTeX & Markdown parsing using debouncedQuestion
   const processedText = useMemo(() => {
-    return deferredQuestion ? formatContent(deferredQuestion.text, renderEngine, mathMode, true) : '';
-  }, [deferredQuestion?.text, renderEngine, mathMode]);
+    return debouncedQuestion ? formatContent(debouncedQuestion.text, renderEngine, mathMode, true) : '';
+  }, [debouncedQuestion?.text, renderEngine, mathMode]);
 
   const processedTable = useMemo(() => {
-    return deferredQuestion?.table ? formatContent(deferredQuestion.table, renderEngine, mathMode, true) : '';
-  }, [deferredQuestion?.table, renderEngine, mathMode]);
+    return debouncedQuestion?.table ? formatContent(debouncedQuestion.table, renderEngine, mathMode, true) : '';
+  }, [debouncedQuestion?.table, renderEngine, mathMode]);
 
   const processedExp = useMemo(() => {
-    return deferredQuestion?.explanation ? formatContent(deferredQuestion.explanation, renderEngine, mathMode, true) : '';
-  }, [deferredQuestion?.explanation, renderEngine, mathMode]);
+    return debouncedQuestion?.explanation ? formatContent(debouncedQuestion.explanation, renderEngine, mathMode, true) : '';
+  }, [debouncedQuestion?.explanation, renderEngine, mathMode]);
 
   const processedOptions = useMemo(() => {
-    if (!deferredQuestion?.options) return [];
-    return deferredQuestion.options.map((opt) => {
+    if (!debouncedQuestion?.options) return [];
+    return debouncedQuestion.options.map((opt) => {
       let optText = opt || '';
       let optImgSrc = '';
       const imgMatch = optText.match(/\|\|IMG:([\s\S]+?)\|\|/);
@@ -181,7 +191,7 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
       const imgSize = optImgSrc ? formatDataUrlSize(optImgSrc) : '';
       return { html: safeOpt, imgSrc: optImgSrc, imgSize };
     });
-  }, [deferredQuestion?.options, renderEngine, mathMode]);
+  }, [debouncedQuestion?.options, renderEngine, mathMode]);
 
   if (!question) {
     return (
@@ -312,26 +322,6 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
             >
               <ZoomIn size={13} />
             </button>
-          </div>
-
-          {/* Engine Archetype Visual Indicator */}
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all">
-            {mathMode === 'LATEX' ? (
-              <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
-                <Code size={13} />
-                <span>LaTeX Engine (KaTeX)</span>
-              </span>
-            ) : renderEngine === 'MATHML' ? (
-              <span className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800">
-                <Code size={13} />
-                <span>MathML Engine</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-                <FileText size={13} />
-                <span>Pure HTML Engine</span>
-              </span>
-            )}
           </div>
 
           {/* Media Load Saver Toggle */}

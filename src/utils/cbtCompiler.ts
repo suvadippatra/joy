@@ -118,8 +118,8 @@ export function formatMathToHTMLFallback(s: string, isDisplay = false): string {
     .replace(/\\dot\{([^}]+)\}/g, '$1&#x0307;')
     .replace(/\\ddot\{([^}]+)\}/g, '$1&#x0308;');
 
-  // 6. Common functions (sine, cos, etc.)
-  out = out.replace(/\\(sin|cos|tan|cot|sec|csc|log|ln|exp|lim|max|min)\b/g, '<span style="font-style:normal;">$1</span>');
+  // 6. Common functions (sine, cos, tan, log, ln, exp, lim, max, min, det, etc.)
+  out = out.replace(/\\(sin|cos|tan|cot|sec|csc|log|ln|exp|lim|max|min|det)\b/g, '<span class="math-function" style="font-family: \'KaTeX_Main\', serif; font-style: normal; margin-right: 0.15em;">$1</span>');
 
   // 7. Multi-pass Fractions for HTML with clean fraction vinculum
   let prevS = '';
@@ -236,20 +236,17 @@ export function formatContent(
         processedMath = formatMathToHTMLFallback(rawContent, block.isDisplay);
       }
     } else {
-      // LaTeX KaTeX Engine (Local or Online)
-      if (isLivePreview) {
-        try {
-          processedMath = katex.renderToString(rawContent, {
-            displayMode: block.isDisplay,
-            throwOnError: false,
-            macros: KATEX_MACROS
-          });
-        } catch {
-          processedMath = block.isDisplay ? `$$${rawContent}$$` : `$${rawContent}$`;
-        }
-      } else {
-        // In standalone compiled CBT: keep $...$ / $$...$$ for KaTeX auto-render
-        processedMath = block.isDisplay ? `$$${rawContent}$$` : `$${rawContent}$`;
+      // LaTeX KaTeX Engine (Local or Online) - Pre-render using katex.renderToString in both preview and compiled CBT
+      try {
+        processedMath = katex.renderToString(rawContent, {
+          displayMode: block.isDisplay,
+          throwOnError: false,
+          macros: KATEX_MACROS
+        });
+      } catch {
+        // Double-escape backslashes in fallback raw math string to prevent JS escape character corruption (\f, \t, \b, \r)
+        const safeRaw = rawContent.replace(/\\/g, '\\\\');
+        processedMath = block.isDisplay ? `$$${safeRaw}$$` : `$${safeRaw}$`;
       }
     }
 
@@ -366,14 +363,9 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   const safeInstInject = `/*<INST_START>*/\nconst EXAM_S_HTML = \`${instHtml.replace(/`/g, '\\`')}\`;\n/*<INST_END>*/`;
   txt = txt.replace(instRegex, safeInstInject);
 
-  // KaTeX CSS & JS Injections (For LaTeX math mode OR whenever a KaTeX font family is selected)
-  let katexCSS = '';
-  let katexJS = '';
-  const isKaTeXRequired = appState.mathMode === 'LATEX' || (appState.fontName && (appState.fontName.includes('KaTeX') || appState.fontName.includes('Computer Modern')));
-  if (isKaTeXRequired) {
-    katexCSS = `<link rel="stylesheet" href="./libs/katex.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';">`;
-    katexJS = `\n<script defer src="./libs/katex.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';"><\/script>\n<script defer src="./libs/auto-render.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';" onload="if(typeof triggerMathRender === 'function'){ triggerMathRender(); } else if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}], throwOnError: false}); }"><\/script>\n`;
-  }
+  // KaTeX CSS & JS Injections (Always include KaTeX assets & box-sizing reset for pristine math rendering)
+  const katexCSS = `<link rel="stylesheet" href="./libs/katex.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';">\n<style>.katex, .katex *, .katex *:before, .katex *:after { box-sizing: content-box !important; }\n.katex, body, table, td, th, .q-text, .opt-text { font-variant-numeric: lining-nums tabular-nums !important; font-feature-settings: "lnum" 1, "tnum" 1 !important; }</style>`;
+  const katexJS = `\n<script defer src="./libs/katex.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';"></script>\n<script defer src="./libs/auto-render.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';" onload="if(typeof triggerMathRender === 'function'){ triggerMathRender(null, true); } else if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false}); }"></script>\n`;
   txt = txt.replace(/<!--\s*PARAMETER 11.*?-->/i, () => katexCSS)
            .replace(/<!--\s*PARAMETER 12.*?-->/i, () => katexJS)
            .replace(/<!--\s*PARAMETER 11.*?-->/gi, '')

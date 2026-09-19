@@ -4,7 +4,7 @@
  * 1. KaTeX path & font face correction using absolute origin URLs
  * 2. Ultra-precise LaTeX math rendering ($$, \[, $, \() for fractions, sub/superscripts, braces & limits
  * 3. Prevention of line breaks inside inline math via .katex { white-space: nowrap !important; }
- * 4. Zero-memory-leak, loop-free execution (no heavy MutationObserver polling)
+ * 4. Zero-lag, single-pass math rendering via requestAnimationFrame & DOM dataset guards
  * 5. Preservation of plain text instructions and original formatting
  * 6. Replace legacy logo "PW" with "CBT"
  */
@@ -45,9 +45,11 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
   // 5. Force window.mathRenderEngine = 'katex_local'
   html = html.replace(/window\.mathRenderEngine\s*=\s*['"][^'"]*['"]/g, "window.mathRenderEngine = 'katex_local'");
 
-  // 6. Font Preference Setting (Default to KaTeX Main + Tiro Bangla + DM Serif)
+  // 6. Font Preference Setting
   const useLatexFont = options?.useLatexFont ?? true;
-  const fontStr = useLatexFont ? "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif" : "sans-serif";
+  const defaultBodyFont = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  const latexBodyFont = "'KaTeX_Main', serif";
+  const fontStr = useLatexFont ? latexBodyFont : defaultBodyFont;
   html = html.replace(/(?:const|let|var)\s+Q_FONT_FAMILY\s*=\s*["'][^"']*["'];/g, `const Q_FONT_FAMILY = "${fontStr}";`);
 
   // 7. Inject Absolute @font-face Definitions & Critical KaTeX Styling
@@ -129,16 +131,6 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
         src: url('${assetBase}libs/fonts/KaTeX_Script-Regular.woff2') format('woff2');
         font-weight: normal; font-style: normal;
       }
-      @font-face {
-        font-family: 'DM Serif Text';
-        src: url('${assetBase}fonts/DMSerifText.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
-      }
-      @font-face {
-        font-family: 'Tiro Bangla';
-        src: url('${assetBase}fonts/TiroBangla.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
-      }
 
       /* --- Question Body & Math Precision Styling --- */
       :root {
@@ -148,18 +140,32 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
       body, .question-content, .q-text, .opt-text, table, td, th {
         font-family: var(--q-font);
         white-space: normal;
+        font-variant-numeric: lining-nums tabular-nums !important;
+        font-feature-settings: "lnum" 1, "tnum" 1 !important;
       }
-      
-      /* Protect Inline Math from Line Breaks & Fraction Distortions */
+
+      /* Mandatory KaTeX Box-Sizing & Layout Precision */
+      .katex, .katex *, .katex *:before, .katex *:after {
+        box-sizing: content-box !important;
+      }
+
       .katex {
         font-size: 1.08em;
-        white-space: nowrap !important;
-        line-height: 1.2;
         text-indent: 0;
+        font-variant-numeric: lining-nums tabular-nums !important;
+        font-feature-settings: "lnum" 1, "tnum" 1 !important;
       }
-      
+
+      /* Vector arrows & fraction line clarity */
+      .katex .svg-align, .katex svg {
+        vertical-align: top !important;
+      }
+
+      .katex .mfrac .frac-line {
+        border-bottom-width: 1.2px !important;
+      }
+
       .katex-display {
-        white-space: normal !important;
         margin: 0.6em 0;
         overflow-x: auto;
         overflow-y: hidden;
@@ -177,7 +183,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
     </style>
   `;
 
-  // 8. Non-Blocking, Event-Driven KaTeX Auto-Render Engine
+  // 8. Blazing Fast, Single-Pass Math Render Engine
   const katexHeadScripts = `
     <!-- Offline KaTeX Assets & Fast Render Engine -->
     <link rel="stylesheet" href="${assetBase}libs/katex.min.css">
@@ -188,13 +194,13 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
     <script id="cbt-katex-auto-render">
     (function() {
-      var isRendering = false;
+      var renderScheduled = false;
 
       function safelyRenderMathInContainer(container) {
-        if (!container || isRendering) return;
+        if (!container) return;
+        if (container.dataset.mathRendered === 'true') return;
         if (typeof renderMathInElement !== 'function') return;
 
-        isRendering = true;
         try {
           renderMathInElement(container, {
             delimiters: [
@@ -207,22 +213,29 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
             ignoredClasses: ["no-math", "inst-section", "exam-title", "header-left"],
             ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"]
           });
+          container.dataset.mathRendered = 'true';
         } catch (e) {
           console.warn("KaTeX render error:", e);
-        } finally {
-          setTimeout(function() { isRendering = false; }, 20);
         }
       }
 
-      window.triggerMathRender = function(el) {
-        var qArea = el || document.getElementById('q-render-area');
-        if (qArea) {
-          safelyRenderMathInContainer(qArea);
+      window.triggerMathRender = function(el, force) {
+        var target = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+        if (!target) return;
+        if (force) {
+          delete target.dataset.mathRendered;
+        } else if (target.dataset.mathRendered === 'true') {
+          return;
         }
-        var repList = document.getElementById('question-report-list');
-        if (repList) {
-          safelyRenderMathInContainer(repList);
-        }
+
+        if (renderScheduled) return;
+        renderScheduled = true;
+
+        requestAnimationFrame(function() {
+          renderScheduled = false;
+          var currentTarget = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+          safelyRenderMathInContainer(currentTarget);
+        });
       };
 
       function hookQuestionNavigation() {
@@ -230,21 +243,10 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
           window._origLoadQuestion = window.loadQuestion;
           window.loadQuestion = function(idx) {
             var res = window._origLoadQuestion.apply(this, arguments);
-            setTimeout(function() {
-              window.triggerMathRender();
-            }, 10);
+            window.triggerMathRender(null, true);
             return res;
           };
         }
-
-        document.addEventListener('click', function(e) {
-          var target = e.target;
-          if (target && (target.classList.contains('p-btn') || target.classList.contains('btn-nav') || target.closest('.p-btn') || target.closest('.btn-nav') || target.classList.contains('sec-btn') || target.closest('.sec-btn'))) {
-            setTimeout(function() {
-              window.triggerMathRender();
-            }, 15);
-          }
-        }, true);
       }
 
       function initMath() {
