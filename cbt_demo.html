@@ -1380,6 +1380,7 @@ const QUESTION_BANK = [
             status[i] = 'not-visited';
         }
 
+        mountAllQuestions();
         renderSectionTabs();
         switchSection(0); 
         initTabScroll();
@@ -1544,6 +1545,42 @@ const QUESTION_BANK = [
         return formatted;
     }
 
+    function mountAllQuestions() {
+        const renderArea = document.getElementById('q-render-area');
+        if (!renderArea) return;
+        let html = '';
+        QUESTIONS.forEach((q, idx) => {
+            let imgHtml = q.img ? `<img src="${q.img}" onclick="openLightbox(this.src)" alt="Question Image" onerror="this.style.display='none'">` : '';
+            let tableHtml = q.table ? `<div class="table-container">${q.table}</div>` : '';
+
+            let dynamicInputHtml = '';
+            if (q.type === 'NAT') {
+                const ansVal = answers[idx] !== undefined ? answers[idx] : '';
+                dynamicInputHtml = `
+                    <div class="nat-container">
+                        <input type="text" id="nat-input-${idx}" class="nat-input" 
+                               value="${ansVal}" placeholder="Tap to open keyboard" 
+                               readonly onclick="openVK(${idx})">
+                    </div>
+                `;
+            } else {
+                dynamicInputHtml = (q.options || []).map((o, i) => `
+                    <div class="option-item ${answers[idx] === i ? 'selected' : ''}" onclick="selectOpt(${i})">
+                        <span style="font-weight:bold; margin-right:8px;">${i + 1}.</span>${fmtText(o)}
+                    </div>
+                `).join('');
+            }
+
+            html += `
+                <div id="q-block-${idx}" class="q-block-item" style="display: ${idx === 0 ? 'block' : 'none'};">
+                    <div class="question-content"><span class="q-num-inline">Question ${idx + 1}:</span> ${fmtText(q.text.trim())}${imgHtml}${tableHtml}</div>
+                    ${dynamicInputHtml}
+                </div>
+            `;
+        });
+        renderArea.innerHTML = html;
+    }
+
     function loadQuestion(idx) {
         updateTimeSpent(); 
         if(status[currQ] === 'not-visited') { 
@@ -1568,35 +1605,46 @@ const QUESTION_BANK = [
         currQ = idx;
         if(status[currQ] === 'not-visited') { status[currQ] = 'not-ans'; }
 
-        const q = QUESTIONS[idx];
-        // FIX 4: Attached onclick=openLightbox(this.src)
-        let imgHtml = q.img ? `<img src="${q.img}" onclick="openLightbox(this.src)" alt="Question Image" onerror="this.style.display='none'">` : '';
-        let tableHtml = q.table ? `<div class="table-container">${q.table}</div>` : ''; 
-
-        let dynamicInputHtml = '';
-        if (q.type === 'NAT') {
-            const ansVal = answers[idx] !== undefined ? answers[idx] : '';
-            dynamicInputHtml = `
-                <div class="nat-container">
-                    <input type="text" id="nat-input-${idx}" class="nat-input" 
-                           value="${ansVal}" placeholder="Tap to open keyboard" 
-                           readonly onclick="openVK(${idx})">
-                </div>
-            `;
+        // Fast GPU-accelerated CSS display toggle (< 1ms)
+        const qBlocks = document.querySelectorAll('.q-block-item');
+        if (qBlocks.length === QUESTIONS.length) {
+            qBlocks.forEach((el, i) => {
+                el.style.display = (i === idx) ? 'block' : 'none';
+            });
         } else {
-            dynamicInputHtml = q.options.map((o,i) => `
-                <div class="option-item ${answers[idx]===i?'selected':''}" onclick="selectOpt(${i})">
-                    <span style="font-weight:bold; margin-right:8px;">${i + 1}.</span>${fmtText(o)}
-                </div>
-            `).join('');
-            closeVK(); 
+            // Fallback if not yet mounted
+            const q = QUESTIONS[idx];
+            let imgHtml = q.img ? `<img src="${q.img}" onclick="openLightbox(this.src)" alt="Question Image" onerror="this.style.display='none'">` : '';
+            let tableHtml = q.table ? `<div class="table-container">${q.table}</div>` : ''; 
+
+            let dynamicInputHtml = '';
+            if (q.type === 'NAT') {
+                const ansVal = answers[idx] !== undefined ? answers[idx] : '';
+                dynamicInputHtml = `
+                    <div class="nat-container">
+                        <input type="text" id="nat-input-${idx}" class="nat-input" 
+                               value="${ansVal}" placeholder="Tap to open keyboard" 
+                               readonly onclick="openVK(${idx})">
+                    </div>
+                `;
+            } else {
+                dynamicInputHtml = q.options.map((o,i) => `
+                    <div class="option-item ${answers[idx]===i?'selected':''}" onclick="selectOpt(${i})">
+                        <span style="font-weight:bold; margin-right:8px;">${i + 1}.</span>${fmtText(o)}
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('q-render-area').innerHTML = `
+                <div class="question-content"><span class="q-num-inline">Question ${idx + 1}:</span> ${fmtText(q.text.trim())}${imgHtml}${tableHtml}</div>
+                ${dynamicInputHtml}
+            `;
         }
 
-        document.getElementById('q-render-area').innerHTML = `
-            <div class="question-content"><span class="q-num-inline">Question ${idx + 1}:</span> ${fmtText(q.text.trim())}${imgHtml}${tableHtml}</div>
-            ${dynamicInputHtml}
-        `;
-        
+        if (QUESTIONS[idx]?.type !== 'NAT') {
+            closeVK();
+        }
+
         updateAllVisibleBtns(); 
 
         const submitBtn = document.getElementById('final-submit-btn');
