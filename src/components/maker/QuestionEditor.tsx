@@ -97,13 +97,16 @@ const QuestionEditor = memo(function QuestionEditor({
   const activeQIdRef = useRef<number | string | null>(question?.id ?? null);
 
   useEffect(() => {
-    if (question && question.id !== activeQIdRef.current) {
+    if (!question) return;
+    if (question.id !== activeQIdRef.current) {
       activeQIdRef.current = question.id;
       setLocalText(question.text || '');
       setLocalOptions(question.options || []);
       setLocalCorrectNat(question.correctNat || '');
+    } else if (question.options && question.options.length !== localOptions.length) {
+      setLocalOptions(question.options);
     }
-  }, [question?.id, questionIndex]);
+  }, [question?.id, questionIndex, question?.options?.length]);
 
   // Debounce sync localText -> parent onUpdateQuestion
   useEffect(() => {
@@ -408,8 +411,9 @@ const QuestionEditor = memo(function QuestionEditor({
               <button
                 type="button"
                 onClick={() => {
-                  const currentOpts = [...(question.options || [])];
+                  const currentOpts = [...(localOptions || [])];
                   currentOpts.push('');
+                  setLocalOptions(currentOpts);
                   onUpdateQuestion({ options: currentOpts });
                 }}
                 className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"

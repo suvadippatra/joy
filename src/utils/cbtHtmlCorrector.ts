@@ -205,8 +205,11 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
       function safelyRenderMathInContainer(container) {
         if (!container) return;
+        if (typeof renderMathInElement !== 'function') {
+          setTimeout(function() { safelyRenderMathInContainer(container); }, 60);
+          return;
+        }
         if (container.dataset.mathRendered === 'true') return;
-        if (typeof renderMathInElement !== 'function') return;
 
         try {
           renderMathInElement(container, {

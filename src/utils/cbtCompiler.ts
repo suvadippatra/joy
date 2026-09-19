@@ -364,8 +364,8 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   txt = txt.replace(instRegex, safeInstInject);
 
   // KaTeX CSS & JS Injections (Always include KaTeX assets & box-sizing reset for pristine math rendering)
-  const katexCSS = `<link rel="stylesheet" href="./libs/katex.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';">\n<style>.katex, .katex *, .katex *:before, .katex *:after { box-sizing: content-box !important; }\n.katex, body, table, td, th, .q-text, .opt-text { font-variant-numeric: lining-nums tabular-nums !important; font-feature-settings: "lnum" 1, "tnum" 1 !important; }</style>`;
-  const katexJS = `\n<script defer src="./libs/katex.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';"></script>\n<script defer src="./libs/auto-render.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';" onload="if(typeof triggerMathRender === 'function'){ triggerMathRender(null, true); } else if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false}); }"></script>\n`;
+  const katexCSS = `<link rel="stylesheet" href="./libs/katex.min.css">\n<style>.katex, .katex *, .katex *:before, .katex *:after { box-sizing: content-box !important; }\n.katex, body, table, td, th, .q-text, .opt-text { font-variant-numeric: lining-nums tabular-nums !important; font-feature-settings: "lnum" 1, "tnum" 1 !important; }</style>`;
+  const katexJS = `\n<script defer src="./libs/katex.min.js"></script>\n<script defer src="./libs/auto-render.min.js" onload="if(typeof triggerMathRender === 'function'){ triggerMathRender(null, true); } else if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false}); }"></script>\n`;
   txt = txt.replace(/<!--\s*PARAMETER 11.*?-->/i, () => katexCSS)
            .replace(/<!--\s*PARAMETER 12.*?-->/i, () => katexJS)
            .replace(/<!--\s*PARAMETER 11.*?-->/gi, '')
@@ -461,11 +461,12 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
 export function prepareHtmlForDownload(html: string): string {
   if (!html) return '';
   let out = html;
-  out = out.replace(/(?:href=["'])(?:\.\/|\/)?libs\/katex\.min\.css["']/gi, 'href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"');
-  out = out.replace(/href=["'](?:\.\/|\/)?katex-minimal\/css\/katex\.min\.css["']/gi, 'href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"');
-  out = out.replace(/(?:src=["'])(?:\.\/|\/)?libs\/katex\.min\.js["']/gi, 'src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"');
-  out = out.replace(/(?:src=["'])(?:\.\/|\/)?libs\/auto-render\.min\.js["']/gi, 'src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"');
-  out = out.replace(/src=["'](?:\.\/|\/)?katex-minimal\/js\/katex\.min\.js["']/gi, 'src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"');
+  // Enforce 100% local offline paths for KaTeX & Cropper assets
+  out = out.replace(/https?:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^/]+\/dist\/katex\.min\.css/gi, './libs/katex.min.css');
+  out = out.replace(/https?:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^/]+\/dist\/katex\.min\.js/gi, './libs/katex.min.js');
+  out = out.replace(/https?:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^/]+\/dist\/contrib\/auto-render\.min\.js/gi, './libs/auto-render.min.js');
+  out = out.replace(/https?:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/cropperjs\/[^/]+\/cropper\.min\.css/gi, './libs/cropper.min.css');
+  out = out.replace(/https?:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/cropperjs\/[^/]+\/cropper\.min\.js/gi, './libs/cropper.min.js');
   out = out.replace(/onerror="this\.onerror=null;this\.href='https:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^']+'"/gi, '');
   out = out.replace(/onerror="this\.onerror=null;this\.src='https:\/\/cdn\.jsdelivr\.net\/npm\/katex@[^']+'"/gi, '');
   return out;
