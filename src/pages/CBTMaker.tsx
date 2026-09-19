@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -28,7 +28,8 @@ import {
   Columns2,
   Maximize2,
   PenTool,
-  X
+  X,
+  LayoutGrid
 } from 'lucide-react';
 import { AppState, defaultAppState, cleanAppState, demoShowcaseAppState, Question, QuestionType } from '../types/cbtMaker';
 import { compileCBTHTML } from '../utils/cbtCompiler';
@@ -42,6 +43,12 @@ import QuestionLivePreview from '../components/maker/QuestionLivePreview';
 import LaTeXGuideModal from '../components/maker/LaTeXGuideModal';
 import AutoExpandingTextarea from '../components/maker/AutoExpandingTextarea';
 import Base64ImageGuard from '../components/maker/Base64ImageGuard';
+import VisualTableEditor from '../components/maker/VisualTableEditor';
+import QuestionSidebarList from '../components/maker/QuestionSidebarList';
+import SectionTabSelector from '../components/maker/SectionTabSelector';
+import QuestionEditor from '../components/maker/QuestionEditor';
+import QuestionPaletteTray from '../components/maker/QuestionPaletteTray';
+import MobileMoreMenu from '../components/maker/MobileMoreMenu';
 
 export default function CBTMaker() {
   const navigate = useNavigate();
@@ -62,7 +69,7 @@ export default function CBTMaker() {
 
   // Split-screen & View Layout State ('split' | 'editor' | 'preview')
   const [layoutMode, setLayoutMode] = useState<'split' | 'editor' | 'preview'>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       return 'editor';
     }
     return 'split';
@@ -96,7 +103,8 @@ export default function CBTMaker() {
   // Fast Jump Search Input
   const [jumpQVal, setJumpQVal] = useState<string>('');
 
-  // Modals
+  // Modals & Tray
+  const [isQuestionTrayOpen, setIsQuestionTrayOpen] = useState(false);
   const [isExamSettingsOpen, setIsExamSettingsOpen] = useState(false);
   const [isLaTeXGuideOpen, setIsLaTeXGuideOpen] = useState(false);
   const [isAIPromptOpen, setIsAIPromptOpen] = useState(false);
@@ -136,15 +144,25 @@ export default function CBTMaker() {
     explanation: false
   });
 
-  // Debounced Auto-Save Draft to localStorage (prevents UI lag on rapid typing)
+  // Debounced Auto-Save Draft to localStorage (non-blocking idle task to prevent UI lag)
   useEffect(() => {
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
-      } catch (e) {
-        console.warn('LocalStorage full or disabled', e);
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(() => {
+          try {
+            localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
+          } catch (e) {
+            console.warn('LocalStorage save warning', e);
+          }
+        });
+      } else {
+        try {
+          localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
+        } catch (e) {
+          console.warn('LocalStorage save warning', e);
+        }
       }
-    }, 600);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [appState]);
 
@@ -201,9 +219,9 @@ export default function CBTMaker() {
 
   // Question State Updater
   const updateCurrentQuestion = useCallback((partial: Partial<Question>) => {
-    if (!activeSection) return;
+    if (!activeSectionName) return;
     setAppState(prev => {
-      const currentList = prev.questionsBySection[activeSection.name] || [];
+      const currentList = prev.questionsBySection[activeSectionName] || [];
       if (!currentList[activeQuestionIndex]) return prev;
 
       const updatedList = [...currentList];
@@ -216,112 +234,191 @@ export default function CBTMaker() {
         ...prev,
         questionsBySection: {
           ...prev.questionsBySection,
-          [activeSection.name]: updatedList
+          [activeSectionName]: updatedList
         }
       };
     });
-  }, [activeSection, activeQuestionIndex]);
+  }, [activeSectionName, activeQuestionIndex]);
+
+  // Non-blocking Question & Section Selectors
+  const handleSelectQuestion = useCallback((index: number) => {
+    startTransition(() => {
+      setActiveQuestionIndex(index);
+    });
+  }, []);
+
+  const handleSelectSection = useCallback((secName: string) => {
+    startTransition(() => {
+      setActiveSectionName(secName);
+      setActiveQuestionIndex(0);
+    });
+  }, []);
 
   // Add Question
-  const handleAddQuestion = () => {
-    if (!activeSection) return;
-    const currentList = appState.questionsBySection[activeSection.name] || [];
-    const newQ: Question = {
-      id: Date.now(),
-      type: 'MCQ',
-      text: '',
-      options: ['Option A', 'Option B', 'Option C', 'Option D'],
-      correct: 0,
-      image: '',
-      table: '',
-      explanation: ''
-    };
-    const updatedList = [...currentList, newQ];
-    setAppState(prev => ({
-      ...prev,
-      questionsBySection: {
-        ...prev.questionsBySection,
-        [activeSection.name]: updatedList
-      }
-    }));
-    setActiveQuestionIndex(updatedList.length - 1);
-  };
-
-  // Duplicate Question
-  const handleDuplicateQuestion = () => {
-    if (!activeSection || !activeQuestion) return;
-    const currentList = appState.questionsBySection[activeSection.name] || [];
-    const dupQ: Question = {
-      ...JSON.parse(JSON.stringify(activeQuestion)),
-      id: Date.now()
-    };
-    const updatedList = [
-      ...currentList.slice(0, activeQuestionIndex + 1),
-      dupQ,
-      ...currentList.slice(activeQuestionIndex + 1)
-    ];
-    setAppState(prev => ({
-      ...prev,
-      questionsBySection: {
-        ...prev.questionsBySection,
-        [activeSection.name]: updatedList
-      }
-    }));
-    setActiveQuestionIndex(activeQuestionIndex + 1);
-  };
-
-  // Delete Question
-  const handleDeleteQuestion = () => {
-    if (!activeSection) return;
-    const currentList = appState.questionsBySection[activeSection.name] || [];
-    if (currentList.length <= 1) {
-      // Clear current question content instead of removing to preserve at least 1 box
-      updateCurrentQuestion({
+  const handleAddQuestion = useCallback(() => {
+    if (!activeSectionName) return;
+    setAppState(prev => {
+      const currentList = prev.questionsBySection[activeSectionName] || [];
+      const newQ: Question = {
+        id: Date.now(),
+        type: 'MCQ',
         text: '',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        options: ['', '', '', ''],
         correct: 0,
-        correctNat: '',
         image: '',
         table: '',
         explanation: ''
+      };
+      const updatedList = [...currentList, newQ];
+      return {
+        ...prev,
+        questionsBySection: {
+          ...prev.questionsBySection,
+          [activeSectionName]: updatedList
+        }
+      };
+    });
+    startTransition(() => {
+      setAppState(prev => {
+        const count = prev.questionsBySection[activeSectionName]?.length || 1;
+        setActiveQuestionIndex(count - 1);
+        return prev;
       });
-      return;
-    }
+    });
+  }, [activeSectionName]);
 
-    const updatedList = currentList.filter((_, idx) => idx !== activeQuestionIndex);
-    setAppState(prev => ({
-      ...prev,
-      questionsBySection: {
-        ...prev.questionsBySection,
-        [activeSection.name]: updatedList
+  // Duplicate Question at Index
+  const handleDuplicateQuestionAtIndex = useCallback((idx: number = activeQuestionIndex) => {
+    if (!activeSectionName) return;
+    setAppState(prev => {
+      const currentList = prev.questionsBySection[activeSectionName] || [];
+      const qToDup = currentList[idx];
+      if (!qToDup) return prev;
+
+      const dupQ: Question = {
+        ...JSON.parse(JSON.stringify(qToDup)),
+        id: Date.now()
+      };
+      const updatedList = [
+        ...currentList.slice(0, idx + 1),
+        dupQ,
+        ...currentList.slice(idx + 1)
+      ];
+      return {
+        ...prev,
+        questionsBySection: {
+          ...prev.questionsBySection,
+          [activeSectionName]: updatedList
+        }
+      };
+    });
+    startTransition(() => {
+      setActiveQuestionIndex(idx + 1);
+    });
+  }, [activeSectionName, activeQuestionIndex]);
+
+  // Delete Question at Index
+  const handleDeleteQuestionAtIndex = useCallback((idx: number = activeQuestionIndex) => {
+    if (!activeSectionName) return;
+    setAppState(prev => {
+      const currentList = prev.questionsBySection[activeSectionName] || [];
+      if (currentList.length <= 1) {
+        // Reset current question content instead of deleting
+        const updatedList = [...currentList];
+        updatedList[0] = {
+          id: Date.now(),
+          type: 'MCQ',
+          text: '',
+          options: ['', '', '', ''],
+          correct: 0,
+          image: '',
+          table: '',
+          explanation: ''
+        };
+        return {
+          ...prev,
+          questionsBySection: {
+            ...prev.questionsBySection,
+            [activeSectionName]: updatedList
+          }
+        };
       }
-    }));
 
-    if (activeQuestionIndex >= updatedList.length) {
-      setActiveQuestionIndex(Math.max(0, updatedList.length - 1));
-    }
-  };
+      const updatedList = currentList.filter((_, i) => i !== idx);
+      return {
+        ...prev,
+        questionsBySection: {
+          ...prev.questionsBySection,
+          [activeSectionName]: updatedList
+        }
+      };
+    });
 
-  // Move Question Up/Down
-  const handleMoveQuestion = (dir: 'up' | 'down') => {
-    if (!activeSection) return;
-    const currentList = [...(appState.questionsBySection[activeSection.name] || [])];
-    const targetIdx = dir === 'up' ? activeQuestionIndex - 1 : activeQuestionIndex + 1;
-    if (targetIdx < 0 || targetIdx >= currentList.length) return;
+    startTransition(() => {
+      setActiveQuestionIndex(prev => Math.max(0, prev - 1));
+    });
+  }, [activeSectionName, activeQuestionIndex]);
 
-    const temp = currentList[activeQuestionIndex];
-    currentList[activeQuestionIndex] = currentList[targetIdx];
-    currentList[targetIdx] = temp;
+  // Move Question Up/Down/Left/Right at Index
+  const handleMoveQuestionAtIndex = useCallback((idx: number, dir: 'up' | 'down' | 'left' | 'right') => {
+    if (!activeSectionName) return;
+    const targetIdx = (dir === 'up' || dir === 'left') ? idx - 1 : idx + 1;
 
-    setAppState(prev => ({
-      ...prev,
-      questionsBySection: {
-        ...prev.questionsBySection,
-        [activeSection.name]: currentList
-      }
-    }));
-    setActiveQuestionIndex(targetIdx);
-  };
+    setAppState(prev => {
+      const currentList = [...(prev.questionsBySection[activeSectionName] || [])];
+      if (targetIdx < 0 || targetIdx >= currentList.length) return prev;
+
+      const temp = currentList[idx];
+      currentList[idx] = currentList[targetIdx];
+      currentList[targetIdx] = temp;
+
+      return {
+        ...prev,
+        questionsBySection: {
+          ...prev.questionsBySection,
+          [activeSectionName]: currentList
+        }
+      };
+    });
+
+    startTransition(() => {
+      setActiveQuestionIndex(targetIdx);
+    });
+  }, [activeSectionName]);
+
+  // Add Question Next (inserts right after active question)
+  const handleAddQuestionNext = useCallback(() => {
+    if (!activeSectionName) return;
+    setAppState(prev => {
+      const currentList = prev.questionsBySection[activeSectionName] || [];
+      const newQ: Question = {
+        id: Date.now(),
+        type: 'MCQ',
+        text: '',
+        options: ['', '', '', ''],
+        correct: 0,
+        image: '',
+        table: '',
+        explanation: ''
+      };
+      const insertAt = activeQuestionIndex + 1;
+      const updatedList = [
+        ...currentList.slice(0, insertAt),
+        newQ,
+        ...currentList.slice(insertAt)
+      ];
+      return {
+        ...prev,
+        questionsBySection: {
+          ...prev.questionsBySection,
+          [activeSectionName]: updatedList
+        }
+      };
+    });
+    startTransition(() => {
+      setActiveQuestionIndex(prev => prev + 1);
+    });
+  }, [activeSectionName, activeQuestionIndex]);
 
   // Add Section
   const handleAddSection = () => {
@@ -342,7 +439,7 @@ export default function CBTMaker() {
       id: Date.now(),
       type: 'MCQ',
       text: '',
-      options: ['Option A', 'Option B', 'Option C', 'Option D'],
+      options: ['', '', '', ''],
       correct: 0,
       image: '',
       table: '',
@@ -547,892 +644,197 @@ export default function CBTMaker() {
     }
   };
 
-  // Render helper for Question Statement & Tools Card
-  const renderQuestionStatementCard = () => {
-    if (!activeQuestion) return null;
-    return (
-      <div className="space-y-4 w-full">
-        {/* Question Type & Marks Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-          {/* Left: Type Switcher */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mr-1">
-              Q{activeQuestionIndex + 1}:
-            </span>
-            {(['MCQ', 'MSQ', 'NAT'] as QuestionType[]).map(t => {
-              const label = t === 'MCQ' ? 'SCQ' : t === 'MSQ' ? 'MCQ' : 'NAT';
-              const titleDesc =
-                t === 'MCQ'
-                  ? 'Single Choice Question (SCQ - Single correct option)'
-                  : t === 'MSQ'
-                  ? 'Multiple Choice Question (MCQ - Multiple correct options)'
-                  : 'Numerical Answer Type (NAT - Virtual numeric pad input)';
-
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  title={titleDesc}
-                  onClick={() => {
-                    if (t === 'NAT') {
-                      updateCurrentQuestion({ type: t, options: [], correctNat: '' });
-                    } else if (t === 'MSQ') {
-                      updateCurrentQuestion({
-                        type: t,
-                        options: activeQuestion.options?.length ? activeQuestion.options : ['Option A', 'Option B', 'Option C', 'Option D'],
-                        correct: [0]
-                      });
-                    } else {
-                      updateCurrentQuestion({
-                        type: t,
-                        options: activeQuestion.options?.length ? activeQuestion.options : ['Option A', 'Option B', 'Option C', 'Option D'],
-                        correct: 0
-                      });
-                    }
-                  }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all touch-manipulation ${
-                    activeQuestion.type === t
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right: Custom Question Marks Override */}
-          <div className="flex items-center gap-2 flex-wrap text-sm">
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">+Marks:</span>
-              <input
-                type="number"
-                step="any"
-                value={activeQuestion.marksCorrect !== undefined ? activeQuestion.marksCorrect : ''}
-                placeholder={String(activeSection?.marks ?? 4)}
-                onChange={e =>
-                  updateCurrentQuestion({
-                    marksCorrect: e.target.value === '' ? undefined : parseFloat(e.target.value)
-                  })
-                }
-                className="w-14 px-1.5 py-0.5 text-center font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-sm"
-                title="Marks awarded for correct answer (leave blank to use section default)"
-              />
-
-              <span className="font-bold text-red-500 ml-1">-Penalty:</span>
-              <input
-                type="number"
-                step="any"
-                value={activeQuestion.marksWrong !== undefined ? activeQuestion.marksWrong : ''}
-                placeholder={String(activeQuestion.type === 'NAT' ? 0 : (activeSection?.negative ?? 1))}
-                onChange={e =>
-                  updateCurrentQuestion({
-                    marksWrong: e.target.value === '' ? undefined : parseFloat(e.target.value)
-                  })
-                }
-                className="w-14 px-1.5 py-0.5 text-center font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-sm"
-                title="Negative penalty deducted for incorrect answer (leave blank to use section default)"
-              />
-
-              {(activeQuestion.marksCorrect !== undefined || activeQuestion.marksWrong !== undefined) && (
-                <button
-                  type="button"
-                  onClick={() => updateCurrentQuestion({ marksCorrect: undefined, marksWrong: undefined })}
-                  title="Reset to Section Default Marks"
-                  className="ml-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <RotateCcw size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Question Statement Box */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 w-full">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <span>Question Statement</span>
-              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(Markdown, LaTeX & MathML supported)</span>
-            </label>
-
-            {/* Quick Math Formatters & Guide */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => insertMathSnippet('$x$')}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                title="Inline Math ($x$)"
-              >
-                $x$
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMathSnippet('$$\\frac{a}{b}$$')}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                title="Fraction (\frac)"
-              >
-                \frac
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMathSnippet('$$\\sqrt{x}$$')}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                title="Square Root (\sqrt)"
-              >
-                \sqrt
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMathSnippet('$x^2$')}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                title="Superscript / Power (x²)"
-              >
-                x²
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMathSnippet('**bold**')}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                title="Bold Text"
-              >
-                B
-              </button>
-
-              {/* Instant LaTeX Guide Button */}
-              <button
-                type="button"
-                onClick={() => setIsLaTeXGuideOpen(true)}
-                className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg hover:bg-emerald-100 transition-colors ml-1"
-                title="Open Interactive LaTeX & MathML Guide"
-              >
-                <BookOpen size={14} />
-                <span>LaTeX Guide</span>
-              </button>
-            </div>
-          </div>
-
-          <AutoExpandingTextarea
-            value={activeQuestion.text}
-            onChange={e => updateCurrentQuestion({ text: e.target.value })}
-            placeholder="Enter question text here... (Use $...$ for math, e.g. $\int x dx$ or $H_2O$)"
-            className="w-full min-h-[110px] p-3 text-sm sm:text-base rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
-            minRows={3}
-          />
-        </div>
-
-        {/* Auxiliary Tools Row (Diagram Guard, Table, Solution) */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 w-full">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Diagram Attach Button or Base64 Image Guard */}
-            {activeQuestion.image ? (
-              <Base64ImageGuard
-                imageSrc={activeQuestion.image}
-                label="Question Diagram"
-                onOpenStudio={() => {
-                  setCropperData({
-                    isOpen: true,
-                    imageSrc: activeQuestion.image || '',
-                    target: 'question'
-                  });
-                }}
-                onReplaceImage={e => handleImageFilePicked(e, 'question')}
-                onRemoveImage={() => updateCurrentQuestion({ image: '' })}
-              />
-            ) : (
-              <label className="cursor-pointer flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-colors">
-                <ImageIcon size={16} className="text-blue-500" />
-                <span>+ Diagram / Figure (SVG, GIF, PNG, JPG)</span>
-                <input
-                  type="file"
-                  accept="image/*,.svg,.gif,.png,.jpg,.jpeg,.webp,.bmp"
-                  className="hidden"
-                  onChange={e => handleImageFilePicked(e, 'question')}
-                />
-              </label>
-            )}
-
-            {/* Table Match Toggle */}
-            <button
-              type="button"
-              onClick={() => setOpenAux(prev => ({ ...prev, table: !prev.table }))}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors border ${
-                activeQuestion.table || openAux.table
-                  ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Code size={15} />
-              <span>Table / Matrix {activeQuestion.table ? '• Added' : ''}</span>
-            </button>
-
-            {/* Solution / Explanation Toggle */}
-            <button
-              type="button"
-              onClick={() => setOpenAux(prev => ({ ...prev, explanation: !prev.explanation }))}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors border ${
-                activeQuestion.explanation || openAux.explanation
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <HelpCircle size={15} />
-              <span>Solution {activeQuestion.explanation ? '• Added' : ''}</span>
-            </button>
-          </div>
-
-          {/* Table Drawer */}
-          {(openAux.table || Boolean(activeQuestion.table)) && (
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-bold text-slate-800 dark:text-slate-200">
-                  Table Snippet / Match-the-Columns HTML
-                </span>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateCurrentQuestion({
-                        table: `<table class="w-full border text-sm"><thead><tr class="bg-slate-100"><th class="border p-2">Column I</th><th class="border p-2">Column II</th></tr></thead><tbody><tr><td class="border p-2">A. Item 1</td><td class="border p-2">P. Match 1</td></tr><tr><td class="border p-2">B. Item 2</td><td class="border p-2">Q. Match 2</td></tr></tbody></table>`
-                      })
-                    }
-                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    + Insert Sample Table
-                  </button>
-                  {activeQuestion.table && (
-                    <button
-                      type="button"
-                      onClick={() => updateCurrentQuestion({ table: '' })}
-                      className="text-red-500 hover:underline text-xs font-bold"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-              <AutoExpandingTextarea
-                value={activeQuestion.table || ''}
-                onChange={e => updateCurrentQuestion({ table: e.target.value })}
-                placeholder="Optional <table>...</table> syntax or LaTeX array"
-                minRows={2}
-                className="w-full p-2.5 text-xs sm:text-sm font-mono rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none"
-              />
-            </div>
-          )}
-
-          {/* Solution / Explanation Drawer */}
-          {(openAux.explanation || Boolean(activeQuestion.explanation)) && (
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                  <HelpCircle size={16} className="text-emerald-500" />
-                  <span>Detailed Solution / Explanation</span>
-                </span>
-                {activeQuestion.explanation && (
-                  <button
-                    type="button"
-                    onClick={() => updateCurrentQuestion({ explanation: '' })}
-                    className="text-red-500 hover:underline text-xs font-bold"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <AutoExpandingTextarea
-                value={activeQuestion.explanation || ''}
-                onChange={e => updateCurrentQuestion({ explanation: e.target.value })}
-                placeholder="Step-by-step solution, rationale, or proof (LaTeX $...$ supported)..."
-                minRows={2}
-                className="w-full p-2.5 text-xs sm:text-sm rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none leading-relaxed"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Render helper for Options / NAT Card
-  const renderQuestionOptionsCard = () => {
-    if (!activeQuestion) return null;
-    return (
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 w-full">
-        {activeQuestion.type !== 'NAT' ? (
-          <div className="space-y-3 w-full">
-            <div className="flex items-center justify-between">
-              <label className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200">
-                Options & Answer Key ({activeQuestion.type === 'MSQ' ? 'Select all correct' : 'Select one correct'})
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  const currentOpts = [...(activeQuestion.options || [])];
-                  currentOpts.push(`Option ${String.fromCharCode(65 + currentOpts.length)}`);
-                  updateCurrentQuestion({ options: currentOpts });
-                }}
-                className="flex items-center gap-1 text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                <Plus size={15} />
-                <span>Add Option</span>
-              </button>
-            </div>
-
-            <div className="space-y-3 w-full">
-              {(activeQuestion.options || []).map((opt, oi) => {
-                const { text: optText, image: optImgSrc } = parseOptionData(opt);
-
-                const isCorrect =
-                  activeQuestion.type === 'MSQ'
-                    ? Array.isArray(activeQuestion.correct) && activeQuestion.correct.includes(oi)
-                    : activeQuestion.correct === oi;
-
-                return (
-                  <div
-                    key={oi}
-                    className={`p-3.5 rounded-xl border transition-all w-full ${
-                      isCorrect
-                        ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700'
-                        : 'bg-slate-50 dark:bg-slate-950/70 border-slate-200 dark:border-slate-800'
-                    }`}
-                  >
-                    {/* Top Row: Option letter badge, auto-expanding text box, and actions */}
-                    <div className="flex items-start gap-3 w-full">
-                      {/* Correct Indicator button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (activeQuestion.type === 'MSQ') {
-                            const cur = Array.isArray(activeQuestion.correct) ? [...activeQuestion.correct] : [];
-                            const updated = cur.includes(oi) ? cur.filter(x => x !== oi) : [...cur, oi];
-                            updateCurrentQuestion({ correct: updated });
-                          } else {
-                            updateCurrentQuestion({ correct: oi });
-                          }
-                        }}
-                        title="Click to set as correct answer"
-                        className={`w-8 h-8 mt-0.5 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors touch-manipulation ${
-                          isCorrect
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        {String.fromCharCode(65 + oi)}
-                      </button>
-
-                      {/* Option Auto-Expanding Textarea */}
-                      <div className="flex-1 min-w-0">
-                        <AutoExpandingTextarea
-                          value={optText}
-                          onChange={e => {
-                            const currentOpts = [...(activeQuestion.options || [])];
-                            const newText = e.target.value;
-                            currentOpts[oi] = optImgSrc ? `${newText} ||IMG:${optImgSrc}||` : newText;
-                            updateCurrentQuestion({ options: currentOpts });
-                          }}
-                          placeholder={`Option ${String.fromCharCode(65 + oi)} statement (supports multi-line & LaTeX $...$)...`}
-                          className="w-full px-2.5 py-1.5 text-sm sm:text-base rounded-lg bg-transparent border-0 text-slate-800 dark:text-slate-100 focus:outline-none min-h-[38px] leading-relaxed"
-                          minRows={1}
-                        />
-                      </div>
-
-                      {/* Option Actions: Attach image button and delete button */}
-                      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                        {!optImgSrc && (
-                          <label
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer shrink-0 transition-colors flex items-center gap-1"
-                            title="Attach Image (SVG, GIF, PNG, JPG) to Option"
-                          >
-                            <ImageIcon size={16} />
-                            <span className="text-xs hidden sm:inline font-bold">Image</span>
-                            <input
-                              type="file"
-                              accept="image/*,.svg,.gif,.png,.jpg,.jpeg,.webp,.bmp"
-                              className="hidden"
-                              onChange={e => handleImageFilePicked(e, { optionIndex: oi })}
-                            />
-                          </label>
-                        )}
-
-                        {(activeQuestion.options || []).length > 2 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const currentOpts = (activeQuestion.options || []).filter((_, i) => i !== oi);
-                              updateCurrentQuestion({ options: currentOpts });
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 shrink-0"
-                            title="Delete Option"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Attached Option Image with Base64 Guard (10s auto-hide) */}
-                    {optImgSrc && (
-                      <div className="mt-2 ml-11">
-                        <Base64ImageGuard
-                          imageSrc={optImgSrc}
-                          label={`Option ${String.fromCharCode(65 + oi)} Image`}
-                          onOpenStudio={() => handleEditOptionImage(oi)}
-                          onReplaceImage={e => handleImageFilePicked(e, { optionIndex: oi })}
-                          onRemoveImage={() => handleRemoveOptionImage(oi)}
-                          compact={true}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          /* NAT Numerical Answer Input */
-          <div className="space-y-2.5 w-full">
-            <label className="block text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200">
-              Correct Numerical Answer / Accepted Range
-            </label>
-            <div className="relative">
-              <Hash size={18} className="absolute left-3 top-3 text-slate-400" />
-              <input
-                type="text"
-                value={activeQuestion.correctNat || ''}
-                onChange={e => updateCurrentQuestion({ correctNat: e.target.value })}
-                placeholder="e.g. 15 or 14.5-15.5"
-                className="w-full pl-9 pr-3 py-2 text-sm sm:text-base rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-mono font-bold focus:outline-none"
-              />
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-              Candidates will be awarded marks if their entered value is exact or falls within the accepted range (e.g. <code>3.14</code> or <code>3.13-3.15</code>).
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden select-none">
-      {/* Top Main Navigation Header */}
-      <header className="h-15 px-3 sm:px-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 z-30">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Responsive Single-Row Top Toolbar */}
+      <header className="px-3 sm:px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 z-30">
+        {/* Left: Back + Title + Active Section Pill */}
+        <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
             onClick={() => navigate('/')}
-            title="Back to CBT Hub Home"
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Back to Home"
+            className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
           >
             <ArrowLeft size={18} />
           </button>
-          <div className="min-w-0">
-            {isEditingTitle ? (
-              <div className="flex items-center gap-1.5 py-0.5">
-                <input
-                  type="text"
-                  value={tempTitle}
-                  onChange={e => setTempTitle(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') commitTitleRename();
-                    if (e.key === 'Escape') {
-                      setTempTitle(appState.examTitle || 'New CBT Test');
-                      setIsEditingTitle(false);
-                    }
-                  }}
-                  onBlur={commitTitleRename}
-                  autoFocus
-                  className="px-2.5 py-1 text-xs sm:text-sm font-extrabold rounded-lg bg-slate-100 dark:bg-slate-800 border border-blue-500 text-slate-900 dark:text-slate-100 focus:outline-none w-44 sm:w-64"
-                  placeholder="Exam title..."
-                />
-                <button
-                  type="button"
-                  onClick={commitTitleRename}
-                  className="p-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                  title="Save Title"
-                >
-                  <Check size={14} />
-                </button>
-              </div>
-            ) : (
-              <div
-                className="flex items-center gap-1.5 group cursor-pointer"
-                onClick={() => setIsEditingTitle(true)}
-                title="Click to rename CBT exam"
+
+          {/* Title Editor */}
+          {isEditingTitle ? (
+            <div className="flex items-center gap-1 shrink-0">
+              <input
+                type="text"
+                value={tempTitle}
+                onChange={e => setTempTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') commitTitleRename();
+                  if (e.key === 'Escape') {
+                    setTempTitle(appState.examTitle || 'New CBT Test');
+                    setIsEditingTitle(false);
+                  }
+                }}
+                onBlur={commitTitleRename}
+                autoFocus
+                className="px-2 py-0.5 text-xs font-extrabold rounded-md bg-slate-100 dark:bg-slate-800 border border-blue-500 text-slate-900 dark:text-slate-100 focus:outline-none w-28 sm:w-44"
+                placeholder="Exam title..."
+              />
+              <button
+                type="button"
+                onClick={commitTitleRename}
+                className="p-1 rounded-md bg-blue-600 text-white"
               >
-                <h1 className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-[150px] sm:max-w-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  {appState.examTitle || 'CBT Maker Studio'}
-                </h1>
-                <Edit2 size={13} className="text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
-              </div>
-            )}
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate max-w-[200px] sm:max-w-xs font-medium">
-              {appState.sections.length} Sections &bull; {Object.values(appState.questionsBySection).flat().length} Questions
-            </p>
-          </div>
+                <Check size={12} />
+              </button>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-1 group cursor-pointer shrink-0 min-w-0"
+              onClick={() => setIsEditingTitle(true)}
+              title="Click to rename"
+            >
+              <h1 className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-[90px] sm:max-w-[180px] group-hover:text-blue-600 transition-colors">
+                {appState.examTitle || 'CBT Maker'}
+              </h1>
+              <Edit2 size={11} className="text-slate-400 shrink-0" />
+            </div>
+          )}
+
+          {/* Active Section Indicator Pill (Clicking opens Question Palette Tray) */}
+          <button
+            type="button"
+            onClick={() => setIsQuestionTrayOpen(true)}
+            className="hidden xs:flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-bold hover:bg-blue-100 transition-colors shrink-0"
+            title="Open Question Palette & Sections"
+          >
+            <Layers size={12} />
+            <span className="truncate max-w-[70px] sm:max-w-[120px]">{activeSectionName}</span>
+            <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+              Q{activeQuestionIndex + 1}/{questionsInCurrentSection.length}
+            </span>
+          </button>
         </div>
 
-        {/* Action Buttons Toolbar */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* View Mode Segmented Controls: Split | Editor | Preview */}
-          <div className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+        {/* Right: Controls & Main Action Buttons */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Question Palette / Tray Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsQuestionTrayOpen(prev => !prev)}
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+              isQuestionTrayOpen
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
+            }`}
+            title="Open CBT Question Matrix & Section Palette"
+          >
+            <LayoutGrid size={14} />
+            <span className="hidden sm:inline">Palette</span>
+          </button>
+
+          {/* Desktop & Tablet Secondary Action Buttons (Visible on screens >= 480px including iPad mini) */}
+          <div className="hidden min-[480px]:flex items-center gap-1 sm:gap-1.5">
+            {/* View Mode Segmented Controls: Split | Edit | View */}
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+              <button
+                type="button"
+                onClick={() => setLayoutMode('split')}
+                title="Split View"
+                className={`px-1.5 sm:px-2 py-0.5 rounded-md font-bold transition-all ${
+                  layoutMode === 'split'
+                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                Split
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode('editor')}
+                title="Editor Only"
+                className={`px-1.5 sm:px-2 py-0.5 rounded-md font-bold transition-all ${
+                  layoutMode === 'editor'
+                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode('preview')}
+                title="Live Preview"
+                className={`px-1.5 sm:px-2 py-0.5 rounded-md font-bold transition-all ${
+                  layoutMode === 'preview'
+                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                View
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => setLayoutMode('split')}
-              title="Side-by-Side Split View (with Draggable Border)"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all touch-manipulation ${
-                layoutMode === 'split'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+              onClick={() => setIsAIPromptOpen(true)}
+              title="AI Prompt Generator"
+              className="p-1.5 rounded-lg text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 transition-colors"
             >
-              <Columns2 size={14} />
-              <span className="hidden sm:inline">Split View</span>
+              <Sparkles size={14} />
             </button>
+
             <button
               type="button"
-              onClick={() => setLayoutMode('editor')}
-              title="Editor Only"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all touch-manipulation ${
-                layoutMode === 'editor'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+              onClick={() => setIsPasteImportOpen(true)}
+              title="Bulk Paste Import"
+              className="p-1.5 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
             >
-              <PenTool size={14} />
-              <span className="hidden sm:inline">Editor</span>
+              <FileText size={14} />
             </button>
+
             <button
               type="button"
-              onClick={() => setLayoutMode('preview')}
-              title="Live Preview Only"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all touch-manipulation ${
-                layoutMode === 'preview'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+              onClick={() => setIsLaTeXGuideOpen(true)}
+              title="LaTeX & Math Guide"
+              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 transition-colors"
             >
-              <Eye size={14} />
-              <span className="hidden sm:inline">Preview</span>
+              <BookOpen size={14} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsExamSettingsOpen(true)}
+              title="Exam Settings"
+              className="p-1.5 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
+            >
+              <Settings size={14} />
             </button>
           </div>
 
-          {/* AI Prompt modal */}
-          <button
-            type="button"
-            onClick={() => setIsAIPromptOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-colors touch-manipulation"
-          >
-            <Sparkles size={14} />
-            <span className="hidden lg:inline">AI Prompt</span>
-          </button>
+          {/* Mobile Phone Kebab Triple-Dot Menu (Strictly phone layout < 480px) */}
+          <div className="min-[480px]:hidden flex items-center">
+            <MobileMoreMenu
+              layoutMode={layoutMode}
+              onChangeLayoutMode={setLayoutMode}
+              onOpenAIPrompt={() => setIsAIPromptOpen(true)}
+              onOpenPasteImport={() => setIsPasteImportOpen(true)}
+              onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
+              onOpenExamSettings={() => setIsExamSettingsOpen(true)}
+              onResetDraft={executeResetDraft}
+              onLoadDemo={executeLoadDemo}
+            />
+          </div>
 
-          {/* LaTeX & HTML Guide */}
-          <button
-            type="button"
-            onClick={() => setIsLaTeXGuideOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors touch-manipulation"
-            title="LaTeX & Math Guide"
-          >
-            <BookOpen size={14} />
-            <span className="hidden lg:inline">LaTeX Guide</span>
-          </button>
-
-          {/* Bulk Paste text */}
-          <button
-            type="button"
-            onClick={() => setIsPasteImportOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors touch-manipulation"
-          >
-            <FileText size={14} />
-            <span className="hidden md:inline">Bulk Paste</span>
-          </button>
-
-          {/* Exam Global Settings (Includes Clean Form & Demo loader) */}
-          <button
-            type="button"
-            onClick={() => setIsExamSettingsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors touch-manipulation"
-          >
-            <Settings size={14} />
-            <span className="hidden sm:inline">Settings</span>
-          </button>
-
-          {/* Compile & Save / Import */}
           <button
             type="button"
             onClick={handleCompileAndExport}
             disabled={isCompiling}
-            className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] disabled:opacity-50 touch-manipulation"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all disabled:opacity-50 touch-manipulation"
           >
-            <Download size={15} />
-            <span>{isCompiling ? 'Compiling...' : 'Compile & Save'}</span>
+            <Download size={13} />
+            <span>{isCompiling ? 'Saving...' : 'Compile'}</span>
           </button>
         </div>
       </header>
-
-      {/* Full-width Section Selector Bar */}
-      <div className="w-full px-3 sm:px-5 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 overflow-x-auto shrink-0 z-20">
-        <div className="flex items-center gap-2 overflow-x-auto py-1 scroll-smooth">
-          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300 mr-1 shrink-0">
-            <Layers size={15} />
-            <span>Sections:</span>
-          </div>
-          {appState.sections.map(s => {
-            const qCount = (appState.questionsBySection[s.name] || []).length;
-            const isCurrent = s.name === activeSectionName;
-            const isRenaming = editingSection?.oldName === s.name;
-
-            return (
-              <div
-                key={s.name}
-                className={`group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer shrink-0 transition-all touch-manipulation ${
-                  isCurrent
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                }`}
-                onClick={() => {
-                  if (!isRenaming) {
-                    setActiveSectionName(s.name);
-                    setActiveQuestionIndex(0);
-                  }
-                }}
-              >
-                {isRenaming ? (
-                  <input
-                    type="text"
-                    autoFocus
-                    value={editingSection.currentVal}
-                    onChange={e =>
-                      setEditingSection({ oldName: s.name, currentVal: e.target.value })
-                    }
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        handleRenameSection(editingSection.oldName, editingSection.currentVal);
-                        setEditingSection(null);
-                      } else if (e.key === 'Escape') {
-                        setEditingSection(null);
-                      }
-                    }}
-                    onBlur={() => {
-                      handleRenameSection(editingSection.oldName, editingSection.currentVal);
-                      setEditingSection(null);
-                    }}
-                    onClick={e => e.stopPropagation()}
-                    className="w-28 px-1.5 py-0.5 rounded bg-white text-slate-900 font-bold focus:outline-none text-xs sm:text-sm"
-                  />
-                ) : (
-                  <span
-                    onDoubleClick={e => {
-                      e.stopPropagation();
-                      setEditingSection({ oldName: s.name, currentVal: s.name });
-                    }}
-                    title="Double-click to rename"
-                  >
-                    {s.name}
-                  </span>
-                )}
-
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    isCurrent
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {qCount}
-                </span>
-
-                {!isRenaming && (
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setEditingSection({ oldName: s.name, currentVal: s.name });
-                    }}
-                    title="Rename Section"
-                    className={`p-1 rounded opacity-80 hover:opacity-100 ${
-                      isCurrent ? 'hover:text-blue-100' : 'hover:text-blue-600'
-                    }`}
-                  >
-                    <Edit2 size={13} />
-                  </button>
-                )}
-
-                {appState.sections.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setSectionToDelete(s.name);
-                    }}
-                    title="Delete Section"
-                    className="p-1 hover:text-red-300 rounded opacity-80 hover:opacity-100"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={handleAddSection}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 transition-colors shrink-0 touch-manipulation"
-          >
-            <Plus size={15} />
-            <span>Add Section</span>
-          </button>
-        </div>
-
-        {/* Inline Section Config Badges */}
-        {activeSection && (
-          <div className="hidden sm:flex items-center gap-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300 shrink-0">
-            <div
-              className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/60"
-              title="Section default positive marks"
-            >
-              <span>+</span>
-              <input
-                type="number"
-                step="any"
-                value={activeSection.marks}
-                onChange={e => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setAppState(prev => ({
-                    ...prev,
-                    sections: prev.sections.map(s =>
-                      s.name === activeSection.name ? { ...s, marks: val } : s
-                    )
-                  }));
-                }}
-                className="w-12 bg-transparent font-bold text-center focus:outline-none"
-              />
-              <span>Marks</span>
-            </div>
-
-            <div
-              className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/40 text-red-500 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-800/60"
-              title="Section default negative penalty"
-            >
-              <span>-</span>
-              <input
-                type="number"
-                step="any"
-                value={activeSection.negative}
-                onChange={e => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setAppState(prev => ({
-                    ...prev,
-                    sections: prev.sections.map(s =>
-                      s.name === activeSection.name ? { ...s, negative: val } : s
-                    )
-                  }));
-                }}
-                className="w-12 bg-transparent font-bold text-center focus:outline-none"
-              />
-              <span>Neg</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Question Fast Elevator (1, 2, 3...) & Search Jump - Full Width */}
-      <div className="w-full px-3 sm:px-5 py-2 bg-slate-100/80 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0 overflow-x-auto z-10">
-        <div className="flex items-center gap-2 overflow-x-auto py-0.5 scroll-smooth">
-          {questionsInCurrentSection.map((q, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setActiveQuestionIndex(idx)}
-              className={`w-8 h-8 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0 touch-manipulation ${
-                idx === activeQuestionIndex
-                  ? 'bg-blue-600 text-white shadow-xs scale-105 ring-2 ring-blue-500/30'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
-              }`}
-            >
-              {idx + 1}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            onClick={handleAddQuestion}
-            title="Add New Question"
-            className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 transition-colors shrink-0 touch-manipulation"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Quick Jump Search Box */}
-          <div
-            className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs sm:text-sm shrink-0"
-            title="Quick jump to question number"
-          >
-            <Search size={14} className="text-slate-400" />
-            <span className="text-slate-600 dark:text-slate-400 font-bold hidden sm:inline">
-              Go to Q:
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={questionsInCurrentSection.length}
-              value={jumpQVal}
-              placeholder={`1-${questionsInCurrentSection.length}`}
-              onChange={e => {
-                const val = e.target.value;
-                setJumpQVal(val);
-                const num = parseInt(val, 10);
-                if (!isNaN(num) && num >= 1 && num <= questionsInCurrentSection.length) {
-                  setActiveQuestionIndex(num - 1);
-                }
-              }}
-              className="w-14 bg-transparent text-center font-bold text-blue-600 dark:text-blue-400 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => handleMoveQuestion('up')}
-              disabled={activeQuestionIndex <= 0}
-              title="Move Question Up"
-              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 touch-manipulation"
-            >
-              <ArrowUp size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleMoveQuestion('down')}
-              disabled={activeQuestionIndex >= questionsInCurrentSection.length - 1}
-              title="Move Question Down"
-              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 touch-manipulation"
-            >
-              <ArrowDown size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDuplicateQuestion()}
-              title="Duplicate Question"
-              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-blue-600 touch-manipulation"
-            >
-              <Copy size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDeleteQuestion()}
-              title="Delete Question"
-              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-red-600 touch-manipulation"
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Main Workspace Split Body */}
       <div className="flex-1 flex overflow-hidden w-full relative">
@@ -1448,10 +850,27 @@ export default function CBTMaker() {
           {/* Active Question Editor Area */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-5 w-full">
             {activeQuestion ? (
-              <div className="max-w-3xl mx-auto w-full space-y-4">
-                {renderQuestionStatementCard()}
-                {renderQuestionOptionsCard()}
-              </div>
+              <QuestionEditor
+                question={activeQuestion}
+                questionIndex={activeQuestionIndex}
+                totalQuestions={questionsInCurrentSection.length}
+                section={activeSection}
+                sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
+                mathMode={appState.mathMode}
+                onUpdateQuestion={updateCurrentQuestion}
+                onImageFilePicked={handleImageFilePicked}
+                onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
+                onOpenCropper={(src, target) => {
+                  setCropperData({
+                    isOpen: true,
+                    imageSrc: src,
+                    target
+                  });
+                }}
+                onPrevQuestion={() => setActiveQuestionIndex(prev => Math.max(0, prev - 1))}
+                onNextQuestion={() => setActiveQuestionIndex(prev => Math.min(questionsInCurrentSection.length - 1, prev + 1))}
+                onAddQuestionNext={handleAddQuestionNext}
+              />
             ) : (
               <div className="py-12 text-center text-slate-400 text-base font-medium">
                 No question available. Click <strong>+ Add Question</strong> above to start.
@@ -1502,10 +921,20 @@ export default function CBTMaker() {
           <QuestionLivePreview
             question={activeQuestion}
             questionIndex={activeQuestionIndex}
+            totalQuestions={questionsInCurrentSection.length}
             section={activeSection || { name: 'Default', marks: 4, negative: 1, maxAttempts: 0 }}
+            allSections={appState.sections}
+            onSelectSection={secName => {
+              setActiveSectionName(secName);
+              setActiveQuestionIndex(0);
+            }}
+            onPrevQuestion={() => setActiveQuestionIndex(prev => Math.max(0, prev - 1))}
+            onNextQuestion={() => setActiveQuestionIndex(prev => Math.min(questionsInCurrentSection.length - 1, prev + 1))}
             fontName={appState.fontName}
+            previewTableFontSize={appState.previewTableFontSize}
             mathMode={appState.mathMode}
             renderEngine={appState.renderEngine}
+            layoutMode={layoutMode}
           />
         </div>
       </div>
@@ -1645,6 +1074,7 @@ export default function CBTMaker() {
           isOpen={isAIPromptOpen}
           onClose={() => setIsAIPromptOpen(false)}
           examTitle={appState.examTitle}
+          sections={appState.sections}
         />
       )}
 
@@ -1658,7 +1088,7 @@ export default function CBTMaker() {
             setIsPasteImportOpen(false);
             setIsAIPromptOpen(true);
           }}
-          onImportSuccess={(newState, count) => {
+          onImportSuccess={(newState, count, missingImages) => {
             setAppState(prev => ({
               ...prev,
               ...newState
@@ -1667,10 +1097,43 @@ export default function CBTMaker() {
               setActiveSectionName(newState.sections[0].name);
               setActiveQuestionIndex(0);
             }
-            alert(`Successfully imported ${count} questions!`);
+            if (missingImages && missingImages > 0) {
+              alert(`Successfully imported ${count} questions!\n\n⚠️ NOTE: ${missingImages} question(s) contain diagram/image placeholders ([IMAGE]). Please upload the required diagram images for these questions.`);
+            } else {
+              alert(`Successfully imported ${count} questions!`);
+            }
           }}
         />
       )}
+
+      {/* Question Palette & Section Tray */}
+      <QuestionPaletteTray
+        isOpen={isQuestionTrayOpen}
+        onClose={() => setIsQuestionTrayOpen(false)}
+        sections={appState.sections}
+        activeSectionName={activeSectionName}
+        questionsBySection={appState.questionsBySection}
+        activeQuestionIndex={activeQuestionIndex}
+        onSelectSection={handleSelectSection}
+        onSelectQuestion={handleSelectQuestion}
+        onAddQuestion={handleAddQuestion}
+        onAddSection={handleAddSection}
+        onRenameSection={(oldName, newName) => {
+          handleRenameSection(oldName, newName);
+        }}
+        onDeleteSection={(secName) => {
+          setSectionToDelete(secName);
+        }}
+        onMoveQuestion={handleMoveQuestionAtIndex}
+        onDuplicateQuestion={handleDuplicateQuestionAtIndex}
+        onDeleteQuestion={handleDeleteQuestionAtIndex}
+        onUpdateSectionMarks={(secName, marks, negative) => {
+          setAppState(prev => ({
+            ...prev,
+            sections: prev.sections.map(s => s.name === secName ? { ...s, marks, negative } : s)
+          }));
+        }}
+      />
 
       {/* Global Exam Settings Modal */}
       {isExamSettingsOpen && (

@@ -44,6 +44,10 @@ export default function Settings() {
     const saved = localStorage.getItem('cbtSettings');
     if (saved) {
       setSettings(JSON.parse(saved));
+    } else {
+      const initial = { useLatexFont: true };
+      setSettings(initial);
+      localStorage.setItem('cbtSettings', JSON.stringify(initial));
     }
     refreshStorageMetrics();
   }, []);

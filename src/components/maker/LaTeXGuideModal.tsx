@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, BookOpen, Copy, Check, Sparkles, HelpCircle, Code, ArrowRight, Search, ZoomIn, ZoomOut } from 'lucide-react';
 import { formatContent } from '../../utils/cbtCompiler';
@@ -9,7 +9,7 @@ interface LaTeXGuideModalProps {
   onInsertSnippet?: (snippet: string) => void;
 }
 
-export default function LaTeXGuideModal({
+function LaTeXGuideModal({
   isOpen,
   onClose,
   onInsertSnippet
@@ -151,36 +151,36 @@ export default function LaTeXGuideModal({
   ];
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl max-h-[92vh] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-5 bg-slate-950/80 animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 w-[96vw] sm:w-full max-w-5xl max-h-[92vh] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <BookOpen size={22} />
+        <div className="px-4 sm:px-5 py-3 sm:py-4 bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="p-2 sm:p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+              <BookOpen size={20} />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm sm:text-lg font-bold text-slate-800 dark:text-slate-100 truncate sm:whitespace-normal">
                 Exam Writing Guide: LaTeX & HTML
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-1 sm:line-clamp-2">
                 High-readability reference for JEE, NEET, and academic math, physics, and chemistry formulas.
               </p>
             </div>
           </div>
 
           {/* Controls: Zoom In/Out & Close */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="hidden xs:flex items-center bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
               <button
                 type="button"
                 onClick={() => setFontSizeMultiplier(prev => Math.max(0.9, prev - 0.15))}
                 title="Decrease Font Size"
                 className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
-                <ZoomOut size={15} />
+                <ZoomOut size={14} />
               </button>
-              <span className="px-2 select-none text-[11px] font-mono">
+              <span className="px-1.5 select-none text-[10px] sm:text-[11px] font-mono">
                 {Math.round(fontSizeMultiplier * 100)}%
               </span>
               <button
@@ -189,16 +189,16 @@ export default function LaTeXGuideModal({
                 title="Increase Font Size"
                 className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
-                <ZoomIn size={15} />
+                <ZoomIn size={14} />
               </button>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
         </div>
@@ -412,3 +412,5 @@ export default function LaTeXGuideModal({
     document.body
   );
 }
+
+export default memo(LaTeXGuideModal);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Play, Check, Copy, FolderPlus, X, Sparkles, Database, Edit3, FileCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ interface ImportToAppModalProps {
   onUpdateTitle?: (newTitle: string) => void;
 }
 
-export default function ImportToAppModal({
+function ImportToAppModal({
   isOpen,
   onClose,
   compiledHtml,
@@ -104,7 +104,7 @@ export default function ImportToAppModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 animate-in fade-in duration-150">
       <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-xl flex flex-col max-h-[92vh] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
@@ -346,3 +346,5 @@ export default function ImportToAppModal({
     document.body
   );
 }
+
+export default memo(ImportToAppModal);

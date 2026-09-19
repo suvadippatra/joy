@@ -39,6 +39,7 @@ export interface AppState {
   duration: number | string;
   timerMode: 'COUNTDOWN' | 'STOPWATCH';
   fontName: string;
+  previewTableFontSize?: number;
   mathMode: 'LATEX' | 'HTML';
   renderEngine: 'KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE';
   rules: string[];
@@ -90,6 +91,7 @@ export const cleanAppState: AppState = {
   duration: 90,
   timerMode: 'COUNTDOWN',
   fontName: "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif",
+  previewTableFontSize: 100,
   mathMode: 'LATEX',
   renderEngine: 'KATEX_LOCAL',
   rules: [...defaultRules],

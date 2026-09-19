@@ -5,6 +5,7 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
   state?: Partial<AppState>;
   error?: string;
   count?: number;
+  missingImagesCount?: number;
 } {
   try {
     let txt = rawTxt.trim();
@@ -226,11 +227,21 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
     }
 
     let totalQCount = 0;
-    Object.values(questionsBySection).forEach(arr => { totalQCount += arr.length; });
+    let missingImagesCount = 0;
+    Object.values(questionsBySection).forEach(arr => {
+      totalQCount += arr.length;
+      arr.forEach(q => {
+        if (q.image === 'PLACEHOLDER') missingImagesCount++;
+        (q.options || []).forEach(opt => {
+          if (opt.includes('||IMG:PLACEHOLDER||') || opt.includes('PLACEHOLDER')) missingImagesCount++;
+        });
+      });
+    });
 
     return {
       success: true,
       count: totalQCount,
+      missingImagesCount,
       state: {
         agencyName: agencyName || currentState.agencyName,
         examTitle: examTitle || currentState.examTitle,
@@ -314,147 +325,69 @@ export function generateCBTString(appState: AppState): string {
   return out.trim();
 }
 
-export function getAIPrompt(mode: 'LATEX' | 'HTML', subject = 'General Science', questionCount = 5): string {
-  const isLatex = mode === 'LATEX';
-
-  if (isLatex) {
-    return `You are a Senior Question Author & Exam Curator for an NTA-standard Computer Based Test (CBT) platform.
-Create a complete, high-quality test paper for: "${subject}" in STRICT CBT Maker LaTeX Format.
-
-==================================================
-OUTPUT FORMAT SPECIFICATIONS (LATEX MATH MODE):
-==================================================
-
-1. EXAM METADATA (Header):
-[EXAM_INFO]
-Agency: National Testing Agency
-Title: ${subject}
-Subtitle: Comprehensive NTA / NEET / JEE Standard Test
-Duration: 60
-Timer: COUNTDOWN
-Font: 'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif
-MathMode: LATEX
-Rules: +4 marks for correct answer|-1 mark penalty for wrong answer|No negative marking for NAT questions|Use scratchpad for rough calculations
-
-2. PHYSICAL / CHEMICAL CONSTANTS (Optional, add if relevant):
-[CONSTANTS]
-c: 3.00 × 10^8 m/s
-h: 6.626 × 10^-34 J·s
-R: 8.314 J/(mol·K)
-g: 9.8 m/s^2
-e: 1.602 × 10^-19 C
-
-3. SECTION HEADER:
-[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
-
-4. QUESTION STRUCTURE RULES:
-- QType: Must be "MCQ" (Single Choice), "MSQ" (Multiple Correct Options), or "NAT" (Numerical Answer Type).
-- Q: Question statement. Use $...$ for inline math (e.g. $E = mc^2$, $\\lambda = \\frac{h}{p}$) and $$...$$ for display formulas.
-  * For chemical formulas, use $\\text{H}_2\\text{SO}_4$, $\\text{KMnO}_4$, etc.
-  * For units, use $\\text{m/s}^2$, $\\text{J}\\cdot\\text{s}$, etc.
-- O: Exactly 4 options for MCQ/MSQ (One per line starting with O:).
-- A: Answer key:
-  * For MCQ: Single letter (e.g. A, B, C, or D).
-  * For MSQ: Comma-separated letters (e.g. A, C or B, D).
-  * For NAT: Exact number (e.g. 24) or range (e.g. 23.5-24.5).
-- E: Step-by-step solution / rationale with formulas.
-
-==================================================
-SAMPLE QUESTIONS TEMPLATE:
-==================================================
-
-[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
-
-QType: MCQ
-Q: An electron transitions from the $n = 3$ energy level to the $n = 1$ ground state in a hydrogen atom. If the Rydberg constant is $R_H$, what is the wavelength $\\lambda$ of the emitted photon?
-O: $\\frac{8}{9 R_H}$
-O: $\\frac{9}{8 R_H}$
-O: $\\frac{3}{4 R_H}$
-O: $\\frac{4}{3 R_H}$
-A: B
-E: Using the Rydberg formula: $\\frac{1}{\\lambda} = R_H \\left( \\frac{1}{1^2} - \\frac{1}{3^2} \\right) = R_H \\left( 1 - \\frac{1}{9} \\right) = \\frac{8}{9} R_H$. Therefore, $\\lambda = \\frac{9}{8 R_H}$.
-
-QType: MSQ
-Q: Which of the following statements regarding electromagnetic waves in vacuum are TRUE?
-O: The electric and magnetic field vectors $\\vec{E}$ and $\\vec{B}$ oscillate in phase.
-O: The ratio $\\frac{|\\vec{E}|}{|\\vec{B}|}$ is equal to the speed of light $c$.
-O: The energy density stored in the electric field is greater than that in the magnetic field.
-O: EM waves transport both energy and linear momentum.
-A: A, B, D
-E: Statements A, B, and D are correct. The electric and magnetic energy densities are equal ($u_E = u_B$).
-
-QType: NAT
-Q: A parallel plate capacitor with plate area $A = 100\\text{ cm}^2$ and plate separation $d = 2\\text{ mm}$ is filled with a dielectric of constant $K = 4.0$. Calculate its capacitance in picofarads (pF). (Take $\\varepsilon_0 = 8.85 \\times 10^{-12}\\text{ F/m}$)
-A: 175-180
-E: $C = \\frac{K \\varepsilon_0 A}{d} = \\frac{4.0 \\times 8.85 \\times 10^{-12} \\times 10^{-2}}{2 \\times 10^{-3}} = 1.77 \\times 10^{-10}\\text{ F} = 177\\text{ pF}$.
-
-Generate ${questionCount} diverse, conceptually rigorous questions following this exact syntax. Output ONLY the raw test text without markdown fences or extraneous chat commentary.`;
+export function getAIPrompt(mode: 'LATEX' | 'HTML', subject = 'General Science', sections?: { name: string; marks: number; negative: number; maxAttempts: number }[]): string {
+  let sectionStr = '';
+  if (sections && sections.length > 0) {
+    sections.forEach(s => {
+      sectionStr += `[SECTION:${s.name}|Marks:${s.marks}|Neg:${s.negative}|MaxAtt:${s.maxAttempts || 0}]\n`;
+    });
+  } else {
+    sectionStr = `[SECTION:${subject || 'Section 1'}|Marks:4|Neg:1|MaxAtt:0]\n`;
   }
 
-  // HTML / Unicode Mode AI Prompt
-  return `You are a Senior Question Author & Exam Curator for a Computer Based Test (CBT) platform.
-Create a complete, high-quality test paper for: "${subject}" in STRICT CBT Maker Pure HTML & Unicode Format.
+  let modeSpecificRules = '';
+  if (mode === 'LATEX') {
+    modeSpecificRules = `CRITICAL MATH & IMAGE RULES:
+- You MUST extract ALL mathematical equations, variables, and scientific notation using ONLY standard LaTeX wrapped EXACTLY in $ (inline) or $$ (display block).
+- DO NOT use \\( ... \\) or \\[ ... \\]. Use ONLY $ and $$.
+- MULTIPLICATION RULE: NEVER use the asterisk '*' for multiplication in math (e.g. $2 * 3$ breaks formatting). Always use \\times ($2 \\times 3$) or \\cdot ($2 \\cdot 3$).
+- FORBIDDEN: NEVER write scientific units or constants in Bengali or extraneous scripts. Use standard LaTeX (e.g., $m/s^2$, $C$).
+- REQUIRED: Always use LaTeX for Greek letters (\\alpha, \\beta, \\gamma) and arrows (\\rightarrow, \\rightleftharpoons).
+- COMPLEX MATRICES / DIAGRAMS: If a question contains a complex matrix, diagram, or chart, output EXACTLY \`[IMAGE]\` on a new line. NEVER use a single dot '.'.`;
+  } else {
+    modeSpecificRules = `CRITICAL HTML & IMAGE RULES:
+- ABSOLUTELY NO LATEX. Do not use $ or \\frac or any backslashes like \\rightarrow.
+- MULTIPLICATION RULE: Use standard multiplication sign '×' or '·'.
+- ARROWS & SEQUENCES: In biological pathways, reactions, or developmental sequences, use the literal Unicode arrow '→' or '⇌'. NEVER write '\\rightarrow' or '$' in HTML mode.
+- Use standard Unicode for symbols (π, α, β, ∑, ∫, √, →, ←, ⇌, ±, °, μ).
+- Use raw HTML <sup>2</sup> for exponents and <sub>2</sub> for subscripts (e.g., H<sub>2</sub>O, Ca<sup>2+</sup>, 10<sup>5</sup>).
+- COMPLEX DIAGRAMS: If a question contains a diagram, complex structure, or chart, output EXACTLY \`[IMAGE]\` on a new line. NEVER use a single dot '.'.`;
+  }
 
-==================================================
-OUTPUT FORMAT SPECIFICATIONS (PURE HTML / UNICODE MODE):
-==================================================
+  return `SYSTEM INSTRUCTION: You are an expert Data Extraction AI. Extract EVERY SINGLE question from the provided document and format them EXACTLY into the strict plain-text .CBT format specified below.
 
-1. EXAM METADATA (Header):
+CRITICAL EXTRACTION RULES (FOLLOW OR FAIL):
+1. NEVER SKIP: Extract every question. Grab all questions from the provided document without limit.
+2. MCQ FORMAT: Exactly 4 'O:' lines. The 'A:' line must be a single letter (A, B, C, or D).
+3. NAT FORMAT: DO NOT output any 'O:' lines. The 'A:' line must be the exact text/number or range.
+4. TEXT EMPHASIS: You MUST preserve all italics from the original document using *italic* (CRITICAL for biological names like *Mangifera indica*). Preserve bold text using **bold**.
+5. LISTS & LINE BREAKS: If a question contains an internal list of items (e.g., 1., 2., 3. or A., B., C., D. or I., II., III.), you MUST insert a literal \\n before each item so they stack vertically.
+6. STATEMENTS: DO NOT break "Statement I:", "List-I", "List-II", "Assertion A:" into multiple lines. Keep the label and its text on the SAME line.
+7. TABLES: Convert tables into a minified HTML <table> string on a single line starting with 'T: '.
+8. NO HALLUCINATIONS: Do NOT output "[span_0]" or bounding box artifacts.
+
+${modeSpecificRules}
+
+FORMAT BLUEPRINT TO FOLLOW:
 [EXAM_INFO]
 Agency: National Testing Agency
-Title: ${subject}
-Subtitle: Pure HTML & Unicode High-Legibility Test
+Title: ${subject || 'CBT Exam'}
+Subtitle: High-Legibility CBT Paper
 Duration: 60
-Timer: COUNTDOWN
-Font: system-ui, -apple-system, sans-serif
-MathMode: HTML
-Rules: +4 marks for correct answer|-1 mark penalty for wrong answer|No negative marking for NAT questions|All questions are based on standard syllabus
+Timer: STOPWATCH
+[FORMAT_WATERMARK: ${mode === 'LATEX' ? 'LATEX' : 'PURE_HTML'}]
 
-2. SECTION HEADER:
-[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
-
-3. QUESTION STRUCTURE RULES:
-- QType: Must be "MCQ" (Single Choice), "MSQ" (Multiple Correct Options), or "NAT" (Numerical Answer Type).
-- Q: Question statement. Use standard HTML tags:
-  * Subscripts: <sub>2</sub> (e.g. H<sub>2</sub>O, CO<sub>2</sub>, glucose C<sub>6</sub>H<sub>12</sub>O<sub>6</sub>)
-  * Superscripts: <sup>2+</sup>, <sup>-34</sup>, 10<sup>8</sup>
-  * Formatting: <b>bold</b>, <i>italic</i>, <code>code</code>
-  * Unicode Symbols: α, β, γ, θ, λ, μ, π, Ω, Δ, √, ∫, ±, ×, ÷, ≠, ≤, ≥, →, ⇌, °C, ℏ, Å
-- T: (Optional) Match-the-Columns / Matrix HTML Table snippet:
-  T: <table class="w-full border text-sm"><tr class="bg-slate-100 dark:bg-slate-800"><th class="border p-2">Column I</th><th class="border p-2">Column II</th></tr><tr><td class="border p-2">A. Item 1</td><td class="border p-2">P. Match 1</td></tr><tr><td class="border p-2">B. Item 2</td><td class="border p-2">Q. Match 2</td></tr></table>
-- O: Exactly 4 options for MCQ/MSQ (One per line starting with O:).
-- A: Answer key (A, B, C, or D for MCQ; A, C for MSQ; exact numeric value or range like 14.5-15.5 for NAT).
-- E: Step-by-step solution / rationale with clean HTML formatting.
-
-==================================================
-SAMPLE QUESTIONS TEMPLATE:
-==================================================
-
-[SECTION:${subject} Section A|Marks:4|Neg:1|MaxAtt:0]
-
-QType: MCQ
-Q: During aerobic cellular respiration, which of the following processes produces the maximum number of ATP molecules per glucose (C<sub>6</sub>H<sub>12</sub>O<sub>6</sub>) molecule?
-O: Glycolysis in the cytosol
-O: Citric Acid (Krebs) Cycle in mitochondrial matrix
-O: Oxidative Phosphorylation via Electron Transport Chain (ETC)
-O: Lactic acid fermentation
-A: C
-E: Oxidative phosphorylation yields approximately 26–28 ATP per glucose molecule, accounting for the vast majority of cellular ATP production.
-
-QType: MCQ
-Q: Match the hormones listed in <b>Column I</b> with their respective endocrine glands in <b>Column II</b>:
-T: <table class="w-full border text-sm"><tr class="bg-slate-100 dark:bg-slate-800"><th class="border p-2">Column I (Hormone)</th><th class="border p-2">Column II (Gland)</th></tr><tr><td class="border p-2">A. Insulin</td><td class="border p-2">1. Thyroid Gland</td></tr><tr><td class="border p-2">B. Thyroxine (T<sub>4</sub>)</td><td class="border p-2">2. Pancreas (β-cells)</td></tr><tr><td class="border p-2">C. Aldosterone</td><td class="border p-2">3. Adrenal Cortex</td></tr><tr><td class="border p-2">D. Calcitonin</td><td class="border p-2">4. Thyroid Parafollicular cells</td></tr></table>
-O: A-2, B-1, C-3, D-4
-O: A-1, B-2, C-4, D-3
-O: A-2, B-4, C-3, D-1
-O: A-3, B-1, C-2, D-4
-A: A
-E: Insulin is secreted by pancreatic β-cells, Thyroxine by thyroid follicular cells, Aldosterone by adrenal cortex, and Calcitonin by thyroid parafollicular (C) cells.
+${sectionStr}QType: MCQ
+Q: Read the statements:\\n**Statement I:** First statement...\\n**Statement II:** Second statement...
+O: Option A text
+O: Option B text
+O: Option C text
+O: Option D text
+A: B
 
 QType: NAT
-Q: What is the net gain of ATP molecules produced directly during glycolysis from the breakdown of 1 molecule of glucose?
-A: 2
-E: Glycolysis consumes 2 ATP and produces 4 ATP, resulting in a net yield of 2 ATP per glucose.
+Q: The value of the charge is ____________ C.
+A: 2.5-2.6
 
-Generate ${questionCount} diverse, conceptually rigorous questions following this exact syntax. Output ONLY the raw test text without markdown fences or extraneous chat commentary.`;
+Now, parse the attached document and output ONLY the raw .CBT code inside a \`\`\`text block.`;
 }

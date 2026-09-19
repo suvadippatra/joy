@@ -8,7 +8,9 @@ import {
   Trash2,
   Clock,
   ZoomIn,
-  X
+  X,
+  AlertTriangle,
+  Upload
 } from 'lucide-react';
 import { formatDataUrlSize } from '../../utils/imageOptimizer';
 
@@ -60,6 +62,48 @@ export default function Base64ImageGuard({
   }, [isViewing]);
 
   if (!imageSrc) return null;
+
+  if (imageSrc === 'PLACEHOLDER') {
+    return (
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/80 p-3 w-full transition-all">
+        <div className="flex items-center gap-2.5 text-xs font-bold text-amber-800 dark:text-amber-200">
+          <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
+          <div>
+            <div className="font-bold text-xs sm:text-sm">Diagram Image Required</div>
+            <div className="text-[11px] text-amber-700 dark:text-amber-300 font-normal">
+              This {label.toLowerCase()} contains an <code className="bg-amber-200/60 dark:bg-amber-900/60 px-1 py-0.5 rounded font-mono">[IMAGE]</code> placeholder.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+          {onReplaceImage && (
+            <label className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs">
+              <Upload size={14} />
+              <span>Upload Image</span>
+              <input
+                type="file"
+                accept="image/*,.svg,.gif,.png,.jpg,.jpeg,.webp,.bmp"
+                className="hidden"
+                onChange={onReplaceImage}
+              />
+            </label>
+          )}
+
+          {onRemoveImage && (
+            <button
+              type="button"
+              onClick={onRemoveImage}
+              className="p-1.5 text-amber-700 dark:text-amber-300 hover:text-red-500 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+              title="Remove Placeholder"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-2.5 transition-all w-fit max-w-full">

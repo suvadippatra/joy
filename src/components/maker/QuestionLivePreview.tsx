@@ -1,5 +1,26 @@
-import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
-import { Monitor, Tablet, Smartphone, ZoomIn, ZoomOut, X, Hash, Lightbulb, Image as ImageIcon, Eye, EyeOff, Clock, Code, FileText } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef, memo, useDeferredValue } from 'react';
+import {
+  Monitor,
+  Tablet,
+  Smartphone,
+  ZoomIn,
+  ZoomOut,
+  X,
+  Hash,
+  Lightbulb,
+  Image as ImageIcon,
+  Eye,
+  EyeOff,
+  Clock,
+  Code,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Check,
+  Layers,
+  AlertTriangle
+} from 'lucide-react';
 import { Question, Section } from '../../types/cbtMaker';
 import { formatContent } from '../../utils/cbtCompiler';
 import { formatDataUrlSize } from '../../utils/imageOptimizer';
@@ -7,19 +28,33 @@ import { formatDataUrlSize } from '../../utils/imageOptimizer';
 interface QuestionLivePreviewProps {
   question: Question | null;
   questionIndex: number;
+  totalQuestions?: number;
   section: Section;
+  allSections?: Section[];
+  onSelectSection?: (sectionName: string) => void;
+  onPrevQuestion?: () => void;
+  onNextQuestion?: () => void;
   fontName: string;
+  previewTableFontSize?: number;
   mathMode: 'LATEX' | 'HTML';
   renderEngine: 'KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE';
+  layoutMode?: 'split' | 'editor' | 'preview';
 }
 
 const QuestionLivePreview = memo(function QuestionLivePreview({
   question,
   questionIndex,
+  totalQuestions = 1,
   section,
+  allSections = [],
+  onSelectSection,
+  onPrevQuestion,
+  onNextQuestion,
   fontName,
+  previewTableFontSize = 100,
   mathMode,
-  renderEngine
+  renderEngine,
+  layoutMode = 'preview'
 }: QuestionLivePreviewProps) {
   const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -27,9 +62,10 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   const [natAnswer, setNatAnswer] = useState<string>('');
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [fontScale, setFontScale] = useState<number>(1.15); // Default 115% high-readability scale
+  const [isSectionMenuOpen, setIsSectionMenuOpen] = useState<boolean>(false);
 
-  // Global Media Mode: 'on-demand' (auto-hides after 10s to save memory) or 'always'
-  const [mediaMode, setMediaMode] = useState<'on-demand' | 'always'>('on-demand');
+  // Global Media Mode: 'always' (instant image rendering) or 'on-demand'
+  const [mediaMode, setMediaMode] = useState<'on-demand' | 'always'>('always');
 
   // Question Diagram 10s timer state
   const [showQuestionImage, setShowQuestionImage] = useState<boolean>(false);
@@ -40,15 +76,8 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   const [activeOptionImagePreviews, setActiveOptionImagePreviews] = useState<Record<number, number>>({});
   const optImageIntervalRef = useRef<any>(null);
 
-  // Debounced question state for ultra-smooth typing without KaTeX blocking
-  const [debouncedQuestion, setDebouncedQuestion] = useState(question);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuestion(question);
-    }, 80);
-    return () => clearTimeout(handler);
-  }, [question]);
+  // Deferred question state for non-blocking KaTeX parsing
+  const deferredQuestion = useDeferredValue(question);
 
   // Reset local selection when question changes
   useEffect(() => {
@@ -125,22 +154,22 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
     });
   };
 
-  // Memoized LaTeX & Markdown parsing
+  // Memoized LaTeX & Markdown parsing using deferredQuestion
   const processedText = useMemo(() => {
-    return debouncedQuestion ? formatContent(debouncedQuestion.text, renderEngine, mathMode, true) : '';
-  }, [debouncedQuestion?.text, renderEngine, mathMode]);
+    return deferredQuestion ? formatContent(deferredQuestion.text, renderEngine, mathMode, true) : '';
+  }, [deferredQuestion?.text, renderEngine, mathMode]);
 
   const processedTable = useMemo(() => {
-    return debouncedQuestion?.table ? formatContent(debouncedQuestion.table, renderEngine, mathMode, true) : '';
-  }, [debouncedQuestion?.table, renderEngine, mathMode]);
+    return deferredQuestion?.table ? formatContent(deferredQuestion.table, renderEngine, mathMode, true) : '';
+  }, [deferredQuestion?.table, renderEngine, mathMode]);
 
   const processedExp = useMemo(() => {
-    return debouncedQuestion?.explanation ? formatContent(debouncedQuestion.explanation, renderEngine, mathMode, true) : '';
-  }, [debouncedQuestion?.explanation, renderEngine, mathMode]);
+    return deferredQuestion?.explanation ? formatContent(deferredQuestion.explanation, renderEngine, mathMode, true) : '';
+  }, [deferredQuestion?.explanation, renderEngine, mathMode]);
 
   const processedOptions = useMemo(() => {
-    if (!debouncedQuestion?.options) return [];
-    return debouncedQuestion.options.map((opt) => {
+    if (!deferredQuestion?.options) return [];
+    return deferredQuestion.options.map((opt) => {
       let optText = opt || '';
       let optImgSrc = '';
       const imgMatch = optText.match(/\|\|IMG:([\s\S]+?)\|\|/);
@@ -152,7 +181,7 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
       const imgSize = optImgSrc ? formatDataUrlSize(optImgSrc) : '';
       return { html: safeOpt, imgSrc: optImgSrc, imgSize };
     });
-  }, [debouncedQuestion?.options, renderEngine, mathMode]);
+  }, [deferredQuestion?.options, renderEngine, mathMode]);
 
   if (!question) {
     return (
@@ -179,13 +208,85 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
     <div className="flex flex-col h-full w-full bg-slate-100/70 dark:bg-slate-950/60 overflow-hidden border-l border-slate-200/80 dark:border-slate-800">
       {/* Viewport & Media Toolbar */}
       <div className="px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-xs sm:text-sm px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold border border-blue-200/50 dark:border-blue-900/40">
-            {section.name}
-          </span>
-          <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-bold">
+        {/* Left: Interactive Section Selector & Quick Navigation */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {allSections && allSections.length > 0 ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSectionMenuOpen(!isSectionMenuOpen)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-extrabold text-xs sm:text-sm border border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 transition-colors"
+                title="Click to switch Section"
+              >
+                <Layers size={13} />
+                <span>{section.name}</span>
+                <ChevronDown size={13} />
+              </button>
+
+              {isSectionMenuOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-48 py-1 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                    Switch Section
+                  </div>
+                  {allSections.map(sec => (
+                    <button
+                      key={sec.name}
+                      type="button"
+                      onClick={() => {
+                        if (onSelectSection) onSelectSection(sec.name);
+                        setIsSectionMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs font-bold flex items-center justify-between hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors ${
+                        sec.name === section.name ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-slate-800/50' : 'text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
+                      <span>{sec.name}</span>
+                      {sec.name === section.name && <Check size={13} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-xs sm:text-sm px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold border border-blue-200/50 dark:border-blue-900/40">
+              {section.name}
+            </span>
+          )}
+
+          <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-extrabold">
             Q{questionIndex + 1}
           </span>
+
+          {/* In 'preview' mode, render Prev Q / Next Q buttons (hidden in 'split' mode to avoid double buttons) */}
+          {layoutMode === 'preview' && (
+            <div className="flex items-center gap-1 ml-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={onPrevQuestion}
+                disabled={questionIndex <= 0}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"
+                title="Previous Question"
+              >
+                <ChevronLeft size={14} />
+                <span className="hidden sm:inline">Prev</span>
+              </button>
+
+              <span className="text-[11px] font-mono font-bold text-slate-400 px-1">
+                {questionIndex + 1}/{totalQuestions || 1}
+              </span>
+
+              <button
+                type="button"
+                onClick={onNextQuestion}
+                disabled={questionIndex >= (totalQuestions || 1) - 1}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"
+                title="Next Question"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Media Mode & Viewport Switcher */}
@@ -320,8 +421,14 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
           {question.image && (
             <div className="my-4">
               {question.image === 'PLACEHOLDER' ? (
-                <div className="p-4 rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 text-center text-xs font-semibold text-red-600 dark:text-red-400">
-                  Missing Image
+                <div className="p-3.5 sm:p-4 rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 flex items-center gap-3 text-amber-800 dark:text-amber-200">
+                  <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div className="text-xs sm:text-sm">
+                    <span className="font-extrabold block">Diagram Image Required</span>
+                    <span className="text-[11px] text-amber-700 dark:text-amber-300 font-normal">
+                      This question contains an <code className="bg-amber-200/60 dark:bg-amber-900/60 px-1 py-0.5 rounded font-mono">[IMAGE]</code> placeholder. Switch to Editor mode to upload the diagram.
+                    </span>
+                  </div>
                 </div>
               ) : mediaMode === 'always' || showQuestionImage ? (
                 <div className="relative inline-flex flex-col items-start gap-1 max-w-full rounded-xl p-2 bg-slate-950 border border-slate-800 group">
@@ -373,10 +480,11 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
             </div>
           )}
 
-          {/* Table if any - Styled matching cbt_demo.html simplicity */}
+          {/* Table if any - Styled matching cbt_demo.html simplicity with table font size scaling */}
           {processedTable && (
             <div
-              className="cbt-rendered-content my-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 text-xs sm:text-sm bg-slate-50/50 dark:bg-slate-950/40"
+              className="cbt-rendered-content my-4 overflow-x-auto max-w-full rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-slate-50/50 dark:bg-slate-950/40 scrollbar-thin"
+              style={{ fontSize: `${(previewTableFontSize || 100) * 0.01}em` }}
               dangerouslySetInnerHTML={{ __html: processedTable }}
             />
           )}

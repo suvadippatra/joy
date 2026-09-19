@@ -245,7 +245,7 @@ export function formatContent(
             macros: KATEX_MACROS
           });
         } catch {
-          processedMath = formatMathToHTMLFallback(rawContent, block.isDisplay);
+          processedMath = block.isDisplay ? `$$${rawContent}$$` : `$${rawContent}$`;
         }
       } else {
         // In standalone compiled CBT: keep $...$ / $$...$$ for KaTeX auto-render
@@ -336,7 +336,12 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   // Timer & Font settings
   txt = txt.replace(/const TIMER_MODE = '[^']*';/i, `const TIMER_MODE = '${appState.timerMode || 'COUNTDOWN'}';`);
   txt = txt.replace(/const EXAM_DURATION_MINS = \d+;/i, `const EXAM_DURATION_MINS = ${parseInt(String(appState.duration), 10) || 90};`);
-  txt = txt.replace(/const Q_FONT_FAMILY = ".*?";/i, `const Q_FONT_FAMILY = "${appState.fontName || "'KaTeX_Main', serif"}";`);
+  const fontChoice = appState.fontName || "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif";
+  txt = txt.replace(/const Q_FONT_FAMILY = ".*?";/i, `const Q_FONT_FAMILY = "${fontChoice.replace(/"/g, '\\"')}";`);
+
+  // Inject CSS root font variable immediately into head
+  const fontCssTag = `<style id="q-font-style">:root { --q-font: ${fontChoice}; }</style>`;
+  txt = txt.replace('</head>', `${fontCssTag}\n</head>`);
 
   // Rules & Instructions HTML
   const finalRules = [...(appState.rules || [])];
@@ -361,12 +366,13 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   const safeInstInject = `/*<INST_START>*/\nconst EXAM_S_HTML = \`${instHtml.replace(/`/g, '\\`')}\`;\n/*<INST_END>*/`;
   txt = txt.replace(instRegex, safeInstInject);
 
-  // KaTeX CSS & JS Injections (Only for LaTeX engine)
+  // KaTeX CSS & JS Injections (For LaTeX math mode OR whenever a KaTeX font family is selected)
   let katexCSS = '';
   let katexJS = '';
-  if (appState.mathMode === 'LATEX' && appState.renderEngine !== 'HTML_FALLBACK') {
+  const isKaTeXRequired = appState.mathMode === 'LATEX' || (appState.fontName && (appState.fontName.includes('KaTeX') || appState.fontName.includes('Computer Modern')));
+  if (isKaTeXRequired) {
     katexCSS = `<link rel="stylesheet" href="./libs/katex.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';">`;
-    katexJS = `\n<script defer src="./libs/katex.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';"><\/script>\n<script defer src="./libs/auto-render.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';" onload="if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]}); }"><\/script>\n`;
+    katexJS = `\n<script defer src="./libs/katex.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';"><\/script>\n<script defer src="./libs/auto-render.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';" onload="if(typeof triggerMathRender === 'function'){ triggerMathRender(); } else if(typeof renderMathInElement !== 'undefined') { renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}], throwOnError: false}); }"><\/script>\n`;
   }
   txt = txt.replace(/<!--\s*PARAMETER 11.*?-->/i, () => katexCSS)
            .replace(/<!--\s*PARAMETER 12.*?-->/i, () => katexJS)

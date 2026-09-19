@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Upload, FileText, Check, AlertCircle, X, Sparkles } from 'lucide-react';
 import { AppState } from '../../types/cbtMaker';
@@ -8,11 +8,11 @@ interface PasteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentState: AppState;
-  onImportSuccess: (newState: Partial<AppState>, count: number) => void;
+  onImportSuccess: (newState: Partial<AppState>, count: number, missingImagesCount?: number) => void;
   onOpenAIPrompt: () => void;
 }
 
-export default function PasteImportModal({
+function PasteImportModal({
   isOpen,
   onClose,
   currentState,
@@ -41,7 +41,7 @@ export default function PasteImportModal({
       return;
     }
 
-    onImportSuccess(result.state, result.count || 0);
+    onImportSuccess(result.state, result.count || 0, result.missingImagesCount || 0);
     onClose();
   };
 
@@ -60,7 +60,7 @@ export default function PasteImportModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 animate-in fade-in duration-150">
       <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-3xl flex flex-col max-h-[92vh] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
@@ -190,3 +190,5 @@ A: 11.2`);
     document.body
   );
 }
+
+export default memo(PasteImportModal);

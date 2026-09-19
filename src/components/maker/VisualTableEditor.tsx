@@ -12,14 +12,12 @@ interface TableData {
   rows: string[][];
 }
 
-// Default Match the Following preset
-const matchPreset: TableData = {
-  headers: ['Column I (List I)', 'Column II (List II)'],
+// Default clean empty table data
+const cleanEmptyTableData: TableData = {
+  headers: ['', ''],
   rows: [
-    ['(A) Item A', '(i) Description 1'],
-    ['(B) Item B', '(ii) Description 2'],
-    ['(C) Item C', '(iii) Description 3'],
-    ['(D) Item D', '(iv) Description 4']
+    ['', ''],
+    ['', '']
   ]
 };
 
@@ -126,12 +124,15 @@ export default function VisualTableEditor({
   onClear
 }: VisualTableEditorProps) {
   const [viewMode, setViewMode] = useState<'visual' | 'code'>('visual');
+  const [gridRows, setGridRows] = useState<number>(3);
+  const [gridCols, setGridCols] = useState<number>(2);
+
   const [tableData, setTableData] = useState<TableData>(() => {
     if (initialHtml) {
       const parsed = parseHtmlToTableData(initialHtml);
       if (parsed) return parsed;
     }
-    return matchPreset;
+    return cleanEmptyTableData;
   });
 
   const [rawHtml, setRawHtml] = useState<string>(initialHtml || '');
@@ -153,6 +154,20 @@ export default function VisualTableEditor({
     const html = tableDataToHtml(newData);
     setRawHtml(html);
     onChange(html);
+  };
+
+  const handleCreateCustomGrid = () => {
+    const numR = Math.max(1, Math.min(20, gridRows));
+    const numC = Math.max(1, Math.min(10, gridCols));
+    const newHeaders = Array.from({ length: numC }, () => '');
+    const newRows = Array.from({ length: numR }, () => Array.from({ length: numC }, () => ''));
+    updateTable({ headers: newHeaders, rows: newRows });
+  };
+
+  const clearAllCellText = () => {
+    const emptyHeaders = tableData.headers.map(() => '');
+    const emptyRows = tableData.rows.map(row => row.map(() => ''));
+    updateTable({ headers: emptyHeaders, rows: emptyRows });
   };
 
   const handleHeaderChange = (index: number, val: string) => {
@@ -219,21 +234,38 @@ export default function VisualTableEditor({
   };
 
   return (
-    <div className="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/50 shadow-xs">
-      {/* Header & Preset Switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
-            <TableIcon size={16} />
-          </div>
-          <div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
-              Interactive Table / Matrix Editor
-            </h4>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Edit cells directly — no HTML coding or script needed
-            </p>
-          </div>
+    <div className="space-y-2.5 p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/50 shadow-xs">
+      {/* Visual Controls Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+        {/* Custom Grid Dimensions Generator */}
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400">
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={gridRows}
+            onChange={e => setGridRows(Number(e.target.value))}
+            className="w-10 px-1 py-0.5 text-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-md font-mono"
+            title="Rows"
+          />
+          <span>Rows &times;</span>
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={gridCols}
+            onChange={e => setGridCols(Number(e.target.value))}
+            className="w-10 px-1 py-0.5 text-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-md font-mono"
+            title="Columns"
+          />
+          <span>Cols</span>
+          <button
+            type="button"
+            onClick={handleCreateCustomGrid}
+            className="px-2.5 py-0.5 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-700 transition-colors shadow-2xs text-xs"
+          >
+            Set Grid
+          </button>
         </div>
 
         {/* View Mode Switcher & Clear */}
@@ -242,19 +274,19 @@ export default function VisualTableEditor({
             <button
               type="button"
               onClick={() => setViewMode('visual')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-lg transition-all ${
                 viewMode === 'visual'
                   ? 'bg-purple-600 text-white shadow-2xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
               <Eye size={12} />
-              <span>Visual Grid</span>
+              <span>Grid</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('code')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-lg transition-all ${
                 viewMode === 'code'
                   ? 'bg-purple-600 text-white shadow-2xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -267,39 +299,23 @@ export default function VisualTableEditor({
 
           <button
             type="button"
-            onClick={onClear}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+            onClick={clearAllCellText}
+            title="Clear all cell text"
+            className="flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
-            <Trash2 size={13} />
-            <span>Remove Table</span>
+            <RotateCcw size={12} />
+            <span>Clear</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClear}
+            className="flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+          >
+            <Trash2 size={12} />
+            <span>Remove</span>
           </button>
         </div>
-      </div>
-
-      {/* Quick Presets Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto py-1 text-xs">
-        <span className="text-slate-400 font-bold shrink-0">Presets:</span>
-        <button
-          type="button"
-          onClick={() => applyPreset(matchPreset)}
-          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 hover:text-purple-600 text-slate-700 dark:text-slate-300 font-medium transition-colors shrink-0"
-        >
-          Match Column I & II
-        </button>
-        <button
-          type="button"
-          onClick={() => applyPreset(comparisonPreset)}
-          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 hover:text-purple-600 text-slate-700 dark:text-slate-300 font-medium transition-colors shrink-0"
-        >
-          2-Column Property List
-        </button>
-        <button
-          type="button"
-          onClick={() => applyPreset(threeColPreset)}
-          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 hover:text-purple-600 text-slate-700 dark:text-slate-300 font-medium transition-colors shrink-0"
-        >
-          3-Column Matrix
-        </button>
       </div>
 
       {/* Main Table Grid View */}
@@ -387,18 +403,15 @@ export default function VisualTableEditor({
           </div>
 
           {/* Bottom Grid Actions */}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-start pt-1">
             <button
               type="button"
               onClick={addRow}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 hover:bg-purple-100 text-xs font-bold border border-purple-200 dark:border-purple-800 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 hover:bg-purple-100 text-xs font-bold border border-purple-200 dark:border-purple-800 transition-colors"
             >
-              <Plus size={14} />
-              <span>+ Add Row</span>
+              <Plus size={13} />
+              <span>Add Row</span>
             </button>
-            <span className="text-[11px] text-slate-400 font-mono">
-              {tableData.rows.length} rows &times; {tableData.headers.length} columns
-            </span>
           </div>
         </div>
       ) : (

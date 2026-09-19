@@ -206,8 +206,8 @@
         /* FIX: Max height capped to 25vh, clickable pointer */
         .question-content img { max-width: 100%; max-height: 25vh; object-fit: contain; display: block; margin: 15px 0; border:1px solid var(--border-color); border-radius: 4px; cursor: pointer; background: white;}
         
-        .table-container { margin: 15px 0; overflow-x: auto; background: var(--panel-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); font-family: var(--q-font); }
-        .question-content table { border-collapse: collapse; width: 100%; max-width: 800px; background: var(--panel-bg); }
+        .table-container { margin: 15px 0; overflow-x: auto; max-width: 100%; box-sizing: border-box; background: var(--panel-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); font-family: var(--q-font); }
+        .question-content table { border-collapse: collapse; width: 100%; max-width: 100%; background: var(--panel-bg); }
         .question-content th, .question-content td { border: 1px solid var(--border-color); padding: 8px 12px; text-align: left; vertical-align: top; font-size: 1rem; }
         .question-content th { background-color: var(--bg-main); font-weight: 600; }
 
@@ -799,7 +799,7 @@
     <!-- MAIN EXAM UI -->
     <header id="app-header" class="hidden">
         <div class="header-left">
-            <div class="logo-circle">PW</div>
+            <div class="logo-circle">CBT</div>
             <div>
                 <!-- PARAMETER 4 (Global): Exam Name & Subtitle (Main Toolbar). -->
                 <div class="exam-title">NEET Re-Exam (2024)</div>
@@ -1165,38 +1165,59 @@ const QUESTION_BANK = [
     
     // CRITICAL MATH RENDER: Triggers KaTeX auto-render asynchronously scoped to the active container
     function triggerMathRender(el) {
-        if (window.renderMathInElement) {
-            try {
-                var target = el || document.getElementById('q-render-area') || document.getElementById('s-content-area') || document.getElementById('question-report-list');
-                if (target) {
-                    renderMathInElement(target, {
-                        delimiters: [
-                            {left: "$$", right: "$$", display: true},
-                            {left: "$", right: "$", display: false}
-                        ],
-                        throwOnError: false
-                    });
+        function doRender() {
+            if (window.renderMathInElement) {
+                try {
+                    var target = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+                    if (target) {
+                        renderMathInElement(target, {
+                            delimiters: [
+                                {left: "$$", right: "$$", display: true},
+                                {left: "\\[", right: "\\]", display: true},
+                                {left: "\\(", right: "\\)", display: false},
+                                {left: "$", right: "$", display: false}
+                            ],
+                            throwOnError: false,
+                            ignoredClasses: ["no-math", "inst-section", "exam-title", "header-left"]
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Math rendering failed: ", e);
                 }
-            } catch (e) {
-                console.warn("Math rendering failed: ", e);
             }
+        }
+
+        doRender();
+
+        if (!window.renderMathInElement) {
+            var attempts = 0;
+            var pollTimer = setInterval(function() {
+                attempts++;
+                if (window.renderMathInElement) {
+                    clearInterval(pollTimer);
+                    doRender();
+                } else if (attempts > 40) {
+                    clearInterval(pollTimer);
+                }
+            }, 50);
         }
     }
 
-window.onload = function() {
+    if (typeof Q_FONT_FAMILY !== 'undefined') {
         document.documentElement.style.setProperty('--q-font', Q_FONT_FAMILY);
+    }
+
+    window.onload = function() {
+        if (typeof Q_FONT_FAMILY !== 'undefined') {
+            document.documentElement.style.setProperty('--q-font', Q_FONT_FAMILY);
+        }
         if(document.getElementById('s-content-area')) {
             document.getElementById('s-content-area').innerHTML = EXAM_S_HTML;
             generateSchemeTable();
             generateInfoModalTable();
-            // Render instructions if they have math
-            if (window.renderMathInElement) {
-                renderMathInElement(document.getElementById('s-content-area'), {
-                    delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
-                    throwOnError: false
-                });
-            }
+            triggerMathRender(document.getElementById('s-content-area'));
         }
+        triggerMathRender();
     };
     
     function generateSchemeTable() {

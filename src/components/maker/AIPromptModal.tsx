@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, Check, Sparkles, X, Code, FileText, BookOpen, Layers } from 'lucide-react';
 import { getAIPrompt } from '../../utils/cbtParser';
@@ -7,17 +7,17 @@ interface AIPromptModalProps {
   isOpen: boolean;
   onClose: () => void;
   examTitle: string;
+  sections?: { name: string; marks: number; negative: number; maxAttempts: number }[];
 }
 
-export default function AIPromptModal({ isOpen, onClose, examTitle }: AIPromptModalProps) {
+function AIPromptModal({ isOpen, onClose, examTitle, sections }: AIPromptModalProps) {
   const [activeTab, setActiveTab] = useState<'LATEX' | 'HTML'>('LATEX');
   const [subject, setSubject] = useState(examTitle || 'Physics & Chemistry Full Syllabus');
-  const [questionCount, setQuestionCount] = useState<number>(10);
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const promptText = getAIPrompt(activeTab, subject || 'General Science', questionCount);
+  const promptText = getAIPrompt(activeTab, subject || 'General Science', sections);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(promptText);
@@ -26,7 +26,7 @@ export default function AIPromptModal({ isOpen, onClose, examTitle }: AIPromptMo
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 animate-in fade-in duration-150">
       <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-3xl flex flex-col h-[85vh] max-h-[700px] min-h-[520px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
@@ -81,32 +81,17 @@ export default function AIPromptModal({ isOpen, onClose, examTitle }: AIPromptMo
             </button>
           </div>
 
-          {/* Subject and Count Inputs */}
+          {/* Subject Input */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <span className="font-bold text-slate-600 dark:text-slate-400">Subject:</span>
+              <span className="font-bold text-slate-600 dark:text-slate-400">Subject / Title:</span>
               <input
                 type="text"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 placeholder="Subject / Chapter"
-                className="w-40 sm:w-52 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-bold focus:outline-none"
+                className="w-48 sm:w-64 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-bold focus:outline-none"
               />
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <span className="font-bold text-slate-600 dark:text-slate-400">Count:</span>
-              <select
-                value={questionCount}
-                onChange={e => setQuestionCount(Number(e.target.value))}
-                className="px-2 py-1 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-bold focus:outline-none"
-              >
-                <option value={5}>5 Qs</option>
-                <option value={10}>10 Qs</option>
-                <option value={15}>15 Qs</option>
-                <option value={20}>20 Qs</option>
-                <option value={30}>30 Qs</option>
-              </select>
             </div>
           </div>
         </div>
@@ -162,3 +147,5 @@ export default function AIPromptModal({ isOpen, onClose, examTitle }: AIPromptMo
     document.body
   );
 }
+
+export default memo(AIPromptModal);

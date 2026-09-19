@@ -195,6 +195,7 @@ html, body {
 .question-content table {
   border-collapse: collapse !important;
   width: 100% !important;
+  max-width: 100% !important;
   margin: 12px 0 !important;
 }
 
@@ -208,7 +209,7 @@ html, body {
   padding: 8px 12px !important;
   text-align: left !important;
   vertical-align: top !important;
-  font-size: 0.95em !important;
+  font-size: inherit;
   line-height: 1.5 !important;
 }
 

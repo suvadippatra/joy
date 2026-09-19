@@ -5,8 +5,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '../components/ThemeProvider';
 import localforage from 'localforage';
 import { useReports } from '../hooks/useReports';
-import { AlertTriangle, FileCode, Sparkles, CheckCircle, BarChart2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, BarChart2 } from 'lucide-react';
 import { staticCbtTests } from '../data/cbtData';
+import { prepareTestHtmlForViewer } from '../utils/cbtHtmlCorrector';
 
 // In-memory cache for test HTMLs to provide instantaneous 0ms page loads
 const htmlMemoryCache = new Map<string, string>();
@@ -24,12 +25,6 @@ export default function CBTViewer() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExamSaved, setIsExamSaved] = useState(false);
   const hasSavedReportRef = useRef<boolean>(false);
-
-  // Original vs Enhanced Mode State (Defaults to true for 100% native stability)
-  const [useOriginalFile, setUseOriginalFile] = useState<boolean>(() => {
-    const saved = localStorage.getItem('cbt_use_original_file');
-    return saved === null ? true : saved === 'true';
-  });
 
   // Warn user if attempting to leave or reload while test is active
   useEffect(() => {
@@ -123,70 +118,15 @@ export default function CBTViewer() {
           htmlMemoryCache.set(test.id, html);
         }
 
-        // Mode A: Original File Mode (clean, un-tampered raw execution)
-        if (useOriginalFile) {
-          const rawBlob = new Blob([html], { type: 'text/html' });
-          setIframeSrc(URL.createObjectURL(rawBlob));
-          return;
-        }
-        
-        // Mode B: Enhanced Mode (local offline math & typography fonts)
         const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
-        const assetBase = window.location.origin + (import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/');
+        const useLatexFont = settings.useLatexFont ?? true;
 
-        // Clean up remote CDN links and point to local offline assets safely
-        html = html.replace(/<link[^>]*href=["'][^"']*(?:katex|cdn\.jsdelivr|cdnjs\.cloudflare)[^"']*["'][^>]*>/gi, '');
-        html = html.replace(/<script[^>]*src=["'][^"']*(?:katex|auto-render|cdn\.jsdelivr|cdnjs\.cloudflare)[^"']*["'][^>]*>\s*<\/script>/gi, '');
-
-        if (settings.useLatexFont) {
-          html = html.replace(/(?:const|let|var)\s+Q_FONT_FAMILY\s*=\s*["'][^"']*["'];/g, 'const Q_FONT_FAMILY = "\'KaTeX_Main\', \'Tiro Bangla\', \'DM Serif Text\', serif";');
-        }
-
-        const injectedHead = `
-          <!-- Local KaTeX Math & Fonts Engine -->
-          <link rel="stylesheet" href="${assetBase}libs/katex.min.css">
-          <script src="${assetBase}libs/katex.min.js"></script>
-          <script src="${assetBase}libs/auto-render.min.js"></script>
-          <style>
-            @font-face {
-              font-family: 'KaTeX_Main';
-              src: url('${assetBase}libs/fonts/KaTeX_Main-Regular.woff2') format('woff2');
-              font-weight: normal;
-              font-style: normal;
-            }
-            @font-face {
-              font-family: 'KaTeX_Main';
-              src: url('${assetBase}libs/fonts/KaTeX_Main-Bold.woff2') format('woff2');
-              font-weight: bold;
-              font-style: normal;
-            }
-            @font-face {
-              font-family: 'KaTeX_Math';
-              src: url('${assetBase}libs/fonts/KaTeX_Math-Italic.woff2') format('woff2');
-              font-weight: normal;
-              font-style: italic;
-            }
-            @font-face {
-              font-family: 'DM Serif Text';
-              src: url('${assetBase}fonts/DMSerifText.woff2') format('woff2');
-              font-weight: normal;
-              font-style: normal;
-            }
-            @font-face {
-              font-family: 'Tiro Bangla';
-              src: url('${assetBase}fonts/TiroBangla.woff2') format('woff2');
-              font-weight: normal;
-              font-style: normal;
-            }
-            math, mrow, mfrac, mi, mo, mn, msub, msup, msubsup {
-              font-family: 'KaTeX_Math', 'KaTeX_Main', serif;
-            }
-          </style>
-        `;
-
-        html = html.replace('</head>', injectedHead + '</head>');
+        // Process HTML using instant corrector engine
+        const processedHtml = prepareTestHtmlForViewer(html, {
+          useLatexFont: useLatexFont
+        });
         
-        const blob = new Blob([html], { type: 'text/html' });
+        const blob = new Blob([processedHtml], { type: 'text/html' });
         setIframeSrc(URL.createObjectURL(blob));
       } catch (error) {
         console.error("Failed to load test HTML", error);
@@ -194,7 +134,7 @@ export default function CBTViewer() {
     };
 
     loadTestContent();
-  }, [test, useOriginalFile]);
+  }, [test]);
 
   // Revoke Blob URLs on unmount
   useEffect(() => {
@@ -337,24 +277,6 @@ export default function CBTViewer() {
                 </Link>
               </div>
             )}
-            
-            <button
-              type="button"
-              onClick={() => {
-                const nextVal = !useOriginalFile;
-                setUseOriginalFile(nextVal);
-                localStorage.setItem('cbt_use_original_file', String(nextVal));
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
-                useOriginalFile
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm'
-                  : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/20'
-              }`}
-              title={useOriginalFile ? 'Currently using 100% Original Untouched HTML.' : 'Using Enhanced Offline Math & Fonts Mode.'}
-            >
-              {useOriginalFile ? <Sparkles size={14} /> : <FileCode size={14} />}
-              <span>{useOriginalFile ? 'Original Active' : 'Use Original File'}</span>
-            </button>
 
             <button 
               onClick={triggerManualSave}

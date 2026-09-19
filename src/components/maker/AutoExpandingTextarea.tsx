@@ -21,13 +21,15 @@ const AutoExpandingTextarea = memo(function AutoExpandingTextarea({
   const resize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    // Calculate required height with safety margin for fonts/descenders
-    el.style.height = 'auto';
-    const computedLineHeight = 24;
-    const minH = minRows * computedLineHeight + 12;
-    const scrollH = el.scrollHeight;
-    const finalH = Math.max(scrollH + 4, minH);
-    el.style.height = `${finalH}px`;
+    window.requestAnimationFrame(() => {
+      if (!el) return;
+      el.style.height = 'auto';
+      const computedLineHeight = 24;
+      const minH = minRows * computedLineHeight + 12;
+      const scrollH = el.scrollHeight;
+      const finalH = Math.max(scrollH + 4, minH);
+      el.style.height = `${finalH}px`;
+    });
   }, [minRows]);
 
   useLayoutEffect(() => {
@@ -44,7 +46,7 @@ const AutoExpandingTextarea = memo(function AutoExpandingTextarea({
         resize();
       }}
       rows={minRows}
-      className={`resize-none overflow-hidden block box-border leading-relaxed ${className}`}
+      className={`resize-none overflow-hidden block box-border leading-relaxed touch-manipulation ${className}`}
       {...props}
     />
   );
