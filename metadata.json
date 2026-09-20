@@ -1,6 +1,6 @@
 {
   "name": "CBT Hub",
-  "description": "Computer Based Tests Portal",
+  "description": "Test, Create & Share Computer Based Tests Offline",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

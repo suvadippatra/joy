@@ -6,6 +6,9 @@ import { useCBTData } from '../hooks/useCBTData';
 import { PWAInstallButton } from './PWAInstallButton';
 import { CBTTest } from '../data/cbtData';
 import { StartExamModal } from './StartExamModal';
+import logoImg from '../assets/logo.png';
+
+const ANIMATED_WORDS = ['Test', 'Create', 'Share'];
 
 export default function Header({ 
   title, 
@@ -32,6 +35,46 @@ export default function Header({
   
   const { tests } = useCBTData();
 
+  const [typedText, setTypedText] = useState('Test');
+  const [wordIndex, setWordIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!isHome && title !== 'CBT Test') return;
+
+    const currentWord = ANIMATED_WORDS[wordIndex];
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (!isDeleting) {
+      if (typedText === currentWord) {
+        // Hold for 1.5 seconds after full word is typed
+        timer = setTimeout(() => {
+          setIsDeleting(true);
+        }, 1500);
+      } else {
+        // Type next character
+        timer = setTimeout(() => {
+          setTypedText(currentWord.slice(0, typedText.length + 1));
+        }, 130);
+      }
+    } else {
+      if (typedText === '') {
+        // Pause briefly after erasing, then switch to next word
+        timer = setTimeout(() => {
+          setIsDeleting(false);
+          setWordIndex((prev) => (prev + 1) % ANIMATED_WORDS.length);
+        }, 250);
+      } else {
+        // Backspace character by character to simulate editing
+        timer = setTimeout(() => {
+          setTypedText(currentWord.slice(0, typedText.length - 1));
+        }, 75);
+      }
+    }
+
+    return () => clearTimeout(timer);
+  }, [isHome, title, typedText, isDeleting, wordIndex]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -54,17 +97,37 @@ export default function Header({
             </button>
           )}
           
-          {isHome && (
-            <img 
-              src="/logo.png" 
-              alt="CBT Logo" 
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain shadow-sm shrink-0 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" 
-            />
+          {isHome || title === 'CBT Test' ? (
+            <Link to="/" className="flex items-center gap-1.5 sm:gap-2 group select-none">
+              <img 
+                src={logoImg} 
+                alt="CBT Logo" 
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.dataset.triedBase) {
+                    target.dataset.triedBase = '1';
+                    target.src = `${import.meta.env.BASE_URL}logo.png`;
+                  } else if (!target.dataset.triedRel) {
+                    target.dataset.triedRel = '1';
+                    target.src = './logo.png';
+                  } else if (!target.dataset.triedJpeg) {
+                    target.dataset.triedJpeg = '1';
+                    target.src = `${import.meta.env.BASE_URL}logo.jpeg`;
+                  }
+                }}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain shadow-sm shrink-0 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 group-hover:scale-105 transition-transform" 
+              />
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent tracking-tight ml-0.5 sm:ml-1 flex items-center whitespace-nowrap">
+                <span>CBT&nbsp;</span>
+                <span className="min-w-[4px]">{typedText}</span>
+                <span className="inline-block w-[2px] sm:w-[2.5px] h-[0.9em] ml-0.5 bg-blue-600 dark:bg-blue-400 animate-pulse align-middle" />
+              </h1>
+            </Link>
+          ) : (
+            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent truncate tracking-tight ml-0.5 sm:ml-1">
+              {title}
+            </h1>
           )}
-          
-          <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent truncate tracking-tight ml-0.5 sm:ml-1">
-            {title}
-          </h1>
         </div>
         
         {actions && <div className="flex items-center gap-2">{actions}</div>}

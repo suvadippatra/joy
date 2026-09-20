@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import localforage from 'localforage';
 
 export const DEFAULT_SUBJECTS_MAP: Record<string, string[]> = {
   'Botany': ['Kattar Tests', 'Practice Sets'],
@@ -95,6 +96,54 @@ export function useSubjectCategories() {
     return true;
   }, [subjectMap]);
 
+  const renameSubject = useCallback((oldName: string, newName: string): boolean => {
+    const trimmedNew = newName.trim();
+    if (!trimmedNew) return false;
+    const oldKey = Object.keys(subjectMap).find(k => k.toLowerCase() === oldName.toLowerCase());
+    if (!oldKey) return false;
+
+    if (oldKey.toLowerCase() !== trimmedNew.toLowerCase()) {
+      const exists = Object.keys(subjectMap).some(k => k.toLowerCase() === trimmedNew.toLowerCase());
+      if (exists) return false;
+    }
+
+    const next: Record<string, string[]> = {};
+    for (const k of Object.keys(subjectMap)) {
+      const cats = subjectMap[k] || [];
+      if (k.toLowerCase() === oldKey.toLowerCase()) {
+        next[trimmedNew] = cats;
+      } else {
+        next[k] = cats;
+      }
+    }
+
+    setSubjectMap(next);
+    saveSubjectMap(next);
+
+    // Update stored local tests if any belong to this subject
+    try {
+      localforage.getItem<any[]>('local_cbts').then(tests => {
+        if (tests && Array.isArray(tests)) {
+          let modified = false;
+          const updated = tests.map(t => {
+            if (t && t.subject && t.subject.toLowerCase() === oldKey.toLowerCase()) {
+              modified = true;
+              return { ...t, subject: trimmedNew };
+            }
+            return t;
+          });
+          if (modified) {
+            localforage.setItem('local_cbts', updated);
+          }
+        }
+      }).catch(err => console.warn('Failed to update local tests subject on rename', err));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    return true;
+  }, [subjectMap]);
+
   const deleteSubject = useCallback((name: string): boolean => {
     const key = Object.keys(subjectMap).find(k => k.toLowerCase() === name.toLowerCase());
     if (!key) return false;
@@ -128,6 +177,45 @@ export function useSubjectCategories() {
     return true;
   }, [subjectMap]);
 
+  const renameCategory = useCallback((subject: string, oldCat: string, newCat: string): boolean => {
+    const trimmedNew = newCat.trim();
+    if (!trimmedNew) return false;
+    const subjKey = Object.keys(subjectMap).find(k => k.toLowerCase() === subject.toLowerCase());
+    if (!subjKey || !subjectMap[subjKey]) return false;
+
+    const currentCats = subjectMap[subjKey];
+    const exists = currentCats.some(c => c.toLowerCase() === trimmedNew.toLowerCase() && c.toLowerCase() !== oldCat.toLowerCase());
+    if (exists) return false;
+
+    const nextCats = currentCats.map(c => c.toLowerCase() === oldCat.toLowerCase() ? trimmedNew : c);
+    const next = { ...subjectMap, [subjKey]: nextCats };
+    setSubjectMap(next);
+    saveSubjectMap(next);
+
+    // Update stored local tests if any belong to this category
+    try {
+      localforage.getItem<any[]>('local_cbts').then(tests => {
+        if (tests && Array.isArray(tests)) {
+          let modified = false;
+          const updated = tests.map(t => {
+            if (t && t.subject && t.subject.toLowerCase() === subjKey.toLowerCase() && t.category && t.category.toLowerCase() === oldCat.toLowerCase()) {
+              modified = true;
+              return { ...t, category: trimmedNew };
+            }
+            return t;
+          });
+          if (modified) {
+            localforage.setItem('local_cbts', updated);
+          }
+        }
+      }).catch(err => console.warn('Failed to update local tests category on rename', err));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    return true;
+  }, [subjectMap]);
+
   const deleteCategory = useCallback((subject: string, category: string): boolean => {
     const key = Object.keys(subjectMap).find(k => k.toLowerCase() === subject.toLowerCase());
     if (!key || !subjectMap[key]) return false;
@@ -156,8 +244,10 @@ export function useSubjectCategories() {
     getCategoriesForSubject,
     getAllCategories,
     addSubject,
+    renameSubject,
     deleteSubject,
     addCategory,
+    renameCategory,
     deleteCategory,
     resetToDefault,
   };

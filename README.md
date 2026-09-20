@@ -1,12 +1,12 @@
-# 🎓 CBT Hub — Computer Based Test Portal & Creator
+# 🎓 CBT Hub — Test, Create & Share Computer Based Tests
 
-> **A high-performance, offline-first Computer Based Test (CBT) portal and exam authoring suite designed for NTA / TCS iON style exam conducting with zero latency.**
+> **A high-performance, offline-first Computer Based Test (CBT) portal and exam authoring suite designed for NTA / TCS iON style exam conducting with zero latency. Test your preparation, Create tailored exams, and Share standalone test files seamlessly.**
 
 ---
 
 ## 📌 Table of Contents
 1. [Overview](#-overview)
-2. [Key Features](#-key-features)
+2. [Key Features (Test • Create • Share)](#-key-features-test--create--share)
 3. [Attributions & Inventory Credits](#-attributions--inventory-credits)
 4. [How to Use in Detail](#-how-to-use-in-detail)
    - [Taking CBT Exams (Student Portal)](#1-taking-cbt-exams-student-portal)
@@ -24,17 +24,29 @@
 
 ## 🚀 Overview
 
-**CBT Hub** provides a complete solution for conducting, authoring, and analyzing Computer Based Tests. Built with an offline-first PWA architecture, it guarantees 100% offline usability with KaTeX mathematical rendering, multi-script fonts, real-time analytics, and NTA/TCS iON compliant exam palettes.
+**CBT Hub** provides a complete ecosystem for **Testing**, **Creating**, and **Sharing** Computer Based Tests. Built with an offline-first PWA architecture, it guarantees 100% offline usability with KaTeX mathematical rendering, multi-script fonts, real-time analytics, and NTA/TCS iON compliant exam palettes.
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features (Test • Create • Share)
 
+### 🎯 1. Test
 - ⚡ **Zero-Latency Option Selection**: Touch-optimized (`touch-action: manipulation`) with instant visual feedback (< 16ms).
 - 🧮 **Offline LaTeX & MathML**: Self-contained KaTeX math rendering engine with pre-cached Computer Modern fonts.
-- 🎨 **CBT Test Authoring Suite**: Create custom chapterwise, mock, or full-length exams with live preview, Assertion-Reason formatting, image compression, and size-capped audio embedding (2MB cap).
-- 📊 **Real-Time Analytics & Reports**: Automatic extraction of scores, accuracy, time spent per section, and historical performance tracking stored securely in IndexedDB (`localforage`).
-- 📱 **Progressive Web App (PWA)**: Full offline service worker caching with Workbox runtime caching for prebuilt test HTMLs and KaTeX assets.
+- ⏱️ **Authentic NTA / TCS iON Palette**: Real-time countdown timer, question status palette (Answered, Marked for Review, Not Visited), and section switching.
+- 📊 **Instant Performance Analytics**: Comprehensive scorecards with accuracy %, section breakdown, question-wise time analysis, and historical tracking in IndexedDB (`localforage`).
+
+### ✍️ 2. Create
+- 🎨 **Full-Featured CBT Maker**: Visual WYSIWYG test authoring tool with live question paper preview.
+- 📐 **Math & Equation Keyboard**: Integrated formula snippets for Algebra, Calculus, Matrices, and Greek symbols.
+- 🧩 **Multi-Format Support**: Single Correct (MCQ), Multiple Correct (MSQ), and Numerical (NAT) with on-screen virtual keypad.
+- 🖼️ **Image & Media Embedding**: Direct image upload with client-side compression and 2MB audio embedding for listening comprehension.
+
+### 📦 3. Share
+- 💾 **1-Click Standalone HTML Compilation**: Compile exams into self-contained single `.html` files that run on any browser without internet or servers.
+- 📥 **Instant Import to App**: Drag-and-drop or select any CBT `.html` file to instantly add it to your local test library.
+- 📂 **Dynamic Subject & Category Hierarchy**: Organize and categorize shared tests under custom subjects and exam modules.
+- 📱 **Progressive Web App (PWA)**: Full offline service worker caching with Workbox runtime caching for test assets and fonts.
 
 ---
 

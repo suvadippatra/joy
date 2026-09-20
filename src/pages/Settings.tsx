@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import Header from '../components/Header';
-import { Settings as SettingsIcon, Type, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertTriangle, FolderTree, Plus, X, ChevronDown, ChevronRight, RotateCcw, Layers } from 'lucide-react';
+import { Settings as SettingsIcon, Type, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertTriangle, FolderTree, Plus, X, ChevronDown, ChevronRight, RotateCcw, Layers, Pencil, Check } from 'lucide-react';
 import localforage from 'localforage';
 import { useSubjectCategories, DEFAULT_SUBJECTS_MAP } from '../hooks/useSubjectCategories';
 
@@ -21,8 +21,10 @@ export default function Settings() {
     subjects,
     subjectMap,
     addSubject,
+    renameSubject,
     deleteSubject,
     addCategory,
+    renameCategory,
     deleteCategory,
     resetToDefault
   } = useSubjectCategories();
@@ -33,6 +35,16 @@ export default function Settings() {
     'Botany': true
   });
   const [subjectFeedback, setSubjectFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Subject editing & non-blocking confirmation states
+  const [editingSubject, setEditingSubject] = useState<string | null>(null);
+  const [editSubjectValue, setEditSubjectValue] = useState('');
+  const [confirmDeleteSubject, setConfirmDeleteSubject] = useState<string | null>(null);
+  const [confirmResetSubjects, setConfirmResetSubjects] = useState(false);
+
+  // Category editing state
+  const [editingCategory, setEditingCategory] = useState<{ subj: string; cat: string } | null>(null);
+  const [editCategoryValue, setEditCategoryValue] = useState('');
 
   const toggleExpandSubject = (subj: string) => {
     setExpandedSubjects(prev => ({ ...prev, [subj]: !prev[subj] }));
@@ -53,11 +65,45 @@ export default function Settings() {
     setTimeout(() => setSubjectFeedback(null), 3500);
   };
 
-  const handleDeleteSubjectClick = (subj: string) => {
-    if (!window.confirm(`Are you sure you want to delete the subject "${subj}" and all its category configurations?`)) {
+  const handleStartEditSubject = (subj: string) => {
+    setEditingSubject(subj);
+    setEditSubjectValue(subj);
+    setConfirmDeleteSubject(null);
+  };
+
+  const handleSaveEditSubject = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingSubject) return;
+    const trimmed = editSubjectValue.trim();
+    if (!trimmed) {
+      setSubjectFeedback({ type: 'error', message: 'Subject name cannot be empty.' });
       return;
     }
+    if (trimmed === editingSubject) {
+      setEditingSubject(null);
+      return;
+    }
+    const success = renameSubject(editingSubject, trimmed);
+    if (success) {
+      setSubjectFeedback({ type: 'success', message: `Subject "${editingSubject}" renamed to "${trimmed}".` });
+      setExpandedSubjects(prev => {
+        const next = { ...prev };
+        if (next[editingSubject]) {
+          delete next[editingSubject];
+          next[trimmed] = true;
+        }
+        return next;
+      });
+      setEditingSubject(null);
+    } else {
+      setSubjectFeedback({ type: 'error', message: `Subject "${trimmed}" already exists.` });
+    }
+    setTimeout(() => setSubjectFeedback(null), 3500);
+  };
+
+  const handleConfirmDeleteSubject = (subj: string) => {
     const success = deleteSubject(subj);
+    setConfirmDeleteSubject(null);
     if (success) {
       setSubjectFeedback({ type: 'success', message: `Subject "${subj}" removed.` });
     } else {
@@ -81,6 +127,34 @@ export default function Settings() {
     setTimeout(() => setSubjectFeedback(null), 3500);
   };
 
+  const handleStartEditCategory = (subj: string, cat: string) => {
+    setEditingCategory({ subj, cat });
+    setEditCategoryValue(cat);
+  };
+
+  const handleSaveEditCategory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingCategory) return;
+    const { subj, cat } = editingCategory;
+    const trimmed = editCategoryValue.trim();
+    if (!trimmed) {
+      setSubjectFeedback({ type: 'error', message: 'Category name cannot be empty.' });
+      return;
+    }
+    if (trimmed === cat) {
+      setEditingCategory(null);
+      return;
+    }
+    const success = renameCategory(subj, cat, trimmed);
+    if (success) {
+      setSubjectFeedback({ type: 'success', message: `Category renamed to "${trimmed}".` });
+      setEditingCategory(null);
+    } else {
+      setSubjectFeedback({ type: 'error', message: `Category "${trimmed}" already exists in ${subj}.` });
+    }
+    setTimeout(() => setSubjectFeedback(null), 3500);
+  };
+
   const handleDeleteCategoryClick = (subj: string, cat: string) => {
     const success = deleteCategory(subj, cat);
     if (success) {
@@ -91,11 +165,9 @@ export default function Settings() {
     setTimeout(() => setSubjectFeedback(null), 3500);
   };
 
-  const handleResetSubjects = () => {
-    if (!window.confirm('Reset all subjects and categories to standard default values? (Botany, Zoology, Physics, Chemistry with Kattar Tests & Practice Sets)')) {
-      return;
-    }
+  const handleDoResetSubjects = () => {
     resetToDefault();
+    setConfirmResetSubjects(false);
     setSubjectFeedback({ type: 'success', message: 'Subjects and categories restored to defaults.' });
     setTimeout(() => setSubjectFeedback(null), 3500);
   };
@@ -206,15 +278,35 @@ export default function Settings() {
                 Add custom subjects and organize the test categories available within each subject.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleResetSubjects}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
-              title="Reset all subjects & categories to default"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Defaults</span>
-            </button>
+            {confirmResetSubjects ? (
+              <div className="flex items-center gap-1.5 p-1 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-200 dark:border-red-800">
+                <span className="text-xs text-red-600 dark:text-red-400 font-medium px-1">Reset all?</span>
+                <button
+                  type="button"
+                  onClick={handleDoResetSubjects}
+                  className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold"
+                >
+                  Yes, Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmResetSubjects(false)}
+                  className="px-2 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmResetSubjects(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+                title="Reset all subjects & categories to default"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Defaults</span>
+              </button>
+            )}
           </div>
 
           <div className="p-4 sm:p-6 space-y-5">
@@ -259,39 +351,101 @@ export default function Settings() {
                 {subjects.map((subj) => {
                   const isExpanded = !!expandedSubjects[subj];
                   const cats = subjectMap[subj] || ['Kattar Tests', 'Practice Sets'];
+                  const isEditingThisSubject = editingSubject === subj;
+                  const isConfirmingDelete = confirmDeleteSubject === subj;
 
                   return (
                     <div key={subj} className="transition-colors">
                       {/* Subject Row Header */}
-                      <div className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors">
-                        <button
-                          type="button"
-                          onClick={() => toggleExpandSubject(subj)}
-                          className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
-                        >
-                          <div className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {isEditingThisSubject ? (
+                        <div className="flex items-center justify-between p-3 sm:p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/40">
+                          <form onSubmit={handleSaveEditSubject} className="flex items-center gap-2 flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={editSubjectValue}
+                              onChange={(e) => setEditSubjectValue(e.target.value)}
+                              className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 dark:text-slate-100"
+                              placeholder="Subject name"
+                              autoFocus
+                            />
+                            <button
+                              type="submit"
+                              className="p-1.5 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+                              title="Save rename"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingSubject(null)}
+                              className="p-1.5 text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                              title="Cancel"
+                            >
+                              <X size={16} />
+                            </button>
+                          </form>
+                        </div>
+                      ) : isConfirmingDelete ? (
+                        <div className="flex items-center justify-between p-3 sm:p-3.5 bg-red-50/60 dark:bg-red-950/30 border-b border-red-100 dark:border-red-900/40">
+                          <span className="text-xs sm:text-sm font-semibold text-red-700 dark:text-red-300 truncate">
+                            Delete "{subj}" and all categories?
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmDeleteSubject(subj)}
+                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteSubject(null)}
+                              className="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                            >
+                              Cancel
+                            </button>
                           </div>
-                          <span className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate">
-                            {subj}
-                          </span>
-                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shrink-0">
-                            {cats.length} {cats.length === 1 ? 'category' : 'categories'}
-                          </span>
-                        </button>
-
-                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors">
                           <button
                             type="button"
-                            onClick={() => handleDeleteSubjectClick(subj)}
-                            disabled={subjects.length <= 1}
-                            className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30"
-                            title={`Delete subject ${subj}`}
+                            onClick={() => toggleExpandSubject(subj)}
+                            className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
                           >
-                            <Trash2 size={15} />
+                            <div className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </div>
+                            <span className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate">
+                              {subj}
+                            </span>
+                            <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shrink-0">
+                              {cats.length} {cats.length === 1 ? 'category' : 'categories'}
+                            </span>
                           </button>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditSubject(subj)}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                              title={`Rename subject ${subj}`}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteSubject(subj)}
+                              disabled={subjects.length <= 1}
+                              className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30"
+                              title={`Delete subject ${subj}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Expanded Categories Panel */}
                       {isExpanded && (
@@ -305,24 +459,70 @@ export default function Settings() {
 
                           {/* Category Chips */}
                           <div className="flex flex-wrap gap-2">
-                            {cats.map((cat) => (
-                              <div
-                                key={cat}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 group"
-                              >
-                                <span>{cat}</span>
-                                {cats.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteCategoryClick(subj, cat)}
-                                    className="p-0.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                                    title={`Remove ${cat} from ${subj}`}
+                            {cats.map((cat) => {
+                              const isEditingCat = editingCategory?.subj === subj && editingCategory?.cat === cat;
+                              if (isEditingCat) {
+                                return (
+                                  <form
+                                    key={cat}
+                                    onSubmit={handleSaveEditCategory}
+                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700"
                                   >
-                                    <X size={13} />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
+                                    <input
+                                      type="text"
+                                      value={editCategoryValue}
+                                      onChange={(e) => setEditCategoryValue(e.target.value)}
+                                      className="px-2 py-0.5 text-xs bg-white dark:bg-slate-900 border border-blue-400 rounded focus:outline-none text-slate-800 dark:text-slate-100 w-28 sm:w-36"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="p-0.5 text-emerald-600 hover:text-emerald-700"
+                                      title="Save"
+                                    >
+                                      <Check size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingCategory(null)}
+                                      className="p-0.5 text-slate-400 hover:text-slate-600"
+                                      title="Cancel"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </form>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={cat}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 group"
+                                >
+                                  <span>{cat}</span>
+                                  <div className="flex items-center gap-0.5 ml-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEditCategory(subj, cat)}
+                                      className="p-0.5 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                                      title={`Rename ${cat}`}
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                    {cats.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteCategoryClick(subj, cat)}
+                                        className="p-0.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                        title={`Remove ${cat} from ${subj}`}
+                                      >
+                                        <X size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
 
                           {/* Add Category to this Subject Form */}
