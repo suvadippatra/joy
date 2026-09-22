@@ -40,6 +40,7 @@ export interface AppState {
   timerMode: 'COUNTDOWN' | 'STOPWATCH';
   fontName: string;
   previewTableFontSize?: number;
+  questionViewMode?: 'SINGLE' | 'CONTINUOUS';
   mathMode: 'LATEX' | 'HTML';
   renderEngine: 'KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE';
   rules: string[];
@@ -84,39 +85,44 @@ export const defaultConstants: Constant[] = [
 /**
  * Clean Pristine Initial App State (Default at first load)
  */
-export const cleanAppState: AppState = {
-  agencyName: "National Testing Agency",
-  examTitle: "New CBT Test",
-  examSubtitle: "",
-  duration: 90,
-  timerMode: 'COUNTDOWN',
-  fontName: "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif",
-  previewTableFontSize: 100,
-  mathMode: 'LATEX',
-  renderEngine: 'KATEX_LOCAL',
-  rules: [...defaultRules],
-  audio: { bg: '', start: '', submit: '' },
-  constants: [...defaultConstants],
-  sections: [
-    { name: "Section 1", marks: 4, negative: 1, maxAttempts: 0 }
-  ],
-  questionsBySection: {
-    "Section 1": [
-      {
-        id: 1,
-        type: 'MCQ',
-        text: '',
-        options: ['', '', '', ''],
-        correct: 0,
-        marksCorrect: 4,
-        marksWrong: 1,
-        explanation: '',
-        image: '',
-        table: ''
-      }
-    ]
-  }
-};
+export function createCleanAppState(): AppState {
+  return {
+    agencyName: "National Testing Agency",
+    examTitle: "New CBT Test",
+    examSubtitle: "",
+    duration: 90,
+    timerMode: 'COUNTDOWN',
+    fontName: "'KaTeX_Main', serif",
+    previewTableFontSize: 100,
+    questionViewMode: 'SINGLE',
+    mathMode: 'LATEX',
+    renderEngine: 'KATEX_LOCAL',
+    rules: [...defaultRules],
+    audio: { bg: '', start: '', submit: '' },
+    constants: [...defaultConstants],
+    sections: [
+      { name: "Section 1", marks: 4, negative: 1, maxAttempts: 0 }
+    ],
+    questionsBySection: {
+      "Section 1": [
+        {
+          id: 1,
+          type: 'MCQ',
+          text: '',
+          options: ['', '', '', ''],
+          correct: 0,
+          marksCorrect: 4,
+          marksWrong: 1,
+          explanation: '',
+          image: '',
+          table: ''
+        }
+      ]
+    }
+  };
+}
+
+export const cleanAppState: AppState = createCleanAppState();
 
 /**
  * Rich Sample Demo State (Loaded on user request)
@@ -127,7 +133,7 @@ export const demoShowcaseAppState: AppState = {
   examSubtitle: "Physics, Chemistry & Biology Model Examination",
   duration: 180,
   timerMode: 'COUNTDOWN',
-  fontName: "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif",
+  fontName: "'KaTeX_Main', serif",
   mathMode: 'LATEX',
   renderEngine: 'KATEX_LOCAL',
   rules: [...defaultRules],

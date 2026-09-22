@@ -52,6 +52,9 @@ interface QuestionEditorProps {
   section: Section | null;
   sectionIndex: number;
   mathMode: 'LATEX' | 'HTML';
+  isActive?: boolean;
+  showNavigationFooter?: boolean;
+  onFocusQuestion?: () => void;
   onUpdateQuestion: (fields: Partial<Question>) => void;
   onImageFilePicked: (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -74,6 +77,9 @@ const QuestionEditor = memo(function QuestionEditor({
   section,
   sectionIndex,
   mathMode,
+  isActive,
+  showNavigationFooter = true,
+  onFocusQuestion,
   onUpdateQuestion,
   onImageFilePicked,
   onOpenLaTeXGuide,
@@ -93,26 +99,60 @@ const QuestionEditor = memo(function QuestionEditor({
   const [localOptions, setLocalOptions] = useState<string[]>(() => question?.options || []);
   const [localCorrectNat, setLocalCorrectNat] = useState<string>(() => question?.correctNat || '');
 
-  // Track active question ID to only reset local state when switching questions
+  // Track active question and last synced prop values to support both 0ms typing and external resets
   const activeQIdRef = useRef<number | string | null>(question?.id ?? null);
+  const lastPropTextRef = useRef(question?.text || '');
+  const lastPropOptionsStrRef = useRef(JSON.stringify(question?.options || []));
+  const lastPropNatRef = useRef(question?.correctNat || '');
 
   useEffect(() => {
-    if (!question) return;
+    if (!question) {
+      setLocalText('');
+      setLocalOptions(['', '', '', '']);
+      setLocalCorrectNat('');
+      return;
+    }
+
+    const qText = question.text || '';
+    const qOptions = question.options || [];
+    const qNat = question.correctNat || '';
+    const qOptionsStr = JSON.stringify(qOptions);
+
+    // Question ID changed (user switched question)
     if (question.id !== activeQIdRef.current) {
       activeQIdRef.current = question.id;
-      setLocalText(question.text || '');
-      setLocalOptions(question.options || []);
-      setLocalCorrectNat(question.correctNat || '');
-    } else if (question.options && question.options.length !== localOptions.length) {
-      setLocalOptions(question.options);
+      lastPropTextRef.current = qText;
+      lastPropOptionsStrRef.current = qOptionsStr;
+      lastPropNatRef.current = qNat;
+      setLocalText(qText);
+      setLocalOptions(qOptions);
+      setLocalCorrectNat(qNat);
+      return;
     }
-  }, [question?.id, questionIndex, question?.options?.length]);
+
+    // External reset / update occurred from parent (e.g. Clean Draft or Paste Import)
+    if (qText !== lastPropTextRef.current) {
+      lastPropTextRef.current = qText;
+      setLocalText(qText);
+    }
+
+    if (qOptionsStr !== lastPropOptionsStrRef.current) {
+      lastPropOptionsStrRef.current = qOptionsStr;
+      setLocalOptions(qOptions);
+    }
+
+    if (qNat !== lastPropNatRef.current) {
+      lastPropNatRef.current = qNat;
+      setLocalCorrectNat(qNat);
+    }
+  }, [question?.id, question?.text, JSON.stringify(question?.options), question?.correctNat, questionIndex]);
 
   // Debounce sync localText -> parent onUpdateQuestion
   useEffect(() => {
     if (!question) return;
     const timer = setTimeout(() => {
       if (question.id === activeQIdRef.current && localText !== question.text) {
+        lastPropTextRef.current = localText;
         onUpdateQuestion({ text: localText });
       }
     }, 200);
@@ -124,6 +164,7 @@ const QuestionEditor = memo(function QuestionEditor({
     if (!question) return;
     const timer = setTimeout(() => {
       if (question.id === activeQIdRef.current && JSON.stringify(localOptions) !== JSON.stringify(question.options)) {
+        lastPropOptionsStrRef.current = JSON.stringify(localOptions);
         onUpdateQuestion({ options: localOptions });
       }
     }, 200);
@@ -135,6 +176,7 @@ const QuestionEditor = memo(function QuestionEditor({
     if (!question) return;
     const timer = setTimeout(() => {
       if (question.id === activeQIdRef.current && localCorrectNat !== question.correctNat) {
+        lastPropNatRef.current = localCorrectNat;
         onUpdateQuestion({ correctNat: localCorrectNat });
       }
     }, 200);
@@ -178,29 +220,38 @@ const QuestionEditor = memo(function QuestionEditor({
     question.type === 'MCQ' ? 'SCQ (Single Correct)' : question.type === 'MSQ' ? 'MCQ (Multiple Correct)' : 'NAT (Numerical)';
 
   return (
-    <div className="max-w-3xl mx-auto w-full space-y-3 pb-16">
-      {/* Question Header Bar with S1Q1 Labeling, Merged Single Type Switcher & Compact +[4] -[1] Marks */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        {/* Left: S1Q1 Label & Single Merged Type Switcher Button */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-extrabold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-xl border border-blue-200 dark:border-blue-900/50">
+    <div
+      id={`editor-question-${questionIndex}`}
+      onClick={onFocusQuestion}
+      className={`max-w-3xl mx-auto w-full space-y-3 pb-6 scroll-mt-16 transition-all duration-200 rounded-3xl ${
+        isActive ? 'ring-2 ring-blue-500/40 bg-blue-50/10 dark:bg-blue-950/10 p-1 sm:p-2' : 'p-0'
+      }`}
+    >
+      {/* Question Header Bar: Single-line compact structure */}
+      <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-slate-900 p-2 sm:p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex-nowrap overflow-x-auto scrollbar-none">
+        {/* Left: Compact S1Q1 Label & Short-form Type Switcher */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-1 rounded-xl border border-blue-200 dark:border-blue-900/50 shrink-0 font-mono">
             {sLabel}
           </span>
 
           <button
             type="button"
-            onClick={cycleQuestionType}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
-            title="Click to cycle Question Type (SCQ -> MCQ -> NAT)"
+            onClick={e => {
+              e.stopPropagation();
+              cycleQuestionType();
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shrink-0 cursor-pointer select-none"
+            title="Click to cycle Question Type: MCQ -> MSQ -> NAT"
           >
-            <span>Type: {typeDisplayLabel}</span>
-            <RefreshCw size={13} className="text-blue-500" />
+            <span>{question.type}</span>
+            <RefreshCw size={11} className="text-blue-500 shrink-0" />
           </button>
         </div>
 
-        {/* Right: Compact +[4] -[1] Style Marks with Fraction Support */}
-        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold">
-          <span className="text-emerald-600 dark:text-emerald-400">+</span>
+        {/* Right: Compact +[4] -[1] Inline Marks with Fraction Support */}
+        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 px-2 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold shrink-0">
+          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">+</span>
           <input
             type="text"
             value={rawMarksStr !== null ? rawMarksStr : question.marksCorrect !== undefined ? String(question.marksCorrect) : ''}
@@ -211,12 +262,13 @@ const QuestionEditor = memo(function QuestionEditor({
               const parsed = parseFractionOrNumber(val);
               onUpdateQuestion({ marksCorrect: parsed });
             }}
+            onFocus={onFocusQuestion}
             onBlur={() => setRawMarksStr(null)}
-            className="w-14 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
+            className="w-10 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
             title="Correct Marks (e.g., 4 or 1/2)"
           />
 
-          <span className="text-red-500 ml-0.5">-</span>
+          <span className="text-red-500 font-extrabold ml-0.5">-</span>
           <input
             type="text"
             value={rawPenaltyStr !== null ? rawPenaltyStr : question.marksWrong !== undefined ? String(question.marksWrong) : ''}
@@ -227,8 +279,9 @@ const QuestionEditor = memo(function QuestionEditor({
               const parsed = parseFractionOrNumber(val);
               onUpdateQuestion({ marksWrong: parsed });
             }}
+            onFocus={onFocusQuestion}
             onBlur={() => setRawPenaltyStr(null)}
-            className="w-14 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
+            className="w-10 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
             title="Incorrect Penalty (e.g., 1 or 1/4)"
           />
 
@@ -243,7 +296,7 @@ const QuestionEditor = memo(function QuestionEditor({
               title="Reset to Section Defaults"
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-0.5"
             >
-              <RotateCcw size={13} />
+              <RotateCcw size={12} />
             </button>
           )}
         </div>
@@ -342,6 +395,7 @@ const QuestionEditor = memo(function QuestionEditor({
         <AutoExpandingTextarea
           value={localText}
           onChange={e => setLocalText(e.target.value)}
+          onFocus={onFocusQuestion}
           placeholder="Enter question statement..."
           className="w-full min-h-[90px] p-3 text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
           minRows={3}
@@ -474,6 +528,7 @@ const QuestionEditor = memo(function QuestionEditor({
                             currentOpts[oi] = optImgSrc ? `${newText} ||IMG:${optImgSrc}||` : newText;
                             setLocalOptions(currentOpts);
                           }}
+                          onFocus={onFocusQuestion}
                           placeholder={`Option ${String.fromCharCode(65 + oi)} statement...`}
                           className="w-full px-2 py-1 text-xs sm:text-sm rounded-lg bg-transparent border-0 text-slate-800 dark:text-slate-100 focus:outline-none min-h-[32px] leading-relaxed"
                           minRows={1}
@@ -549,6 +604,7 @@ const QuestionEditor = memo(function QuestionEditor({
               type="text"
               value={localCorrectNat}
               onChange={e => setLocalCorrectNat(e.target.value)}
+              onFocus={onFocusQuestion}
               placeholder="e.g. 15 or 14.5-15.5"
               className="w-full px-3 py-1.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-mono font-bold focus:outline-none"
             />
@@ -556,39 +612,41 @@ const QuestionEditor = memo(function QuestionEditor({
         )}
       </div>
 
-      {/* Bottom Sticky Question Navigation & Addition Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-2 max-w-3xl mx-auto shadow-lg rounded-t-2xl">
-        <button
-          type="button"
-          onClick={onPrevQuestion}
-          disabled={questionIndex <= 0}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40 hover:bg-slate-200 transition-colors"
-        >
-          <ChevronLeft size={16} />
-          <span>Prev Q</span>
-        </button>
-
-        {onAddQuestionNext && (
+      {/* Bottom Sticky Question Navigation & Addition Footer (Shown only in Single Focus mode) */}
+      {showNavigationFooter && onPrevQuestion && onNextQuestion && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-2 max-w-3xl mx-auto shadow-lg rounded-t-2xl">
           <button
             type="button"
-            onClick={onAddQuestionNext}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold shadow-sm transition-all"
+            onClick={onPrevQuestion}
+            disabled={questionIndex <= 0}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40 hover:bg-slate-200 transition-colors"
           >
-            <Plus size={15} />
-            <span>Add Question Next</span>
+            <ChevronLeft size={16} />
+            <span>Prev Q</span>
           </button>
-        )}
 
-        <button
-          type="button"
-          onClick={onNextQuestion}
-          disabled={questionIndex >= totalQuestions - 1}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40 hover:bg-slate-200 transition-colors"
-        >
-          <span>Next Q</span>
-          <ChevronRight size={16} />
-        </button>
-      </div>
+          {onAddQuestionNext && (
+            <button
+              type="button"
+              onClick={onAddQuestionNext}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold shadow-sm transition-all"
+            >
+              <Plus size={15} />
+              <span>Add Question Next</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onNextQuestion}
+            disabled={questionIndex >= totalQuestions - 1}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40 hover:bg-slate-200 transition-colors"
+          >
+            <span>Next Q</span>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 });

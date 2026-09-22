@@ -13,6 +13,8 @@ export interface CbtCorrectorOptions {
   useLatexFont?: boolean;
 }
 
+import katexCssText from 'katex/dist/katex.min.css?inline';
+
 export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrectorOptions): string {
   if (!rawHtml || typeof rawHtml !== 'string') return '';
 
@@ -190,9 +192,17 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
     </style>
   `;
 
-  // 8. Blazing Fast, Single-Pass Math Render Engine
+  // 8. Inlined Core KaTeX CSS with Absolute Font Paths (100% Offline Guaranteed)
+  const processedKatexCss = katexCssText.replace(/url\(["']?fonts\/([^"')]+)["']?\)/g, `url("${assetBase}libs/fonts/$1")`);
+
+  // 9. Blazing Fast, Single-Pass Math Render Engine with Zero-Network Parent Recovery
   const katexHeadScripts = `
-    <!-- Offline KaTeX Assets & Fast Render Engine -->
+    <!-- Inlined KaTeX Core CSS (Never requires network or service worker) -->
+    <style id="cbt-katex-bundled-css">
+      ${processedKatexCss}
+    </style>
+
+    <!-- Optional external link fallback -->
     <link rel="stylesheet" href="${assetBase}libs/katex.min.css">
     <script src="${assetBase}libs/katex.min.js"></script>
     <script src="${assetBase}libs/auto-render.min.js"></script>
@@ -201,18 +211,36 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
     <script id="cbt-katex-auto-render">
     (function() {
+      // Direct offline bridge: inherit KaTeX & renderMathInElement from parent window if offline network request failed
+      function ensureMathEngine() {
+        if (typeof window.katex === 'undefined' && window.parent && window.parent.katex) {
+          window.katex = window.parent.katex;
+        }
+        if (typeof window.renderMathInElement === 'undefined' && window.parent && window.parent.renderMathInElement) {
+          window.renderMathInElement = window.parent.renderMathInElement;
+        }
+      }
+      ensureMathEngine();
+
       var renderScheduled = false;
 
       function safelyRenderMathInContainer(container) {
         if (!container) return;
-        if (typeof renderMathInElement !== 'function') {
-          setTimeout(function() { safelyRenderMathInContainer(container); }, 60);
+        ensureMathEngine();
+
+        var renderFn = window.renderMathInElement || (window.parent && window.parent.renderMathInElement);
+        if (typeof renderFn !== 'function') {
+          if (!window._katexRetryCount) window._katexRetryCount = 0;
+          if (window._katexRetryCount < 60) {
+            window._katexRetryCount++;
+            setTimeout(function() { safelyRenderMathInContainer(container); }, 75);
+          }
           return;
         }
         if (container.dataset.mathRendered === 'true') return;
 
         try {
-          renderMathInElement(container, {
+          renderFn(container, {
             delimiters: [
               {left: "$$", right: "$$", display: true},
               {left: "\\[", right: "\\]", display: true},
@@ -230,10 +258,14 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
       }
 
       window.triggerMathRender = function(el, force) {
-        var target = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+        var target = el || document.getElementById('q-render-area') || document.getElementById('question-container') || document.querySelector('.question-container') || document.getElementById('question-report-list') || document.body;
         if (!target) return;
         if (force) {
           delete target.dataset.mathRendered;
+          var renderedKids = target.querySelectorAll('[data-math-rendered="true"]');
+          for (var k = 0; k < renderedKids.length; k++) {
+            delete renderedKids[k].dataset.mathRendered;
+          }
         } else if (target.dataset.mathRendered === 'true') {
           return;
         }
@@ -243,7 +275,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
         requestAnimationFrame(function() {
           renderScheduled = false;
-          var currentTarget = el || document.getElementById('q-render-area') || document.getElementById('question-report-list');
+          var currentTarget = el || document.getElementById('q-render-area') || document.getElementById('question-container') || document.querySelector('.question-container') || document.getElementById('question-report-list') || document.body;
           safelyRenderMathInContainer(currentTarget);
         });
       };
@@ -253,7 +285,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
           window._origLoadQuestion = window.loadQuestion;
           window.loadQuestion = function(idx) {
             var res = window._origLoadQuestion.apply(this, arguments);
-            window.triggerMathRender(null, true);
+            setTimeout(function() { window.triggerMathRender(null, true); }, 10);
             return res;
           };
         }
@@ -270,6 +302,19 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
         initMath();
       }
       window.addEventListener('load', initMath);
+
+      // Periodic check to ensure late-initialized scripts or question renderers are hooked and rendered
+      var checkAttempts = 0;
+      var pollInterval = setInterval(function() {
+        checkAttempts++;
+        hookQuestionNavigation();
+        if (window.loadQuestion) {
+          window.triggerMathRender(null, false);
+        }
+        if (checkAttempts > 25) {
+          clearInterval(pollInterval);
+        }
+      }, 200);
     })();
     </script>
   `;

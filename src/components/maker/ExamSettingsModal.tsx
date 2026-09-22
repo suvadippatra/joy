@@ -166,8 +166,9 @@ function ExamSettingsModal({
   const [examSubtitle, setExamSubtitle] = useState(appState.examSubtitle || '');
   const [duration, setDuration] = useState(appState.duration || 90);
   const [timerMode, setTimerMode] = useState<'COUNTDOWN' | 'STOPWATCH'>(appState.timerMode || 'COUNTDOWN');
-  const [fontName, setFontName] = useState(appState.fontName || "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif");
+  const [fontName, setFontName] = useState(appState.fontName || "'KaTeX_Main', serif");
   const [previewTableFontSize, setPreviewTableFontSize] = useState<number>(appState.previewTableFontSize || 100);
+  const [questionViewMode, setQuestionViewMode] = useState<'SINGLE' | 'CONTINUOUS'>(appState.questionViewMode || 'SINGLE');
   const [mathMode, setMathMode] = useState<'LATEX' | 'HTML'>(appState.mathMode || 'LATEX');
   const [renderEngine, setRenderEngine] = useState<'KATEX_LOCAL' | 'MATHML' | 'HTML_FALLBACK' | 'KATEX_ONLINE'>(
     appState.renderEngine || 'KATEX_LOCAL'
@@ -191,6 +192,7 @@ function ExamSettingsModal({
       timerMode,
       fontName,
       previewTableFontSize,
+      questionViewMode,
       mathMode,
       renderEngine,
       rules: rules.filter(r => r.trim() !== ''),
@@ -395,7 +397,7 @@ function ExamSettingsModal({
                     onClick={() => {
                       setMathMode('LATEX');
                       setRenderEngine('KATEX_LOCAL');
-                      setFontName("'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif");
+                      setFontName("'KaTeX_Main', serif");
                     }}
                     className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between h-full ${
                       mathMode === 'LATEX'
@@ -454,7 +456,7 @@ function ExamSettingsModal({
                       onChange={e => setFontName(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-medium"
                     >
-                      <option value="'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif">
+                      <option value="'KaTeX_Main', serif">
                         KaTeX Computer Modern Serif (JEE/NEET Standard)
                       </option>
                       <option value="'KaTeX_Math', 'KaTeX_Main', serif">
@@ -472,10 +474,58 @@ function ExamSettingsModal({
                     </select>
                   </div>
 
+                  {/* Question Layout View (Portrait & Mobile Mode) */}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Portrait & Mobile Question View
+                      </label>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                        {questionViewMode === 'CONTINUOUS' ? 'Continuous Stream' : 'Single Question'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setQuestionViewMode('SINGLE')}
+                        className={`p-2 rounded-xl text-xs font-bold border transition-all text-left ${
+                          questionViewMode === 'SINGLE'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="font-extrabold flex items-center gap-1.5">
+                          <span>1-at-a-time Focus</span>
+                        </div>
+                        <p className={`text-[10px] mt-0.5 ${questionViewMode === 'SINGLE' ? 'text-blue-100' : 'text-slate-500'}`}>
+                          Traditional CBT pagination with Next/Prev
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setQuestionViewMode('CONTINUOUS')}
+                        className={`p-2 rounded-xl text-xs font-bold border transition-all text-left ${
+                          questionViewMode === 'CONTINUOUS'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="font-extrabold flex items-center gap-1.5">
+                          <span>Continuous Stream</span>
+                        </div>
+                        <p className={`text-[10px] mt-0.5 ${questionViewMode === 'CONTINUOUS' ? 'text-blue-100' : 'text-slate-500'}`}>
+                          All questions in section stacked top-to-bottom
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Preview Content Font Zoom */}
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Table Preview Font Size (Live Preview Only)
+                        Preview Font & Content Zoom (Text, Math & Tables)
                       </label>
                       <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                         {previewTableFontSize}%
@@ -491,7 +541,7 @@ function ExamSettingsModal({
                       className="w-full accent-blue-600 cursor-pointer"
                     />
                     <p className="text-[10px] text-slate-500">
-                      Adjusts table font size in the workspace preview only. Will not alter generated CBT HTML.
+                      Scales whole questions, inline KaTeX math formulas, options, and tables proportionally in the live preview.
                     </p>
                   </div>
                 </div>

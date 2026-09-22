@@ -1,4 +1,4 @@
-import { Moon, Sun, Search, ChevronLeft, X, Settings, Sparkles } from 'lucide-react';
+import { Moon, Sun, Search, ChevronLeft, X, Settings, Sparkles, BookOpen } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useRef, useEffect, ReactNode } from 'react';
@@ -38,15 +38,24 @@ export default function Header({
   const [typedText, setTypedText] = useState('Test');
   const [wordIndex, setWordIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+  const cycleCountRef = useRef(0);
 
   useEffect(() => {
     if (!isHome && title !== 'CBT Test') return;
+    if (isFinished) return;
 
     const currentWord = ANIMATED_WORDS[wordIndex];
     let timer: ReturnType<typeof setTimeout>;
 
     if (!isDeleting) {
       if (typedText === currentWord) {
+        // If we completed 3 full rounds of ANIMATED_WORDS and are back on 'Test', rest permanently!
+        if (cycleCountRef.current >= 3 && currentWord === 'Test') {
+          setIsFinished(true);
+          return;
+        }
+
         // Hold for 1.5 seconds after full word is typed
         timer = setTimeout(() => {
           setIsDeleting(true);
@@ -62,7 +71,11 @@ export default function Header({
         // Pause briefly after erasing, then switch to next word
         timer = setTimeout(() => {
           setIsDeleting(false);
-          setWordIndex((prev) => (prev + 1) % ANIMATED_WORDS.length);
+          const nextIndex = (wordIndex + 1) % ANIMATED_WORDS.length;
+          if (nextIndex === 0) {
+            cycleCountRef.current += 1;
+          }
+          setWordIndex(nextIndex);
         }, 250);
       } else {
         // Backspace character by character to simulate editing
@@ -73,7 +86,7 @@ export default function Header({
     }
 
     return () => clearTimeout(timer);
-  }, [isHome, title, typedText, isDeleting, wordIndex]);
+  }, [isHome, title, typedText, isDeleting, wordIndex, isFinished]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -120,7 +133,9 @@ export default function Header({
               <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent tracking-tight ml-0.5 sm:ml-1 flex items-center whitespace-nowrap">
                 <span>CBT&nbsp;</span>
                 <span className="min-w-[4px]">{typedText}</span>
-                <span className="inline-block w-[2px] sm:w-[2.5px] h-[0.9em] ml-0.5 bg-blue-600 dark:bg-blue-400 animate-pulse align-middle" />
+                {!isFinished && (
+                  <span className="inline-block w-[2px] sm:w-[2.5px] h-[0.9em] ml-0.5 bg-blue-600 dark:bg-blue-400 animate-pulse align-middle" />
+                )}
               </h1>
             </Link>
           ) : (
@@ -196,6 +211,14 @@ export default function Header({
               title="CBT Maker Studio"
             >
               <Sparkles size={20} />
+            </Link>
+
+            <Link
+              to="/doc-studio"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 transition-colors shrink-0"
+              title="Document Studio (LaTeX Academic Notebook &amp; Print)"
+            >
+              <BookOpen size={20} />
             </Link>
 
             <Link

@@ -1,36 +1,45 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import katex from 'katex';
+import renderMathInElement from 'katex/dist/contrib/auto-render.mjs';
 import 'katex/dist/katex.min.css';
 import './index.css';
-import { registerSW } from 'virtual:pwa-register';
 
-// Register Service Worker for 100% offline KaTeX font and test asset caching
-registerSW({ immediate: true });
+// Expose KaTeX & auto-render globally so that any offline iframes or tests can access them directly from RAM
+(window as any).katex = katex;
+(window as any).renderMathInElement = renderMathInElement;
 
-// Always force the application to start on the Home page (main landing page) upon refresh/load.
-// This also cleans up any malformed GitHub Pages URLs.
-(function() {
+// Register Service Worker safely for 100% offline KaTeX font and test asset caching
+try {
+  import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({ immediate: true });
+  }).catch(() => {
+    // Ignore SW registration errors in sandboxed iframes
+  });
+} catch (e) {
+  // Safe fallback
+}
+
+// Clean up any malformed GitHub Pages 404 redirect paths without breaking HashRouter
+try {
   const path = window.location.pathname;
-  const match = path.match(/(\/subject\/.*|\/test\/.*|\/reports|\/recent|\/settings)$/);
-  let base = path;
+  const match = path.match(/(\/subject\/.*|\/test\/.*|\/reports|\/recent|\/settings|\/doc-studio|\/maker)$/);
   if (match) {
-    base = path.slice(0, path.length - match[1].length);
+    const base = path.slice(0, path.length - match[1].length);
+    if (base !== path) {
+      window.history.replaceState(null, '', base + window.location.search + window.location.hash);
+    }
   }
-  
-  // Clean the URL bar to remove trailing garbage from GitHub Pages 404 redirects
-  if (base !== path) {
-    window.history.replaceState(null, '', base + window.location.search);
-  }
-  
-  // Force hash to empty so HashRouter defaults to '/' (Home page)
-  if (window.location.hash) {
-    window.location.hash = '';
-  }
-})();
+} catch (e) {
+  // Ignore URL rewrite errors
+}
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}

@@ -16,10 +16,20 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
     // 1. Strip markdown code fences if wrapped by an LLM (e.g. ```text ... ``` or ```cbt ... ```)
     txt = txt.replace(/^```[a-zA-Z0-9_-]*\s*\n?/i, '').replace(/\n?```\s*$/i, '');
 
-    // 2. Clean spans and normalize newlines
-    txt = txt.replace(/\[span_[^\]]*\](?:\(start_span\)|\(end_span\))?/gi, '');
-    txt = txt.replace(/\\n/g, '\n');
-    txt = txt.replace(/(Statement|Assertion|List|Reason)[\s\n]+(I{1,3}|A|B|R)[\s\n]*:/gi, '$1 $2:');
+    // 2. Clean all span annotations and bounding box artifacts (e.g. [span_0], (start_span), (end_span))
+    txt = txt.replace(/\[span_[^\]]*\]/gi, '').replace(/\((?:start|end)_span\)/gi, '');
+
+    // 3. Normalize newlines
+    txt = txt.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // 4. Normalize common statements & assertion headings
+    txt = txt.replace(/(Statement|Assertion|List|Reason)[\s\n]+(I{1,3}|[123]|A|B|R)[\s\n]*:/gi, '$1 $2:');
+
+    // 5. Detect if the input is explicitly formatted with CBT tags (Q:, O:, QType:, [SECTION:)
+    const hasQTags = /(?:^|\n)\s*(?:Q\s*:|Q\d+\s*:|Question\s*(?:\d+)?\s*:)/i.test(txt);
+    const hasOTags = /(?:^|\n)\s*(?:O\s*:|O\d+\s*:|Option\s*(?:[A-E]|\d+)?\s*:)/i.test(txt);
+    const hasQTypeTags = /(?:^|\n)\s*(?:QType|Type)\s*:/i.test(txt);
+    const isTaggedCBT = hasQTags || hasOTags || hasQTypeTags;
 
     const lines = txt.split('\n');
     let mode: 'exam' | 'constants' | 'questions' | null = null;
@@ -37,7 +47,7 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
     let examSubtitle = currentState.examSubtitle || '';
     let duration = currentState.duration || 90;
     let timerMode = currentState.timerMode || 'COUNTDOWN';
-    let fontName = currentState.fontName || "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif";
+    let fontName = currentState.fontName || "'KaTeX_Main', serif";
     let mathMode = currentState.mathMode || 'LATEX';
 
     const ensureSection = () => {
@@ -58,9 +68,11 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
       if (tr.startsWith('[EXAM_INFO]')) {
         mode = 'exam';
         lastField = null;
+        return;
       } else if (tr.startsWith('[CONSTANTS]')) {
         mode = 'constants';
         lastField = null;
+        return;
       } else if (tr.startsWith('[SECTION:') || /^Section\s*:/i.test(tr) || /^\[Section\s+/i.test(tr)) {
         mode = 'questions';
         lastField = null;
@@ -90,7 +102,10 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
           questionsBySection[curSec] = [];
         }
         curQ = null;
-      } else if (mode === 'exam') {
+        return;
+      }
+
+      if (mode === 'exam') {
         if (tr.startsWith('Agency:')) agencyName = tr.substring(7).trim();
         else if (tr.startsWith('Title:')) examTitle = tr.substring(6).trim();
         else if (tr.startsWith('Subtitle:')) examSubtitle = tr.substring(9).trim();
@@ -111,18 +126,34 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
         } else if (tr.startsWith('AudioBg:')) audio.bg = tr.substring(8).trim();
         else if (tr.startsWith('AudioStart:')) audio.start = tr.substring(11).trim();
         else if (tr.startsWith('AudioSubmit:')) audio.submit = tr.substring(12).trim();
-      } else if (mode === 'constants') {
+        return;
+      }
+
+      if (mode === 'constants') {
         const idx = tr.indexOf(':');
         if (idx > 0) {
           constants.push({ name: tr.substring(0, idx).trim(), value: tr.substring(idx + 1).trim() });
         }
-      } else {
-        // Question or Section detection even without explicit [SECTION:]
-        const isQHeader = /^(?:Q(?:uestion)?\s*(?:\d+)?\s*[:\.]|\d+[\.\)]\s+)/i.test(tr);
-        const isOption = /^(?:O\s*:|\(?[A-D]\)[\s\.]|[A-D][\.\)][\s]+)/i.test(tr);
-        const isAnswer = /^(?:A\s*:|Ans(?:wer)?\s*:|Correct(?:\s*Answer)?\s*:|Key\s*:)/i.test(tr);
-        const isExplanation = /^(?:Exp(?:lanation)?\s*:|Sol(?:ution)?\s*:)/i.test(tr);
+        return;
+      }
+
+      // =========================================================================
+      // QUESTIONS PARSING ENGINE
+      // =========================================================================
+
+      if (isTaggedCBT) {
+        // -----------------------------------------------------------------------
+        // STRICT TAGGED CBT MODE
+        // Only QType:, Q:, O:, A:, T:, I:, Exp: define structural boundaries.
+        // Internal premise items (1., 2., A., B.) NEVER trigger options or questions!
+        // -----------------------------------------------------------------------
         const isType = /^(?:QType|Type)\s*:/i.test(tr);
+        const isTaggedQ = /^(?:Q\s*:|Q\d+\s*:|Question\s*(?:\d+)?\s*:)/i.test(tr);
+        const isTaggedO = /^(?:O\s*:|O\d+\s*:|Option\s*(?:[A-E]|\d+)?\s*:)/i.test(tr);
+        const isAnswer = /^(?:A\s*:|Ans(?:wer)?\s*:|Correct(?:\s*Answer)?\s*:|Key\s*:)/i.test(tr);
+        const isTable = /^(?:T|Table)\s*:/i.test(tr);
+        const isImage = /^(?:I|Image|Img)\s*:/i.test(tr);
+        const isExplanation = /^(?:Exp(?:lanation)?|Sol(?:ution)?)\s*:/i.test(tr);
 
         if (isType) {
           ensureSection();
@@ -140,9 +171,13 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
           };
           questionsBySection[curSec!].push(curQ);
           lastField = 'type';
-        } else if (isQHeader) {
+        } else if (isTaggedQ) {
           ensureSection();
-          const cleanQText = tr.replace(/^(?:Q(?:uestion)?\s*(?:\d+)?\s*[:\.]\s*|\d+[\.\)]\s*)/i, '').trim();
+          const cleanQText = tr
+            .replace(/^(?:Q\s*:|Q\d+\s*:|Question\s*(?:\d+)?\s*:)\s*/i, '')
+            .replace(/\\n/g, '\n')
+            .trim();
+
           if (!curQ || curQ.text !== '') {
             curQ = {
               id: (questionsBySection[curSec!]?.length || 0) + 1,
@@ -158,8 +193,11 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
           }
           curQ.text = cleanQText;
           lastField = 'Q';
-        } else if (isOption && curQ && curQ.type !== 'NAT') {
-          const optContent = tr.replace(/^(?:O\s*:\s*|\(?[A-D]\)[\s\.]*\s*|[A-D][\.\)][\s]*)/i, '').trim();
+        } else if (isTaggedO && curQ && curQ.type !== 'NAT') {
+          const optContent = tr
+            .replace(/^(?:O\s*:|O\d+\s*:|Option\s*(?:[A-E]|\d+)?\s*:)\s*/i, '')
+            .replace(/\\n/g, '\n')
+            .trim();
           curQ.options.push(optContent);
           lastField = 'O';
         } else if (isAnswer && curQ) {
@@ -171,50 +209,158 @@ export function parseCBTFormat(rawTxt: string, currentState: AppState): {
             curQ.correct = letters.map(l => {
               if (l.match(/^[A-Z]$/)) return l.charCodeAt(0) - 65;
               const num = parseInt(l, 10);
-              return isNaN(num) ? 0 : num;
+              return isNaN(num) ? 0 : Math.max(0, num - 1);
             });
             if (curQ.correct.length > 1) curQ.type = 'MSQ';
           } else {
-            const letter = val.replace(/[^a-zA-Z]/g, '').charAt(0);
-            if (letter) curQ.correct = letter.toUpperCase().charCodeAt(0) - 65;
+            const letter = val.replace(/[^a-zA-Z0-9]/g, '').charAt(0);
+            if (letter) {
+              if (letter.match(/^[a-zA-Z]$/)) {
+                curQ.correct = letter.toUpperCase().charCodeAt(0) - 65;
+              } else {
+                const n = parseInt(letter, 10);
+                curQ.correct = isNaN(n) ? 0 : Math.max(0, n - 1);
+              }
+            }
           }
           lastField = 'A';
         } else if (isExplanation && curQ) {
-          const expContent = tr.replace(/^(?:Exp(?:lanation)?\s*:|Sol(?:ution)?\s*:)\s*/i, '').trim();
+          const expContent = tr.replace(/^(?:Exp(?:lanation)?|Sol(?:ution)?)\s*:\s*/i, '').replace(/\\n/g, '\n').trim();
           curQ.explanation = expContent;
           lastField = 'E';
-        } else if (/^T\s*:/i.test(tr) && curQ) {
-          curQ.table = tr.replace(/^T\s*:/i, '').trim();
+        } else if (isTable && curQ) {
+          curQ.table = tr.replace(/^(?:T|Table)\s*:\s*/i, '').trim();
           lastField = 'T';
-        } else if (/^I\s*:/i.test(tr) && curQ) {
-          const imgUrl = tr.replace(/^I\s*:/i, '').trim();
+        } else if (isImage && curQ) {
+          const imgUrl = tr.replace(/^(?:I|Image|Img)\s*:\s*/i, '').trim();
           if (imgUrl === '[IMAGE]' || imgUrl === '[IMAGE_PLACEHOLDER]') curQ.image = 'PLACEHOLDER';
           else if (imgUrl.startsWith('http') || imgUrl.startsWith('data:') || imgUrl.startsWith('./') || imgUrl.startsWith('/')) {
             curQ.image = imgUrl;
             lastField = 'I';
           }
         } else if (curQ && tr) {
-          // Multiline continuation for Q, O, or Explanation
-          if (lastField === 'Q') curQ.text += '\n' + tr;
-          else if (lastField === 'O' && curQ.options.length > 0) curQ.options[curQ.options.length - 1] += '\n' + tr;
-          else if (lastField === 'E') curQ.explanation = (curQ.explanation ? curQ.explanation + '\n' : '') + tr;
-          else if (lastField === 'T') curQ.table += ' ' + tr;
+          // Multiline continuation for Q, O, E, T
+          const cleanLine = tr.replace(/\\n/g, '\n');
+          if (lastField === 'Q') {
+            curQ.text = (curQ.text ? curQ.text + '\n' : '') + cleanLine;
+          } else if (lastField === 'O' && curQ.options.length > 0) {
+            curQ.options[curQ.options.length - 1] += '\n' + cleanLine;
+          } else if (lastField === 'E') {
+            curQ.explanation = (curQ.explanation ? curQ.explanation + '\n' : '') + cleanLine;
+          } else if (lastField === 'T') {
+            curQ.table += ' ' + cleanLine;
+          }
+        }
+      } else {
+        // -----------------------------------------------------------------------
+        // RAW / UNTAGGED TEXT MODE
+        // Parses untagged questions with context-aware premise statement protection.
+        // -----------------------------------------------------------------------
+        const isPremiseOrStatement = /^(?:Statement\s*(?:I{1,3}|[123]|A|B)|Assertion\s*(?:\([A-Z]\)|[A-Z])?|Reason\s*(?:\([A-Z]\)|[A-Z])?|List\s*[-–]\s*(?:I{1,3}|[123]|A|B)|Column\s*[-–\s]*(?:I{1,3}|[123]|A|B))\s*[:\.]/i.test(tr);
+        const isChoosePrompt = /(?:choose|select)\s+(?:the\s+)?(?:most\s+appropriate|correct|incorrect)\s+(?:answer|option)\s+from/i.test(tr);
+
+        // If a "Choose from the options given below" prompt arrives and curQ has options,
+        // those earlier options were actually premise statements! Re-attach them to the question text.
+        if (isChoosePrompt && curQ && curQ.options.length > 0) {
+          const premiseText = curQ.options.map((opt, oi) => `${String.fromCharCode(65 + oi)}. ${opt}`).join('\n');
+          curQ.text = (curQ.text ? curQ.text + '\n' : '') + premiseText + '\n' + tr;
+          curQ.options = [];
+          lastField = 'Q';
+          return;
+        }
+
+        const qNumMatch = tr.match(/^(?:Q(?:uestion)?\s*(\d+)[:\.]|(\d+)[\.\)]\s+)/i);
+        const isExplicitQ = /^(?:Q(?:uestion)?\s*(?:\d+)?\s*[:\.]|\bq\d+[:\.])/i.test(tr);
+        let isQHeader = false;
+
+        if (isExplicitQ) {
+          isQHeader = true;
+        } else if (qNumMatch && !isPremiseOrStatement) {
+          const num = parseInt(qNumMatch[1] || qNumMatch[2], 10);
+          const isInsidePremiseBlock = curQ && curQ.options.length === 0 && lastField !== 'A' &&
+            (/(?:statements?|following|assertion|reason|list|column|match|consider|identify|select|correct|incorrect)/i.test(curQ.text) || num <= 10);
+
+          if (isInsidePremiseBlock) {
+            // Internal numbered statement (1., 2., 3.), NOT a new question!
+            isQHeader = false;
+          } else {
+            isQHeader = true;
+          }
+        }
+
+        const rawOptMatch = tr.match(/^(?:\(([A-Ea-e1-5])\)|([A-Ea-e])[\.\)][\s]+)/);
+        let isOption = false;
+        if (rawOptMatch && curQ && !isPremiseOrStatement && curQ.options.length < 5) {
+          isOption = true;
+        }
+
+        const isAnswer = /^(?:A\s*:|Ans(?:wer)?\s*[:\.]|Correct(?:\s*Answer)?\s*[:\.]|Key\s*[:\.])/i.test(tr);
+        const isExplanation = /^(?:Exp(?:lanation)?\s*[:\.]|Sol(?:ution)?\s*[:\.])/i.test(tr);
+
+        if (isQHeader) {
+          ensureSection();
+          const cleanQText = tr.replace(/^(?:Q(?:uestion)?\s*(?:\d+)?\s*[:\.]\s*|\d+[\.\)]\s*)/i, '').replace(/\\n/g, '\n').trim();
+          curQ = {
+            id: (questionsBySection[curSec!]?.length || 0) + 1,
+            type: 'MCQ',
+            text: cleanQText,
+            options: [],
+            correct: 0,
+            correctNat: '',
+            image: '',
+            table: ''
+          };
+          questionsBySection[curSec!].push(curQ);
+          lastField = 'Q';
+        } else if (isOption && curQ) {
+          const optContent = tr.replace(/^(?:\(([A-Ea-e1-5])\)\s*|([A-Ea-e])[\.\)][\s]*)/i, '').replace(/\\n/g, '\n').trim();
+          curQ.options.push(optContent);
+          lastField = 'O';
+        } else if (isAnswer && curQ) {
+          const val = tr.replace(/^(?:A\s*:|Ans(?:wer)?\s*[:\.]|Correct(?:\s*Answer)?\s*[:\.]|Key\s*[:\.])\s*/i, '').trim();
+          const letter = val.replace(/[^a-zA-Z0-9]/g, '').charAt(0);
+          if (letter) {
+            if (letter.match(/^[a-zA-Z]$/)) {
+              curQ.correct = letter.toUpperCase().charCodeAt(0) - 65;
+            } else {
+              const n = parseInt(letter, 10);
+              curQ.correct = isNaN(n) ? 0 : Math.max(0, n - 1);
+            }
+          }
+          lastField = 'A';
+        } else if (isExplanation && curQ) {
+          const expContent = tr.replace(/^(?:Exp(?:lanation)?\s*[:\.]|Sol(?:ution)?\s*[:\.])\s*/i, '').replace(/\\n/g, '\n').trim();
+          curQ.explanation = expContent;
+          lastField = 'E';
+        } else if (curQ && tr) {
+          const cleanLine = tr.replace(/\\n/g, '\n');
+          if (lastField === 'Q' || isPremiseOrStatement) {
+            curQ.text = (curQ.text ? curQ.text + '\n' : '') + cleanLine;
+          } else if (lastField === 'O' && curQ.options.length > 0) {
+            curQ.options[curQ.options.length - 1] += '\n' + cleanLine;
+          } else if (lastField === 'E') {
+            curQ.explanation = (curQ.explanation ? curQ.explanation + '\n' : '') + cleanLine;
+          }
         }
       }
     });
 
-    // Post-process placeholders
+    // Post-process placeholders & clean any residual bounding-box span artifacts
     sections.forEach(sec => {
       (questionsBySection[sec.name] || []).forEach(q => {
         if (q.text.includes('[IMAGE]') || q.text.includes('[IMAGE_PLACEHOLDER]')) {
           q.image = 'PLACEHOLDER';
           q.text = q.text.replace(/\[IMAGE\]/gi, '').replace(/\[IMAGE_PLACEHOLDER\]/gi, '').trim();
         }
+        // Clean spans
+        q.text = q.text.replace(/\[span_[^\]]*\]/gi, '').replace(/\((?:start|end)_span\)/gi, '').trim();
+
         q.options = q.options.map(opt => {
-          if (opt.includes('[IMAGE]') || opt.includes('[IMAGE_PLACEHOLDER]')) {
-            return opt.replace(/\[IMAGE\]/gi, '').replace(/\[IMAGE_PLACEHOLDER\]/gi, '').trim() + '||IMG:PLACEHOLDER||';
+          let cleaned = opt.replace(/\[span_[^\]]*\]/gi, '').replace(/\((?:start|end)_span\)/gi, '').trim();
+          if (cleaned.includes('[IMAGE]') || cleaned.includes('[IMAGE_PLACEHOLDER]')) {
+            return cleaned.replace(/\[IMAGE\]/gi, '').replace(/\[IMAGE_PLACEHOLDER\]/gi, '').trim() + '||IMG:PLACEHOLDER||';
           }
-          return opt;
+          return cleaned;
         });
       });
     });
@@ -361,8 +507,8 @@ CRITICAL EXTRACTION RULES (FOLLOW OR FAIL):
 2. MCQ FORMAT: Exactly 4 'O:' lines. The 'A:' line must be a single letter (A, B, C, or D).
 3. NAT FORMAT: DO NOT output any 'O:' lines. The 'A:' line must be the exact text/number or range.
 4. TEXT EMPHASIS: You MUST preserve all italics from the original document using *italic* (CRITICAL for biological names like *Mangifera indica*). Preserve bold text using **bold**.
-5. LISTS & LINE BREAKS: If a question contains an internal list of items (e.g., 1., 2., 3. or A., B., C., D. or I., II., III.), you MUST insert a literal \\n before each item so they stack vertically.
-6. STATEMENTS: DO NOT break "Statement I:", "List-I", "List-II", "Assertion A:" into multiple lines. Keep the label and its text on the SAME line.
+5. STATEMENTS & PREMISE ITEMS: All statement items (Statement I/II, Assertion/Reason, numbered points 1/2/3/4/5, List I/II, Column I/II, A/B/C/D premises) MUST remain entirely inside the 'Q: ' line separated by literal '\\n'. NEVER output premise statements as 'O:' lines!
+6. OPTIONS RULE: The 'O:' lines are STRICTLY reserved for the 4 final selectable answers (e.g., 'O: 1, 2, 4 and 5', 'O: Only statement A is correct').
 7. TABLES: Convert tables into a minified HTML <table> string on a single line starting with 'T: '.
 8. NO HALLUCINATIONS: Do NOT output "[span_0]" or bounding box artifacts.
 

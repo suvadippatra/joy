@@ -2,6 +2,64 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Genuine Offline Local KaTeX Fonts */
+@font-face {
+  font-family: 'KaTeX_Main';
+  src: url('/libs/fonts/KaTeX_Main-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Main-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Main-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'KaTeX_Main';
+  src: url('/libs/fonts/KaTeX_Main-Bold.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Main-Bold.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Main-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'KaTeX_Main';
+  src: url('/libs/fonts/KaTeX_Main-Italic.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Main-Italic.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Main-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'KaTeX_Main';
+  src: url('/libs/fonts/KaTeX_Main-BoldItalic.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Main-BoldItalic.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Main-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'KaTeX_Math';
+  src: url('/libs/fonts/KaTeX_Math-Italic.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Math-Italic.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Math-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'KaTeX_SansSerif';
+  src: url('/libs/fonts/KaTeX_SansSerif-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_SansSerif-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_SansSerif-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'KaTeX_Typewriter';
+  src: url('/libs/fonts/KaTeX_Typewriter-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Typewriter-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Typewriter-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
@@ -190,13 +248,21 @@ html, body {
 }
 
 /* CBT Simple Table Standards (Matching cbt_demo.html) */
+.cbt-rendered-content {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .cbt-rendered-content table,
 .preview-table,
 .question-content table {
   border-collapse: collapse !important;
   width: 100% !important;
   max-width: 100% !important;
-  margin: 12px 0 !important;
+  margin: 10px 0 !important;
+  table-layout: auto !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
 .cbt-rendered-content th,
@@ -206,11 +272,14 @@ html, body {
 .question-content th,
 .question-content td {
   border: 1px solid #cbd5e1 !important;
-  padding: 8px 12px !important;
+  padding: 6px 10px !important;
   text-align: left !important;
   vertical-align: top !important;
   font-size: inherit;
-  line-height: 1.5 !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
 .dark .cbt-rendered-content th,
@@ -243,5 +312,83 @@ html, body {
   padding: 0 3px;
   font-family: inherit;
 }
+
+/* Interactive Simulation & Iframe Print Degradation */
+.notebook-simulation-wrapper {
+  transition: box-shadow 0.2s ease;
+}
+.simulation-resize-handle {
+  user-select: none;
+  touch-action: none;
+}
+@media screen {
+  .simulation-print-poster {
+    display: none !important;
+  }
+}
+@media print {
+  .simulation-live-container {
+    display: none !important;
+  }
+  .simulation-print-poster {
+    display: flex !important;
+  }
+}
+
+/* Document Studio & Academic Sheets: LaTeX Font Engine (Matching CBT Maker preview) */
+.page-sheet-content {
+  font-family: 'KaTeX_Main', serif !important;
+  font-variant-numeric: lining-nums tabular-nums !important;
+  font-feature-settings: "lnum" 1, "tnum" 1 !important;
+  color: #0f172a;
+}
+
+.page-sheet-content h1,
+.page-sheet-content h2,
+.page-sheet-content h3,
+.page-sheet-content h4,
+.page-sheet-content p,
+.page-sheet-content li,
+.page-sheet-content blockquote,
+.page-sheet-content table,
+.page-sheet-content th,
+.page-sheet-content td,
+.page-sheet-content .running-header,
+.page-sheet-content .running-footer {
+  font-family: inherit;
+}
+
+.page-sheet-content pre,
+.page-sheet-content code {
+  font-family: 'KaTeX_Typewriter', monospace, Courier, monospace !important;
+}
+
+.page-sheet-content .katex {
+  font-family: 'KaTeX_Main', 'KaTeX_Math', 'KaTeX_AMS', serif !important;
+  font-size: 1.05em;
+  font-variant-numeric: lining-nums tabular-nums !important;
+  font-feature-settings: "lnum" 1, "tnum" 1 !important;
+}
+
+/* Multi-column layout balancing & rules */
+.page-body-content[data-columns="2"] {
+  column-count: 2;
+  column-gap: 8mm;
+  column-fill: auto;
+  column-rule: 1px solid #e2e8f0;
+}
+.dark .page-body-content[data-columns="2"] {
+  column-rule-color: #334155;
+}
+
+.page-body-content[data-columns="2"] h1,
+.page-body-content[data-columns="2"] h2,
+.page-body-content[data-columns="2"] .notebook-table-wrapper,
+.page-body-content[data-columns="2"] .notebook-simulation-wrapper {
+  column-span: all;
+  -webkit-column-span: all;
+  break-inside: avoid;
+}
+
 
 

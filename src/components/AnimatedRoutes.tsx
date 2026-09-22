@@ -4,6 +4,7 @@ import Home from '../pages/Home';
 import SubjectView from '../pages/SubjectView';
 import CBTViewer from '../pages/CBTViewer';
 import CBTMaker from '../pages/CBTMaker';
+import DocStudio from '../pages/DocStudio';
 import Settings from '../pages/Settings';
 import ReportsView from '../pages/ReportsView';
 import RecentTestsView from '../pages/RecentTestsView';
@@ -13,19 +14,20 @@ export function AnimatedRoutes() {
   const location = useLocation();
   
   return (
-    <AnimatePresence mode="wait">
-      <div key={location.pathname} className="w-full flex-1 flex flex-col">
-        <Routes location={location}>
-          <Route path="/" element={<PageTransition><Home /></PageTransition>} />
-          <Route path="/recent" element={<PageTransition><RecentTestsView /></PageTransition>} />
-          <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
-          <Route path="/reports" element={<PageTransition><ReportsView /></PageTransition>} />
-          <Route path="/subject/:subject" element={<PageTransition><SubjectView /></PageTransition>} />
-          <Route path="/test/:id" element={<PageTransition><CBTViewer /></PageTransition>} />
-          <Route path="/maker" element={<PageTransition><CBTMaker /></PageTransition>} />
-          <Route path="/create" element={<PageTransition><CBTMaker /></PageTransition>} />
-        </Routes>
-      </div>
+    <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location}>
+        <Route path="/" element={<PageTransition key="home"><Home /></PageTransition>} />
+        <Route path="/recent" element={<PageTransition key="recent"><RecentTestsView /></PageTransition>} />
+        <Route path="/settings" element={<PageTransition key="settings"><Settings /></PageTransition>} />
+        <Route path="/reports" element={<PageTransition key="reports"><ReportsView /></PageTransition>} />
+        <Route path="/subject/:subject" element={<PageTransition key={location.pathname}><SubjectView /></PageTransition>} />
+        <Route path="/test/:id" element={<PageTransition key={location.pathname}><CBTViewer /></PageTransition>} />
+        <Route path="/maker" element={<PageTransition key="maker"><CBTMaker /></PageTransition>} />
+        <Route path="/create" element={<PageTransition key="create"><CBTMaker /></PageTransition>} />
+        <Route path="/doc-studio" element={<DocStudio />} />
+        <Route path="/notebook" element={<DocStudio />} />
+        <Route path="*" element={<PageTransition key="fallback"><Home /></PageTransition>} />
+      </Routes>
     </AnimatePresence>
   );
 }

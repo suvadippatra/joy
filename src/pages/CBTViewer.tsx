@@ -22,6 +22,7 @@ export default function CBTViewer() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const [iframeSrc, setIframeSrc] = useState<string>('');
+  const [iframeSrcDoc, setIframeSrcDoc] = useState<string>('');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExamSaved, setIsExamSaved] = useState(false);
   const hasSavedReportRef = useRef<boolean>(false);
@@ -158,6 +159,7 @@ export default function CBTViewer() {
           useLatexFont: useLatexFont
         });
         
+        setIframeSrcDoc(processedHtml);
         const blob = new Blob([processedHtml], { type: 'text/html' });
         setIframeSrc(URL.createObjectURL(blob));
       } catch (error) {
@@ -263,6 +265,50 @@ export default function CBTViewer() {
     }
   };
 
+  const handleIframeLoad = () => {
+    try {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      const cw = iframe.contentWindow as any;
+      const cd = iframe.contentDocument;
+      if (!cw) return;
+
+      // 1. Recover KaTeX & renderMathInElement directly from parent window's in-memory bundle
+      if (!cw.katex && (window as any).katex) {
+        cw.katex = (window as any).katex;
+      }
+      if (!cw.renderMathInElement && (window as any).renderMathInElement) {
+        cw.renderMathInElement = (window as any).renderMathInElement;
+      }
+
+      // 2. Share all loaded fonts from parent React app into iframe document (zero network needed!)
+      if (document.fonts && cd && cd.fonts) {
+        document.fonts.forEach((font) => {
+          try {
+            cd.fonts.add(font);
+          } catch (_) {}
+        });
+      }
+
+      // 3. Trigger immediate math render
+      if (typeof cw.triggerMathRender === 'function') {
+        cw.triggerMathRender(null, true);
+      } else if (typeof cw.renderMathInElement === 'function' && cd) {
+        cw.renderMathInElement(cd.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false }
+          ],
+          throwOnError: false
+        });
+      }
+    } catch (err) {
+      console.warn('Iframe KaTeX bridge error:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen bg-transparent flex flex-col font-sans transition-colors">
@@ -324,14 +370,16 @@ export default function CBTViewer() {
       
       <main className="flex-1 relative w-full h-full bg-transparent flex">
         <div className="flex-1 relative h-full">
-          {iframeSrc ? (
+          {iframeSrcDoc || iframeSrc ? (
             <iframe
               ref={iframeRef}
-              src={iframeSrc}
+              srcDoc={iframeSrcDoc || undefined}
+              src={!iframeSrcDoc ? iframeSrc : undefined}
               className="absolute inset-0 w-full h-full border-0 bg-transparent"
               title={test.title}
               allow="fullscreen"
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+              onLoad={handleIframeLoad}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

@@ -31,7 +31,7 @@ import {
   X,
   LayoutGrid
 } from 'lucide-react';
-import { AppState, defaultAppState, cleanAppState, demoShowcaseAppState, Question, QuestionType } from '../types/cbtMaker';
+import { AppState, defaultAppState, cleanAppState, createCleanAppState, demoShowcaseAppState, Question, QuestionType } from '../types/cbtMaker';
 import { compileCBTHTML } from '../utils/cbtCompiler';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import ImageCropperModal from '../components/maker/ImageCropperModal';
@@ -99,6 +99,7 @@ export default function CBTMaker() {
   const [sectionToDelete, setSectionToDelete] = useState<string | null>(null);
   const [showCleanConfirmModal, setShowCleanConfirmModal] = useState<boolean>(false);
   const [showLoadDemoConfirmModal, setShowLoadDemoConfirmModal] = useState<boolean>(false);
+  const [draftResetCounter, setDraftResetCounter] = useState<number>(0);
 
   // Fast Jump Search Input
   const [jumpQVal, setJumpQVal] = useState<string>('');
@@ -132,6 +133,7 @@ export default function CBTMaker() {
     isOpen: boolean;
     imageSrc: string;
     target: 'question' | { optionIndex: number };
+    questionIndex?: number;
   }>({
     isOpen: false,
     imageSrc: '',
@@ -217,16 +219,16 @@ export default function CBTMaker() {
   const questionsInCurrentSection = appState.questionsBySection[activeSection?.name] || [];
   const activeQuestion: Question | null = questionsInCurrentSection[activeQuestionIndex] || null;
 
-  // Question State Updater
-  const updateCurrentQuestion = useCallback((partial: Partial<Question>) => {
+  // Question State Updater by Index
+  const updateQuestionAtIndex = useCallback((qIndex: number, partial: Partial<Question>) => {
     if (!activeSectionName) return;
     setAppState(prev => {
       const currentList = prev.questionsBySection[activeSectionName] || [];
-      if (!currentList[activeQuestionIndex]) return prev;
+      if (!currentList[qIndex]) return prev;
 
       const updatedList = [...currentList];
-      updatedList[activeQuestionIndex] = {
-        ...updatedList[activeQuestionIndex],
+      updatedList[qIndex] = {
+        ...updatedList[qIndex],
         ...partial
       };
 
@@ -238,7 +240,12 @@ export default function CBTMaker() {
         }
       };
     });
-  }, [activeSectionName, activeQuestionIndex]);
+  }, [activeSectionName]);
+
+  // Question State Updater for active question
+  const updateCurrentQuestion = useCallback((partial: Partial<Question>) => {
+    updateQuestionAtIndex(activeQuestionIndex, partial);
+  }, [updateQuestionAtIndex, activeQuestionIndex]);
 
   // Non-blocking Question & Section Selectors
   const handleSelectQuestion = useCallback((index: number) => {
@@ -512,17 +519,20 @@ export default function CBTMaker() {
     } catch (e) {
       console.error(e);
     }
-    setAppState({ ...cleanAppState });
-    setActiveSectionName(cleanAppState.sections[0].name);
+    const freshClean = createCleanAppState();
+    setAppState(freshClean);
+    setActiveSectionName(freshClean.sections[0].name);
     setActiveQuestionIndex(0);
+    setDraftResetCounter(c => c + 1);
     setShowCleanConfirmModal(false);
   };
 
   // Load Demo CBT Showcase
   const executeLoadDemo = () => {
-    setAppState({ ...demoShowcaseAppState });
+    setAppState(JSON.parse(JSON.stringify(demoShowcaseAppState)));
     setActiveSectionName(demoShowcaseAppState.sections[0].name);
     setActiveQuestionIndex(0);
+    setDraftResetCounter(c => c + 1);
     setShowLoadDemoConfirmModal(false);
   };
 
@@ -536,7 +546,8 @@ export default function CBTMaker() {
   };
 
   // Open Image Cropper for Question or Option with Fast Pre-compression & SVG/GIF support
-  const handleImageFilePicked = async (
+  const handleImageFilePickedForIndex = async (
+    qIndex: number,
     e: React.ChangeEvent<HTMLInputElement>,
     target: 'question' | { optionIndex: number }
   ) => {
@@ -555,20 +566,22 @@ export default function CBTMaker() {
 
       if (isSvg || isGif) {
         if (target === 'question') {
-          updateCurrentQuestion({ image: optimizedBase64 });
+          updateQuestionAtIndex(qIndex, { image: optimizedBase64 });
         } else {
           const optIdx = target.optionIndex;
-          if (!activeQuestion) return;
-          const currentOpts = [...(activeQuestion.options || [])];
+          const targetQ = questionsInCurrentSection[qIndex];
+          if (!targetQ) return;
+          const currentOpts = [...(targetQ.options || [])];
           const { text } = parseOptionData(currentOpts[optIdx]);
           currentOpts[optIdx] = text ? `${text} ||IMG:${optimizedBase64}||` : `||IMG:${optimizedBase64}||`;
-          updateCurrentQuestion({ options: currentOpts });
+          updateQuestionAtIndex(qIndex, { options: currentOpts });
         }
       } else {
         setCropperData({
           isOpen: true,
           imageSrc: optimizedBase64,
-          target
+          target,
+          questionIndex: qIndex
         });
       }
     } catch (err) {
@@ -579,7 +592,8 @@ export default function CBTMaker() {
         setCropperData({
           isOpen: true,
           imageSrc: src,
-          target
+          target,
+          questionIndex: qIndex
         });
       };
       reader.readAsDataURL(file);
@@ -587,17 +601,26 @@ export default function CBTMaker() {
     e.target.value = '';
   };
 
+  const handleImageFilePicked = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: 'question' | { optionIndex: number }
+  ) => {
+    handleImageFilePickedForIndex(activeQuestionIndex, e, target);
+  };
+
   // Crop Completed handler
   const handleCropComplete = (croppedBase64: string) => {
+    const qIndex = cropperData.questionIndex !== undefined ? cropperData.questionIndex : activeQuestionIndex;
     if (cropperData.target === 'question') {
-      updateCurrentQuestion({ image: croppedBase64 });
+      updateQuestionAtIndex(qIndex, { image: croppedBase64 });
     } else {
       const optIdx = cropperData.target.optionIndex;
-      if (!activeQuestion) return;
-      const currentOpts = [...(activeQuestion.options || [])];
+      const targetQ = questionsInCurrentSection[qIndex];
+      if (!targetQ) return;
+      const currentOpts = [...(targetQ.options || [])];
       const { text } = parseOptionData(currentOpts[optIdx]);
       currentOpts[optIdx] = text ? `${text} ||IMG:${croppedBase64}||` : `||IMG:${croppedBase64}||`;
-      updateCurrentQuestion({ options: currentOpts });
+      updateQuestionAtIndex(qIndex, { options: currentOpts });
     }
   };
 
@@ -849,14 +872,103 @@ export default function CBTMaker() {
         >
           {/* Active Question Editor Area */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-5 w-full">
-            {activeQuestion ? (
+            {appState.questionViewMode === 'CONTINUOUS' && questionsInCurrentSection.length > 0 ? (
+              <div className="space-y-6 pb-20 max-w-3xl mx-auto w-full">
+                {/* Continuous Editor Sticky Quick-Jump Bar (Desktop & Tablet Landscape only, hidden on smaller screens where Palette is used) */}
+                {questionsInCurrentSection.length > 1 && (
+                  <div className="sticky top-0 z-20 hidden lg:flex px-2.5 py-1.5 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs items-center gap-1.5 overflow-x-auto scrollbar-none mb-3">
+                    <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0 px-1">
+                      Edit Q:
+                    </span>
+                    {questionsInCurrentSection.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setActiveQuestionIndex(i);
+                          const el = document.getElementById(`editor-question-${i}`);
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                          const previewEl = document.getElementById(`preview-question-${i}`);
+                          if (previewEl) {
+                            previewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold shrink-0 transition-colors ${
+                          i === activeQuestionIndex
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        Q{i + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Stack of Question Editors */}
+                {questionsInCurrentSection.map((qItem, qIdx) => (
+                  <QuestionEditor
+                    key={`${activeSectionName}_${qItem.id ?? qIdx}_${draftResetCounter}`}
+                    question={qItem}
+                    questionIndex={qIdx}
+                    totalQuestions={questionsInCurrentSection.length}
+                    section={activeSection}
+                    sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
+                    mathMode={appState.mathMode}
+                    isActive={qIdx === activeQuestionIndex}
+                    showNavigationFooter={false}
+                    onFocusQuestion={() => {
+                      setActiveQuestionIndex(qIdx);
+                      // In split mode or when preview is present, scroll preview to this question
+                      const previewEl = document.getElementById(`preview-question-${qIdx}`);
+                      if (previewEl) {
+                        previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      }
+                    }}
+                    onUpdateQuestion={partial => updateQuestionAtIndex(qIdx, partial)}
+                    onImageFilePicked={(e, target) => handleImageFilePickedForIndex(qIdx, e, target)}
+                    onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
+                    onOpenCropper={(src, target) => {
+                      setCropperData({
+                        isOpen: true,
+                        imageSrc: src,
+                        target,
+                        questionIndex: qIdx
+                      });
+                    }}
+                  />
+                ))}
+
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold shadow-sm transition-all"
+                  >
+                    <Plus size={16} />
+                    <span>+ Add Next Question to {activeSectionName}</span>
+                  </button>
+                </div>
+              </div>
+            ) : activeQuestion ? (
               <QuestionEditor
+                key={`${activeSectionName}_${activeQuestion?.id ?? activeQuestionIndex}_${draftResetCounter}`}
                 question={activeQuestion}
                 questionIndex={activeQuestionIndex}
                 totalQuestions={questionsInCurrentSection.length}
                 section={activeSection}
                 sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
                 mathMode={appState.mathMode}
+                isActive={true}
+                showNavigationFooter={true}
+                onFocusQuestion={() => {
+                  const previewEl = document.getElementById(`preview-question-${activeQuestionIndex}`);
+                  if (previewEl) {
+                    previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }
+                }}
                 onUpdateQuestion={updateCurrentQuestion}
                 onImageFilePicked={handleImageFilePicked}
                 onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
@@ -864,7 +976,8 @@ export default function CBTMaker() {
                   setCropperData({
                     isOpen: true,
                     imageSrc: src,
-                    target
+                    target,
+                    questionIndex: activeQuestionIndex
                   });
                 }}
                 onPrevQuestion={() => setActiveQuestionIndex(prev => Math.max(0, prev - 1))}
@@ -924,6 +1037,33 @@ export default function CBTMaker() {
             totalQuestions={questionsInCurrentSection.length}
             section={activeSection || { name: 'Default', marks: 4, negative: 1, maxAttempts: 0 }}
             allSections={appState.sections}
+            allQuestionsInSection={questionsInCurrentSection}
+            questionViewMode={appState.questionViewMode || 'SINGLE'}
+            onToggleViewMode={() => {
+              setAppState(prev => ({
+                ...prev,
+                questionViewMode: prev.questionViewMode === 'CONTINUOUS' ? 'SINGLE' : 'CONTINUOUS'
+              }));
+            }}
+            onSelectQuestionIndex={idx => {
+              setActiveQuestionIndex(idx);
+              const editorEl = document.getElementById(`editor-question-${idx}`);
+              if (editorEl) {
+                editorEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            onEditQuestion={idx => {
+              setActiveQuestionIndex(idx);
+              if (layoutMode === 'preview') {
+                setLayoutMode('split');
+              }
+              setTimeout(() => {
+                const editorEl = document.getElementById(`editor-question-${idx}`);
+                if (editorEl) {
+                  editorEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }, 60);
+            }}
             onSelectSection={secName => {
               setActiveSectionName(secName);
               setActiveQuestionIndex(0);

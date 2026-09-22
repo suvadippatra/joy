@@ -333,7 +333,7 @@ export async function compileCBTHTML(appState: AppState): Promise<{ html: string
   // Timer & Font settings
   txt = txt.replace(/const TIMER_MODE = '[^']*';/i, `const TIMER_MODE = '${appState.timerMode || 'COUNTDOWN'}';`);
   txt = txt.replace(/const EXAM_DURATION_MINS = \d+;/i, `const EXAM_DURATION_MINS = ${parseInt(String(appState.duration), 10) || 90};`);
-  const fontChoice = appState.fontName || "'KaTeX_Main', 'Tiro Bangla', 'DM Serif Text', serif";
+  const fontChoice = appState.fontName || "'KaTeX_Main', serif";
   txt = txt.replace(/const Q_FONT_FAMILY = ".*?";/i, `const Q_FONT_FAMILY = "${fontChoice.replace(/"/g, '\\"')}";`);
 
   // Inject CSS root font variable immediately into head

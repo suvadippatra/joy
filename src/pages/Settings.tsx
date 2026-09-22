@@ -654,7 +654,7 @@ export default function Settings() {
                 <div>
                   <h3 className="font-medium text-slate-800 dark:text-slate-200">Use LaTeX Fonts</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Applies genuine LaTeX typography (KaTeX Computer Modern, Tiro Bangla, DM Serif Text) across all exam questions, options, and interfaces.
+                    Applies genuine LaTeX typography (KaTeX Computer Modern Main, KaTeX Math, KaTeX Sans) across all exam questions, options, and interfaces.
                   </p>
                 </div>
               </div>

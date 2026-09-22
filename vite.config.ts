@@ -12,7 +12,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'logo.png', 'logo.jpeg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'logo.png', 'logo.jpeg', 'libs/**/*', 'fonts/**/*'],
         manifest: {
           name: 'CBT Hub',
           short_name: 'CBTHub',
