@@ -235,8 +235,30 @@ function isImageSourceMatch(src: string, targetSrc: string, assets?: Record<stri
 }
 
 /**
- * Updates an image (Markdown ![alt](src){width=... align=...},
- * LaTeX \\includegraphics[width=..., align=...]{src}, or HTML <img ...>) in document content.
+ * Normalizes LaTeX dimension notations (e.g. 0.40\textwidth, 0.35\linewidth, 0.5) to percentage strings.
+ */
+function normalizeDimensionStr(val: string): string {
+  if (!val) return '75%';
+  const trimmed = val.trim();
+  const textWidthMatch = trimmed.match(/^([\d.]+)\s*\\(?:textwidth|linewidth|columnwidth|textheight)$/);
+  if (textWidthMatch) {
+    const factor = parseFloat(textWidthMatch[1]);
+    return `${Math.round(factor * 100)}%`;
+  }
+  if (trimmed.startsWith('\\textwidth') || trimmed.startsWith('\\linewidth') || trimmed.startsWith('\\columnwidth')) {
+    return '100%';
+  }
+  const pureNumMatch = trimmed.match(/^0\.(\d+)$/);
+  if (pureNumMatch) {
+    const factor = parseFloat(trimmed);
+    return `${Math.round(factor * 100)}%`;
+  }
+  return trimmed;
+}
+
+/**
+ * Updates an image in document content supporting LaTeX wrapfigure, marginfigure,
+ * figure*, subfigure, \includegraphics[options], and Markdown ![alt](src){options}.
  */
 export function updateImageInMarkdown(
   content: string,
@@ -250,39 +272,226 @@ export function updateImageInMarkdown(
 
   let replaced = false;
 
-  // 1. Check LaTeX \includegraphics[options]{src} or \includegraphics{src}
+  // 1. Check LaTeX \begin{wrapfigure}{r|l}{width} ... \end{wrapfigure}
   let result = content.replace(
-    /\\includegraphics(?:\[([^\]]*)\])?\{([^}]+)\}/g,
-    (match, optStr, src) => {
-      if (!isImageSourceMatch(src, targetSrc, assets)) return match;
-      replaced = true;
-
-      let width = newWidth || '75%';
-      let align = newAlign || 'center';
-      let caption = newCaption;
-
-      if (optStr) {
-        if (!newWidth) {
-          const wMatch = optStr.match(/width=([^\s,}]+)/);
-          if (wMatch) width = wMatch[1];
-        }
-        if (!newAlign) {
-          const aMatch = optStr.match(/align=([^\s,}]+)/);
-          if (aMatch) align = aMatch[1];
-        }
-        if (caption === undefined) {
-          const cMatch = optStr.match(/caption=([^\s,}]+)/);
-          if (cMatch) caption = cMatch[1];
-        }
+    /\\begin\{wrapfigure\}\{([rlRL])\}\{([^}]+)\}([\s\S]*?)\\end\{wrapfigure\}/g,
+    (match, pos, widthStr, inner) => {
+      let containsTarget = false;
+      const imgMatch = inner.match(/\\includegraphics(?:\[([^\]]*)\])?\{([^}]+)\}/);
+      if (imgMatch && isImageSourceMatch(imgMatch[2], targetSrc, assets)) {
+        containsTarget = true;
+      }
+      const mdMatch = inner.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      if (mdMatch && isImageSourceMatch(mdMatch[2], targetSrc, assets)) {
+        containsTarget = true;
       }
 
-      const opts: string[] = [`width=${width}`, `align=${align}`];
-      if (caption) opts.push(`caption=${caption}`);
-      return `\\includegraphics[${opts.join(', ')}]{${src}}`;
+      if (!containsTarget) return match;
+      replaced = true;
+
+      const normWidth = newWidth || normalizeDimensionStr(widthStr) || '40%';
+      let align = newAlign || (pos.toLowerCase() === 'r' ? 'float-right' : 'float-left');
+      let caption = newCaption;
+
+      if (caption === undefined) {
+        const capMatch = inner.match(/\\caption\{([^}]+)\}/);
+        if (capMatch) caption = capMatch[1];
+      }
+
+      const imgSrc = imgMatch ? imgMatch[2] : (mdMatch ? mdMatch[2] : targetSrc);
+
+      // If user switches away from wrap, convert to appropriate environment or \includegraphics
+      if (align === 'margin' || align === 'margin-rail') {
+        return `\\begin{marginfigure}\n  \\includegraphics[width=${normWidth}]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+      } else if (align === 'span-full' || align === 'span') {
+        return `\\begin{figure*}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure*}`;
+      } else if (align === 'center' || align === 'block-center') {
+        return `\\begin{figure}[c]\n  \\includegraphics[width=${normWidth}]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure}`;
+      }
+
+      const newPos = (align === 'float-right' || align === 'wrap-right') ? 'r' : 'l';
+      const widthLatex = normWidth.endsWith('%') ? `${(parseInt(normWidth, 10) / 100).toFixed(2)}\\textwidth` : normWidth;
+
+      return `\\begin{wrapfigure}{${newPos}}{${widthLatex}}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
     }
   );
 
-  // 2. Check Markdown ![alt](src){params} or ![alt](src)
+  // 2. Check LaTeX \begin{marginfigure} ... \end{marginfigure}
+  if (!replaced) {
+    result = result.replace(
+      /\\begin\{marginfigure\}([\s\S]*?)\\end\{marginfigure\}/g,
+      (match, inner) => {
+        let containsTarget = false;
+        const imgMatch = inner.match(/\\includegraphics(?:\[([^\]]*)\])?\{([^}]+)\}/);
+        if (imgMatch && isImageSourceMatch(imgMatch[2], targetSrc, assets)) {
+          containsTarget = true;
+        }
+        const mdMatch = inner.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+        if (mdMatch && isImageSourceMatch(mdMatch[2], targetSrc, assets)) {
+          containsTarget = true;
+        }
+
+        if (!containsTarget) return match;
+        replaced = true;
+
+        const normWidth = newWidth || '100%';
+        let align = newAlign || 'margin';
+        let caption = newCaption;
+
+        if (caption === undefined) {
+          const capMatch = inner.match(/\\caption\{([^}]+)\}/);
+          if (capMatch) caption = capMatch[1];
+        }
+
+        const imgSrc = imgMatch ? imgMatch[2] : (mdMatch ? mdMatch[2] : targetSrc);
+
+        if (align === 'float-right' || align === 'wrap-right') {
+          return `\\begin{wrapfigure}{r}{0.40\\textwidth}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'float-left' || align === 'wrap-left') {
+          return `\\begin{wrapfigure}{l}{0.35\\textwidth}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'span-full' || align === 'span') {
+          return `\\begin{figure*}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure*}`;
+        }
+
+        return `\\begin{marginfigure}\n  \\includegraphics[width=${normWidth}]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+      }
+    );
+  }
+
+  // 3. Check LaTeX \begin{figure*} ... \end{figure*}
+  if (!replaced) {
+    result = result.replace(
+      /\\begin\{figure\*\}([\s\S]*?)\\end\{figure\*\}/g,
+      (match, inner) => {
+        let containsTarget = false;
+        const imgMatch = inner.match(/\\includegraphics(?:\[([^\]]*)\])?\{([^}]+)\}/);
+        if (imgMatch && isImageSourceMatch(imgMatch[2], targetSrc, assets)) {
+          containsTarget = true;
+        }
+        const mdMatch = inner.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+        if (mdMatch && isImageSourceMatch(mdMatch[2], targetSrc, assets)) {
+          containsTarget = true;
+        }
+
+        if (!containsTarget) return match;
+        replaced = true;
+
+        const normWidth = newWidth || '100%';
+        let align = newAlign || 'span-full';
+        let caption = newCaption;
+
+        if (caption === undefined) {
+          const capMatch = inner.match(/\\caption\{([^}]+)\}/);
+          if (capMatch) caption = capMatch[1];
+        }
+
+        const imgSrc = imgMatch ? imgMatch[2] : (mdMatch ? mdMatch[2] : targetSrc);
+
+        if (align === 'float-right' || align === 'wrap-right') {
+          return `\\begin{wrapfigure}{r}{0.40\\textwidth}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'float-left' || align === 'wrap-left') {
+          return `\\begin{wrapfigure}{l}{0.35\\textwidth}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'margin') {
+          return `\\begin{marginfigure}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+        }
+
+        return `\\begin{figure*}\n  \\includegraphics[width=${normWidth}]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure*}`;
+      }
+    );
+  }
+
+  // 4. Check LaTeX \begin{figure}[...] ... \end{figure}
+  if (!replaced) {
+    result = result.replace(
+      /\\begin\{figure\}(?:\[([^\]]*)\])?([\s\S]*?)\\end\{figure\}/g,
+      (match, pos, inner) => {
+        let containsTarget = false;
+        const imgMatch = inner.match(/\\includegraphics(?:\[([^\]]*)\])?\{([^}]+)\}/);
+        if (imgMatch && isImageSourceMatch(imgMatch[2], targetSrc, assets)) {
+          containsTarget = true;
+        }
+        const mdMatch = inner.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+        if (mdMatch && isImageSourceMatch(mdMatch[2], targetSrc, assets)) {
+          containsTarget = true;
+        }
+
+        if (!containsTarget) return match;
+        replaced = true;
+
+        const normWidth = newWidth || '75%';
+        let align = newAlign || 'center';
+        let caption = newCaption;
+
+        if (caption === undefined) {
+          const capMatch = inner.match(/\\caption\{([^}]+)\}/);
+          if (capMatch) caption = capMatch[1];
+        }
+
+        const imgSrc = imgMatch ? imgMatch[2] : (mdMatch ? mdMatch[2] : targetSrc);
+
+        if (align === 'float-right' || align === 'wrap-right') {
+          return `\\begin{wrapfigure}{r}{0.40\\textwidth}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'float-left' || align === 'wrap-left') {
+          return `\\begin{wrapfigure}{l}{0.35\\textwidth}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'margin') {
+          return `\\begin{marginfigure}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+        } else if (align === 'span-full' || align === 'span') {
+          return `\\begin{figure*}\n  \\includegraphics[width=100%]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure*}`;
+        }
+
+        return `\\begin{figure}[c]\n  \\includegraphics[width=${normWidth}]{${imgSrc}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure}`;
+      }
+    );
+  }
+
+  // 5. Check LaTeX \includegraphics[options]{src} or \includegraphics{src}
+  if (!replaced) {
+    result = result.replace(
+      /\\includegraphics(?:\[([^\]]*)\])?\{([^}]+)\}/g,
+      (match, optStr, src) => {
+        if (!isImageSourceMatch(src, targetSrc, assets)) return match;
+        replaced = true;
+
+        let width = newWidth || '75%';
+        let align = newAlign || 'center';
+        let caption = newCaption;
+
+        if (optStr) {
+          if (!newWidth) {
+            const wMatch = optStr.match(/width=([^\s,}]+)/i);
+            if (wMatch) width = normalizeDimensionStr(wMatch[1]);
+          }
+          if (!newAlign) {
+            const aMatch = optStr.match(/(?:align|wrap|layout)=([^\s,}]+)/i);
+            if (aMatch) align = aMatch[1];
+          }
+          if (caption === undefined) {
+            const cMatch = optStr.match(/caption=(?:"([^"]*)"|'([^']*)'|([^,}]+))/i);
+            if (cMatch) caption = cMatch[1] || cMatch[2] || cMatch[3];
+          }
+        }
+
+        // If aligning as wrap-right or wrap-left, convert to standard wrapfigure
+        if (align === 'float-right' || align === 'wrap-right') {
+          const widthLatex = width.endsWith('%') ? `${(parseInt(width, 10) / 100).toFixed(2)}\\textwidth` : width;
+          return `\\begin{wrapfigure}{r}{${widthLatex}}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'float-left' || align === 'wrap-left') {
+          const widthLatex = width.endsWith('%') ? `${(parseInt(width, 10) / 100).toFixed(2)}\\textwidth` : width;
+          return `\\begin{wrapfigure}{l}{${widthLatex}}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'margin') {
+          return `\\begin{marginfigure}\n  \\includegraphics[width=${width}]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+        } else if (align === 'span-full' || align === 'span') {
+          return `\\begin{figure*}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure*}`;
+        }
+
+        const opts: string[] = [`width=${width}`, `align=${align}`];
+        if (caption) opts.push(`caption="${caption}"`);
+        return `\\includegraphics[${opts.join(', ')}]{${src}}`;
+      }
+    );
+  }
+
+  // 6. Check Markdown ![alt](src){params} or ![alt](src)
   if (!replaced) {
     result = result.replace(
       /!\[([^\]]*)\]\(([^)]+)\)(?:\{([^}]+)\})?/g,
@@ -291,18 +500,30 @@ export function updateImageInMarkdown(
         replaced = true;
 
         let width = newWidth || '75%';
-        let align = newAlign || 'block-center';
+        let align = newAlign || 'center';
         let caption = newCaption !== undefined ? newCaption : alt;
 
         if (paramsStr) {
           if (!newWidth) {
-            const wMatch = paramsStr.match(/width=([^\s,}]+)/);
-            if (wMatch) width = wMatch[1];
+            const wMatch = paramsStr.match(/width=([^\s,}]+)/i);
+            if (wMatch) width = normalizeDimensionStr(wMatch[1]);
           }
           if (!newAlign) {
-            const aMatch = paramsStr.match(/align=([^\s,}]+)/);
+            const aMatch = paramsStr.match(/(?:align|wrap|layout)=([^\s,}]+)/i);
             if (aMatch) align = aMatch[1];
           }
+        }
+
+        if (align === 'float-right' || align === 'wrap-right') {
+          const widthLatex = width.endsWith('%') ? `${(parseInt(width, 10) / 100).toFixed(2)}\\textwidth` : width;
+          return `\\begin{wrapfigure}{r}{${widthLatex}}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'float-left' || align === 'wrap-left') {
+          const widthLatex = width.endsWith('%') ? `${(parseInt(width, 10) / 100).toFixed(2)}\\textwidth` : width;
+          return `\\begin{wrapfigure}{l}{${widthLatex}}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'margin') {
+          return `\\begin{marginfigure}\n  \\includegraphics[width=${width}]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+        } else if (align === 'span-full' || align === 'span') {
+          return `\\begin{figure*}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{figure*}`;
         }
 
         return `![${caption || ''}](${src}){width=${width} align=${align}}`;
@@ -310,7 +531,7 @@ export function updateImageInMarkdown(
     );
   }
 
-  // 3. Check HTML <figure><img src="...">...</figure> or <img src="..."> in existing text
+  // 7. Check HTML <figure><img src="...">...</figure> or <img src="..."> in existing text
   if (!replaced) {
     result = result.replace(
       /<figure\b[^>]*>[\s\S]*?<img\b([^>]*)>[\s\S]*?(?:<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>)?[\s\S]*?<\/figure>|<img\b([^>]*)\/?>/gi,
@@ -325,7 +546,15 @@ export function updateImageInMarkdown(
         let align = newAlign || 'center';
         let caption = newCaption !== undefined ? newCaption : (figCaption || '');
 
-        return `\\includegraphics[width=${width}, align=${align}${caption ? `, caption=${caption}` : ''}]{${src}}`;
+        if (align === 'float-right' || align === 'wrap-right') {
+          return `\\begin{wrapfigure}{r}{0.40\\textwidth}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'float-left' || align === 'wrap-left') {
+          return `\\begin{wrapfigure}{l}{0.35\\textwidth}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{wrapfigure}`;
+        } else if (align === 'margin') {
+          return `\\begin{marginfigure}\n  \\includegraphics[width=100%]{${src}}\n${caption ? `  \\caption{${caption}}\n` : ''}\\end{marginfigure}`;
+        }
+
+        return `\\includegraphics[width=${width}, align=${align}${caption ? `, caption="${caption}"` : ''}]{${src}}`;
       }
     );
   }
@@ -343,15 +572,47 @@ export function deleteImageInMarkdown(
 ): string {
   if (!content || !targetSrc) return content;
 
-  // 1. Remove LaTeX \includegraphics
-  let res = content.replace(/[ \t]*\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}[ \t]*\n?/g, (match, src) => {
+  // 1. Remove LaTeX \begin{wrapfigure} ... \end{wrapfigure}
+  let res = content.replace(/[ \t]*\\begin\{wrapfigure\}[^\n]*\n[\s\S]*?\\end\{wrapfigure\}[ \t]*\n?/g, (match) => {
+    if (isImageSourceMatch(match, targetSrc, assets) || match.includes(targetSrc.replace('asset://', ''))) {
+      return '';
+    }
+    return match;
+  });
+
+  // 2. Remove LaTeX \begin{marginfigure} ... \end{marginfigure}
+  res = res.replace(/[ \t]*\\begin\{marginfigure\}[\s\S]*?\\end\{marginfigure\}[ \t]*\n?/g, (match) => {
+    if (isImageSourceMatch(match, targetSrc, assets) || match.includes(targetSrc.replace('asset://', ''))) {
+      return '';
+    }
+    return match;
+  });
+
+  // 3. Remove LaTeX \begin{figure*} ... \end{figure*}
+  res = res.replace(/[ \t]*\\begin\{figure\*\}[\s\S]*?\\end\{figure\*\}[ \t]*\n?/g, (match) => {
+    if (isImageSourceMatch(match, targetSrc, assets) || match.includes(targetSrc.replace('asset://', ''))) {
+      return '';
+    }
+    return match;
+  });
+
+  // 4. Remove LaTeX \begin{figure} ... \end{figure}
+  res = res.replace(/[ \t]*\\begin\{figure\}(?:\[[^\]]*\])?[\s\S]*?\\end\{figure\}[ \t]*\n?/g, (match) => {
+    if (isImageSourceMatch(match, targetSrc, assets) || match.includes(targetSrc.replace('asset://', ''))) {
+      return '';
+    }
+    return match;
+  });
+
+  // 5. Remove LaTeX \includegraphics
+  res = res.replace(/[ \t]*\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}[ \t]*\n?/g, (match, src) => {
     if (isImageSourceMatch(src, targetSrc, assets)) {
       return '';
     }
     return match;
   });
 
-  // 2. Remove Markdown image
+  // 6. Remove Markdown image
   res = res.replace(/[ \t]*!\[([^\]]*)\]\(([^)]+)\)(?:\{[^}]+\})?[ \t]*\n?/g, (match, alt, src) => {
     if (isImageSourceMatch(src, targetSrc, assets)) {
       return '';
@@ -359,7 +620,7 @@ export function deleteImageInMarkdown(
     return match;
   });
 
-  // 3. Remove HTML figure and img
+  // 7. Remove HTML figure and img
   res = res.replace(/[ \t]*(?:<figure\b[^>]*>[\s\S]*?<img\b([^>]*)>[\s\S]*?<\/figure>|<img\b([^>]*)\/?>)[ \t]*\n?/gi, (match, attrs1, attrs2) => {
     const attrs = attrs1 || attrs2 || '';
     const srcMatch = attrs.match(/src=["']([^"']+)["']/);

@@ -2,6 +2,7 @@ import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import MathFormulaBar from './MathFormulaBar';
 import { DocumentAsset } from '../../types/notebook';
 import { applyInlineStyleToSelection, applyFormattingToMarkdown } from '../../utils/textFormatter';
+import { parseDocumentToPages } from '../../utils/notebookRenderer';
 import {
   Image as ImageIcon,
   Table as TableIcon,
@@ -30,6 +31,7 @@ interface NotebookEditorProps {
   onOpenTableBuilder?: () => void;
   onOpenImageModal?: () => void;
   onPrint?: () => void;
+  onActiveLineChange?: (lineText: string) => void;
 }
 
 interface ExtractedAssetToken {
@@ -44,16 +46,27 @@ interface ExtractedAssetToken {
 const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>(({
   content,
   onChangeContent,
-  fontFamily,
+  fontFamily: _fontFamily,
   assets = {},
   onUpdateAssets,
   onOpenTableBuilder,
   onOpenImageModal,
-  onPrint
+  onPrint,
+  onActiveLineChange
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isAssetsBarExpanded, setIsAssetsBarExpanded] = useState<boolean>(true);
-  const [copiedMigrationSuccess, setCopiedMigrationSuccess] = useState<boolean>(false);
+
+  const reportActiveLine = (textVal: string, cursorPos: number) => {
+    if (!onActiveLineChange) return;
+    const before = textVal.slice(0, cursorPos);
+    const lineStart = before.lastIndexOf('\n') + 1;
+    const lineEndIdx = textVal.indexOf('\n', cursorPos);
+    const lineEnd = lineEndIdx === -1 ? textVal.length : lineEndIdx;
+    const currentLine = textVal.slice(lineStart, lineEnd).trim();
+    if (currentLine) {
+      onActiveLineChange(currentLine);
+    }
+  };
 
   // Helper to wrap or insert formatting around user's selection
   const formatSelection = (type: string, param?: string) => {
@@ -160,6 +173,22 @@ const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>(({
         replacement = `\n### ${selected || 'Topic Subheading'}\n`;
         newCursorPos = start + replacement.length;
         break;
+      case 'align-left':
+        replacement = `\\alignleft{${selected || 'Left-aligned text'}}`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'align-center':
+        replacement = `\\aligncenter{${selected || 'Centered text'}}`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'align-right':
+        replacement = `\\alignright{${selected || 'Right-aligned text'}}`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'align-justify':
+        replacement = `\\alignjustify{${selected || 'Justified paragraph text'}}`;
+        newCursorPos = start + replacement.length;
+        break;
       case 'ul':
         replacement = `\n- ${selected || 'List item 1'}\n- List item 2\n`;
         newCursorPos = start + replacement.length;
@@ -173,15 +202,37 @@ const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>(({
         newCursorPos = start + replacement.length;
         break;
       case 'theorem':
-        replacement = `\n> [!THEOREM]\n> **Theorem (Fundamental Property):**\n> Let $f(x)$ be continuous on $[a, b]$...\n`;
+        replacement = `\n> [!THEOREM: ${selected || 'Fundamental Theorem'}]\n> Let $f(x)$ be continuous on $[a, b]$...\n`;
         newCursorPos = start + replacement.length;
         break;
       case 'definition':
-        replacement = `\n> [!DEFINITION]\n> **Definition (Formal):**\n> A set $S$ is termed bounded if there exists $M > 0$ such that $|x| \\le M$ for all $x \\in S$.\n`;
+        replacement = `\n> [!DEFINITION: ${selected || 'Formal Definition'}]\n> A set $S$ is termed bounded if there exists $M > 0$ such that $|x| \\le M$ for all $x \\in S$.\n`;
         newCursorPos = start + replacement.length;
         break;
       case 'lemma':
-        replacement = `\n> [!LEMMA]\n> **Lemma 1.1:**\n> Under the hypotheses of continuity on $[a, b]$, there exists $c \\in (a, b)$ such that $f'(c) = 0$.\n`;
+        replacement = `\n> [!LEMMA: ${selected || 'Lemma 1.1'}]\n> Under the hypotheses of continuity on $[a, b]$, there exists $c \\in (a, b)$ such that $f'(c) = 0$.\n`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'formula_box':
+      case 'formula':
+        replacement = `\n> [!FORMULA: ${selected || 'Important Formula'}]\n> $E = mc^2$\n`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'custom_box':
+      case 'callout_box':
+        replacement = `\n> [!BOX: ${selected || 'Key Concept'}]\n> Enter key concept details here...\n`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'twocolumn':
+        replacement = `\n\\begin{twocolumn}\n${selected || 'Two-column scientific section text goes here...'}\n\\end{twocolumn}\n`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'onecolumn':
+        replacement = `\n\\begin{onecolumn}\n${selected || 'Single-column full width text goes here...'}\n\\end{onecolumn}\n`;
+        newCursorPos = start + replacement.length;
+        break;
+      case 'marginlayout':
+        replacement = `\n\\begin{marginlayout}\n\\begin{margincol}\n${selected || 'Margin rail diagram or note...'}\n\\end{margincol}\n\\begin{maincol}\nMain textbook section text...\n\\end{maincol}\n\\end{marginlayout}\n`;
         newCursorPos = start + replacement.length;
         break;
       case 'proof':
@@ -256,123 +307,69 @@ const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>(({
     }
   };
 
-  // Extract all asset tokens in content (both Markdown and LaTeX \includegraphics)
-  const assetTokens: ExtractedAssetToken[] = [];
-  const tokenRegex = /!\[([^\]]*)\]\((asset:\/\/[^)]+)\)(?:\{([^}]+)\})?/g;
-  let match: RegExpExecArray | null;
-  while ((match = tokenRegex.exec(content)) !== null) {
-    const fullMatch = match[0];
-    const alt = match[1];
-    const assetId = match[2].replace('asset://', '').trim();
-    let width = '75%';
-    let align = 'center';
-    if (match[3]) {
-      const w = match[3].match(/width=([^\s,}]+)/);
-      if (w) width = w[1];
-      const a = match[3].match(/align=([^\s,}]+)/);
-      if (a) align = a[1];
-    }
-    assetTokens.push({
-      fullMatch,
-      alt,
-      assetId,
-      width,
-      align,
-      startIndex: match.index
-    });
-  }
-
-  // Also extract LaTeX \includegraphics[...]{asset://...}
-  const latexImgRegex = /\\includegraphics(?:\[([^\]]*)\])?\{(asset:\/\/[^}]+)\}/g;
-  while ((match = latexImgRegex.exec(content)) !== null) {
-    const fullMatch = match[0];
-    const params = match[1] || '';
-    const assetId = match[2].replace('asset://', '').trim();
-    let width = '75%';
-    let align = 'center';
-    const w = params.match(/width=([^\s,}]+)/);
-    if (w) width = w[1];
-    const a = params.match(/align=([^\s,}]+)/);
-    if (a) align = a[1];
-    assetTokens.push({
-      fullMatch,
-      alt: assetId,
-      assetId,
-      width,
-      align,
-      startIndex: match.index
-    });
-  }
-
-  // Detect legacy base64 image strings embedded directly in content
-  const base64Matches = content.match(/!\[[^\]]*\]\(data:image\/[^)]+\)/g) || [];
-  const hasBase64Blobs = base64Matches.length > 0;
-
-  // 1-Click Migration of base64 blobs into clean DocumentAssets
-  const handleMigrateBase64ToAssets = () => {
-    let nextContent = content;
-    const newAssets: Record<string, DocumentAsset> = { ...(assets || {}) };
-    let counter = Object.keys(newAssets).length + 1;
-
-    nextContent = nextContent.replace(
-      /!\[([^\]]*)\]\((data:image\/[^)]+)\)(?:\{([^}]+)\})?/g,
-      (fullMatch, alt, dataUrl, params) => {
-        const assetId = `img_${counter++}_` + Math.random().toString(36).substring(2, 6);
-        const mimeMatch = dataUrl.match(/^data:(image\/[^;]+);/);
-        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-        const isGif = mimeType === 'image/gif';
-
-        const stringLength = dataUrl.length - (dataUrl.indexOf(',') + 1);
-        const sizeInBytes = Math.round(stringLength * 0.75);
-        const sizeFormatted =
-          sizeInBytes < 1024 * 1024
-            ? `${Math.round(sizeInBytes / 1024)} KB`
-            : `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
-
-        newAssets[assetId] = {
-          id: assetId,
-          name: (alt || `migrated_image_${assetId}`).replace(/\s+/g, '_'),
-          mimeType,
-          sizeFormatted,
-          dataUrl,
-          isAnimatedGif: isGif
-        };
-
-        const paramStr = params ? `{${params}}` : '{width=80% align=block-center}';
-        return `![${alt || 'Diagram'}](asset://${assetId})${paramStr}`;
+  // Memoized asset tokens & document statistics (Zero heavy pagination on keystrokes)
+  const { assetTokens, wordCount, charCount, estimatedPages, tablesCount } = React.useMemo(() => {
+    const tokens: ExtractedAssetToken[] = [];
+    const tokenRegex = /!\[([^\]]*)\]\((asset:\/\/[^)]+)\)(?:\{([^}]+)\})?/g;
+    let m: RegExpExecArray | null;
+    while ((m = tokenRegex.exec(content)) !== null) {
+      const fullMatch = m[0];
+      const alt = m[1];
+      const assetId = m[2].replace('asset://', '').trim();
+      let width = '75%';
+      let align = 'center';
+      if (m[3]) {
+        const w = m[3].match(/width=([^\s,}]+)/);
+        if (w) width = w[1];
+        const a = m[3].match(/align=([^\s,}]+)/);
+        if (a) align = a[1];
       }
-    );
-
-    if (onUpdateAssets) {
-      onUpdateAssets(newAssets);
+      tokens.push({
+        fullMatch,
+        alt,
+        assetId,
+        width,
+        align,
+        startIndex: m.index
+      });
     }
-    onChangeContent(nextContent);
-    setCopiedMigrationSuccess(true);
-    setTimeout(() => setCopiedMigrationSuccess(false), 3000);
-  };
 
-  const handleJumpToToken = (startIndex: number, length: number) => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.setSelectionRange(startIndex, startIndex + length);
+    const latexImgRegex = /\\includegraphics(?:\[([^\]]*)\])?\{(asset:\/\/[^}]+)\}/g;
+    while ((m = latexImgRegex.exec(content)) !== null) {
+      const fullMatch = m[0];
+      const params = m[1] || '';
+      const assetId = m[2].replace('asset://', '').trim();
+      let width = '75%';
+      let align = 'center';
+      const w = params.match(/width=([^\s,}]+)/);
+      if (w) width = w[1];
+      const a = params.match(/align=([^\s,}]+)/);
+      if (a) align = a[1];
+      tokens.push({
+        fullMatch,
+        alt: assetId,
+        assetId,
+        width,
+        align,
+        startIndex: m.index
+      });
     }
-  };
 
-  const handleDeleteAssetToken = (assetId: string, fullMatch: string) => {
-    const nextContent = content.replace(fullMatch, '');
-    onChangeContent(nextContent);
-    if (assets && assets[assetId] && onUpdateAssets) {
-      const nextAssets = { ...assets };
-      delete nextAssets[assetId];
-      onUpdateAssets(nextAssets);
-    }
-  };
+    const trimmed = content.trim();
+    const words = trimmed ? trimmed.split(/\s+/).length : 0;
+    const chars = content.length;
+    const manualBreaks = (content.match(/(?:\\newpage|\\pagebreak|\\clearpage|---pagebreak---)/gi) || []).length;
+    const tCount = (content.match(/(?:^|\n)\|[^\n]+\|(?:\n\|[^\n]+\|)+/g) || []).length;
+    const estPages = Math.max(1, Math.ceil((words + tokens.length * 60 + tCount * 45) / 320) + manualBreaks);
 
-  // Word count & stats
-  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
-  const charCount = content.length;
-  const pageBreakCount = (content.match(/(?:\\newpage|\\pagebreak|\\clearpage|---pagebreak---)/g) || []).length + 1;
-  const tablesCount = (content.match(/(?:^|\n)\|[^\n]+\|(?:\n\|[^\n]+\|)+/g) || []).length;
+    return {
+      assetTokens: tokens,
+      wordCount: words,
+      charCount: chars,
+      estimatedPages: estPages,
+      tablesCount: tCount
+    };
+  }, [content]);
 
   // Direct paste image handler on textarea
   const handleTextareaPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -474,57 +471,72 @@ const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>(({
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={e => onChangeContent(e.target.value)}
+          onChange={e => {
+            const val = e.target.value;
+            onChangeContent(val);
+            reportActiveLine(val, e.target.selectionStart || 0);
+          }}
+          onClick={e => reportActiveLine(content, e.currentTarget.selectionStart || 0)}
+          onKeyUp={e => reportActiveLine(content, e.currentTarget.selectionStart || 0)}
           onKeyDown={handleKeyDown}
           onPaste={handleTextareaPaste}
           onDrop={handleTextareaDrop}
-          placeholder="Type notes, formulas ($E=mc^2$), theorems, \\newpage, or paste images directly... Use toolbar above for styling!"
+          placeholder="Write research paper sections, inline math ($E=mc^2$), display equations ($$...$$), theorems, tables, or paste figures..."
           className="flex-1 h-full w-full p-4 sm:p-6 bg-transparent text-slate-900 dark:text-slate-100 font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none scrollbar-thin selection:bg-blue-200 dark:selection:bg-blue-900"
           spellCheck="false"
         />
       </div>
 
       {/* Bottom Status Bar with Table Assistant and Statistics */}
-      <div className="h-7 px-3 sm:px-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 shrink-0 select-none">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <span>{wordCount} words</span>
-          <span>•</span>
-          <span>{charCount} chars</span>
-          <span>•</span>
-          <span>{pageBreakCount} {pageBreakCount === 1 ? 'page' : 'pages'}</span>
+      <div 
+        className="h-7 px-3 sm:px-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 shrink-0 select-none whitespace-nowrap overflow-x-auto gap-3 scrollbar-none min-w-0 w-full"
+        style={{ whiteSpace: 'nowrap' }}
+      >
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 whitespace-nowrap min-w-0" style={{ whiteSpace: 'nowrap' }}>
+          <span className="inline-flex items-center whitespace-nowrap shrink-0 font-medium tracking-tight">
+            {wordCount}&nbsp;words
+          </span>
+          <span className="shrink-0 text-slate-300 dark:text-slate-700">•</span>
+          <span className="inline-flex items-center whitespace-nowrap shrink-0 font-medium tracking-tight">
+            {charCount}&nbsp;chars
+          </span>
+          <span className="shrink-0 text-slate-300 dark:text-slate-700">•</span>
+          <span className="inline-flex items-center whitespace-nowrap shrink-0 font-medium tracking-tight">
+            {estimatedPages}&nbsp;{estimatedPages === 1 ? 'page' : 'pages'}
+          </span>
           {tablesCount > 0 && (
             <>
-              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline shrink-0 text-slate-300 dark:text-slate-700">•</span>
               <button
                 type="button"
                 onClick={onOpenTableBuilder}
-                className="hidden sm:inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                className="hidden sm:inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold hover:underline shrink-0 whitespace-nowrap"
               >
                 <TableIcon size={11} />
-                <span>{tablesCount} {tablesCount === 1 ? 'Table' : 'Tables'}</span>
+                <span>{tablesCount}&nbsp;{tablesCount === 1 ? 'Table' : 'Tables'}</span>
               </button>
             </>
           )}
           {assetTokens.length > 0 && (
             <>
-              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline shrink-0 text-slate-300 dark:text-slate-700">•</span>
               <button
                 type="button"
                 onClick={onOpenImageModal}
-                className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold hover:underline"
+                className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold hover:underline shrink-0 whitespace-nowrap"
                 title="Manage Document Image Assets"
               >
                 <span>🖼️</span>
-                <span>{assetTokens.length} {assetTokens.length === 1 ? 'Image' : 'Images'}</span>
+                <span>{assetTokens.length}&nbsp;{assetTokens.length === 1 ? 'Image' : 'Images'}</span>
               </button>
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden md:inline text-[10px] text-slate-400">
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap ml-auto" style={{ whiteSpace: 'nowrap' }}>
+          <span className="hidden md:inline text-[10px] text-slate-400 shrink-0 whitespace-nowrap">
             Ctrl+B (Bold) • Ctrl+I (Italic) • Ctrl+P (Print)
           </span>
-          <span className="font-mono text-indigo-500 font-bold">KaTeX Engine</span>
+          <span className="font-mono text-indigo-500 font-bold shrink-0 whitespace-nowrap">KaTeX Engine</span>
         </div>
       </div>
     </div>

@@ -205,5 +205,89 @@ $$
 | **Equation of Motion** | $\\vec{F} = m\\frac{d^2\\vec{r}}{dt^2}$ | $i\\hbar \\frac{\\partial}{\\partial t} \\Psi = \\hat{H}\\Psi$ |
 | **Measurement** | Continuous & Deterministic | Probabilistic: $P = |\\Psi|^2$ |
 `
+  },
+  textbook_vectors: {
+    title: "Vector Addition & Trigonometric Methods",
+    subject: "Physics · Margin-Rail Layout",
+    content: `# Chapter 1: Vectors & Geometric Representation
+
+\\begin{marginlayout}
+\\begin{margincol}
+\\begin{figure}[c]
+![Fig 1.11](https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=400&q=80){width=95% align=center}
+\\caption{Figure 1.11 Graphical representation of vector $\\vec{A}$ directed at angle $\\theta$ with magnitude $A$.}
+\\end{figure}
+
+\\begin{figure}[c]
+![Fig 1.12](https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=400&q=80){width=95% align=center}
+\\caption{Figure 1.12 Triangle method of addition: head-to-tail placement yields $\\vec{R} = \\vec{A} + \\vec{B}$.}
+\\end{figure}
+
+\\begin{caution}
+Vectors cannot be added algebraically unless their direction angles are collinear. Always resolve into orthogonal cartesian components.
+\\end{caution}
+\\end{margincol}
+\\begin{maincol}
+## 1.3 Geometric & Analytic Vector Addition
+
+When two displacement vectors $\\vec{A}$ and $\\vec{B}$ lie in a plane, the resultant vector $\\vec{R}$ represents the single displacement having identical physical effect:
+
+$$
+\\vec{R} = \\vec{A} + \\vec{B}
+$$
+
+### Parallelogram Law & Law of Cosines
+
+If $\\vec{A}$ and $\\vec{B}$ make an angle $\\theta$ with each other, the magnitude of the resultant vector is calculated directly from the law of cosines:
+
+$$
+R = \\sqrt{A^2 + B^2 + 2AB\\cos\\theta}
+$$
+
+And the orientation angle $\\alpha$ with respect to $\\vec{A}$ satisfies:
+
+$$
+\\tan\\alpha = \\frac{B\\sin\\theta}{A + B\\cos\\theta}
+$$
+
+> [!FORMULA]
+> **Vector Orthogonal Components:**
+> - $A_x = A\\cos\\theta$
+> - $A_y = A\\sin\\theta$
+> - Magnitude: $A = \\sqrt{A_x^2 + A_y^2}$
+\\end{maincol}
+\\end{marginlayout}
+`
+  },
+  textbook_compton: {
+    title: "The Compton Effect & Photon Collisions",
+    subject: "Modern Physics · Wrap-Figure Layout",
+    content: `# Chapter 28: Quantum Physics & Photons
+
+## 28.3 The Compton Effect & Photon-Electron Scattering
+
+In 1923, Arthur H. Compton recorded the scattering of monochromatic X-rays directed at a graphite target and observed that the scattered radiation contained components of shifted, longer wavelengths.
+
+\\begin{wrapfigure}{r}{0.42\\textwidth}
+![Compton Scattering](https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80){width=100% align=float-right}
+\\caption{Fig. 28.15: Compton scattering geometry. An incident photon collides with a stationary electron and scatters at angle $\\theta$.}
+\\end{wrapfigure}
+
+Treating this interaction as a relativistic elastic collision between a photon of energy $E = h\\nu = \\frac{hc}{\\lambda}$ and a free stationary electron of rest mass $m_e$, relativistic conservation of 4-momentum gives the fundamental Compton shift formula:
+
+$$
+\\Delta \\lambda = \\lambda' - \\lambda_0 = \\frac{h}{m_e c}(1 - \\cos\\theta)
+$$
+
+Where the **Compton Wavelength** of the electron is defined as:
+
+$$
+\\lambda_C = \\frac{h}{m_e c} = 2.426 \\times 10^{-12}\\,\\text{m} = 0.02426\\,\\text{\\AA}
+$$
+
+### Key Experimental Conclusions:
+1. **Maximum Shift at $\\theta = 180^\\circ$ (Backscattering):** $\\Delta \\lambda = 2\\lambda_C = 0.0485\\,\\text{\\AA}$.
+2. **Independence from Target Material:** The wavelength shift depends strictly on the scattering angle $\\theta$ and fundamental constants ($h, m_e, c$).
+`
   }
 };

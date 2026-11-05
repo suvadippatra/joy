@@ -264,14 +264,15 @@ function LaTeXGuideModal({
           {activeTab === 'latex' && (
             <div className="space-y-6">
               {/* Quick Rule Banner */}
-              <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-xs sm:text-sm text-blue-900 dark:text-blue-200 leading-relaxed">
-                <strong className="text-sm sm:text-base font-bold text-blue-950 dark:text-blue-100">
-                  Golden Rules for Exam Formulas:
+              <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-xs sm:text-sm text-blue-900 dark:text-blue-200 leading-relaxed space-y-2">
+                <strong className="text-sm sm:text-base font-bold text-blue-950 dark:text-blue-100 block">
+                  Golden Rules &amp; Upgraded CBT Studio Controls:
                 </strong>
-                <ul className="list-disc pl-5 mt-2 space-y-1 text-blue-800 dark:text-blue-300">
-                  <li>Use <code className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-mono font-bold">$formula$</code> (single dollar) for inline math that flows in sentences (e.g. <code>{'$\\vec{E}$'}</code> or <code>{'$\\text{H}_2\\text{O}$'}</code>).</li>
-                  <li>Use <code className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-mono font-bold">$$formula$$</code> (double dollars) for large centered equations on their own line.</li>
-                  <li>Click <strong>Insert</strong> to inject the snippet directly into your active question statement or option!</li>
+                <ul className="list-disc pl-5 space-y-1 text-blue-800 dark:text-blue-300">
+                  <li>Use <code className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-mono font-bold">$formula$</code> (single dollar) for inline math in sentences (e.g. <code>{'$\\vec{E}$'}</code> or <code>{'$\\ce{H2O}$'}</code>), and <code className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-mono font-bold">$$formula$$</code> for centered display blocks.</li>
+                  <li><strong>Side-by-Side Multi-Question Stream &amp; Adaptive 1-Col / 2-Col Grid:</strong> Edit all questions in the left pane while viewing all live-rendered preview cards in the same order on the right. Drag the center splitter or switch between <code className="font-mono">Split | Edit | View</code>—whenever either pane is wide (&ge; 820px), it automatically arranges questions into a <strong>2-column grid</strong> and reflows to <strong>1-column</strong> when narrowed!</li>
+                  <li><strong>Zero-Lag Memoized Cards (50–200+ Questions):</strong> Strict per-question memoization and CSS <code className="font-mono">content-visibility: auto</code> ensure typing in one question only updates that single card.</li>
+                  <li><strong>Recent Projects Hub &amp; Context-Aware Math Ribbon:</strong> Click <strong>Projects</strong> in the top bar to save or resume exam drafts, and click inside any Statement, Option (A–D), or Solution box to insert symbols directly at your cursor.</li>
                 </ul>
               </div>
 

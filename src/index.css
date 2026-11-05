@@ -2,7 +2,21 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Genuine Offline Local KaTeX Fonts */
+/* Genuine Offline Local KaTeX & Exam Fonts */
+@font-face {
+  font-family: 'DM Serif Text';
+  src: url('/fonts/DMSerifText.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tiro Bangla';
+  src: url('/fonts/TiroBangla.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 @font-face {
   font-family: 'KaTeX_Main';
   src: url('/libs/fonts/KaTeX_Main-Regular.woff2') format('woff2'),
@@ -10,6 +24,7 @@
        url('/libs/fonts/KaTeX_Main-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
+  font-display: block;
 }
 @font-face {
   font-family: 'KaTeX_Main';
@@ -18,6 +33,7 @@
        url('/libs/fonts/KaTeX_Main-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
+  font-display: block;
 }
 @font-face {
   font-family: 'KaTeX_Main';
@@ -26,6 +42,7 @@
        url('/libs/fonts/KaTeX_Main-Italic.ttf') format('truetype');
   font-weight: 400;
   font-style: italic;
+  font-display: block;
 }
 @font-face {
   font-family: 'KaTeX_Main';
@@ -34,6 +51,7 @@
        url('/libs/fonts/KaTeX_Main-BoldItalic.ttf') format('truetype');
   font-weight: 700;
   font-style: italic;
+  font-display: block;
 }
 @font-face {
   font-family: 'KaTeX_Math';
@@ -42,6 +60,34 @@
        url('/libs/fonts/KaTeX_Math-Italic.ttf') format('truetype');
   font-weight: 400;
   font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_Math';
+  src: url('/libs/fonts/KaTeX_Math-BoldItalic.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Math-BoldItalic.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Math-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_AMS';
+  src: url('/libs/fonts/KaTeX_AMS-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_AMS-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_AMS-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_Caligraphic';
+  src: url('/libs/fonts/KaTeX_Caligraphic-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Caligraphic-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Caligraphic-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
 }
 @font-face {
   font-family: 'KaTeX_SansSerif';
@@ -50,6 +96,7 @@
        url('/libs/fonts/KaTeX_SansSerif-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
+  font-display: block;
 }
 @font-face {
   font-family: 'KaTeX_Typewriter';
@@ -58,10 +105,47 @@
        url('/libs/fonts/KaTeX_Typewriter-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_Size1';
+  src: url('/libs/fonts/KaTeX_Size1-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Size1-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Size1-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_Size2';
+  src: url('/libs/fonts/KaTeX_Size2-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Size2-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Size2-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_Size3';
+  src: url('/libs/fonts/KaTeX_Size3-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Size3-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Size3-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'KaTeX_Size4';
+  src: url('/libs/fonts/KaTeX_Size4-Regular.woff2') format('woff2'),
+       url('/libs/fonts/KaTeX_Size4-Regular.woff') format('woff'),
+       url('/libs/fonts/KaTeX_Size4-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
 }
 
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 html, body {
@@ -103,8 +187,10 @@ html, body {
 .orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
+  filter: blur(50px);
   opacity: 0.5;
+  will-change: transform;
+  transform: translateZ(0);
   animation: float 20s infinite ease-in-out alternate;
 }
 
@@ -140,16 +226,17 @@ html, body {
 }
 
 @keyframes float {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(30px, -50px, 0) scale(1.1); }
+  66% { transform: translate3d(-20px, 20px, 0) scale(0.9); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
 }
 
 .stars1, .stars2, .stars3 {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; right: 0; bottom: -600px;
   background-repeat: repeat;
+  will-change: transform;
 }
 
 .stars1 {
@@ -180,8 +267,8 @@ html, body {
 }
 
 @keyframes move-stars {
-  from { background-position: 0 0; }
-  to { background-position: 0 -1200px; }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, -600px, 0); }
 }
 
 .light .stars1 {
@@ -384,10 +471,145 @@ html, body {
 .page-body-content[data-columns="2"] h1,
 .page-body-content[data-columns="2"] h2,
 .page-body-content[data-columns="2"] .notebook-table-wrapper,
-.page-body-content[data-columns="2"] .notebook-simulation-wrapper {
+.page-body-content[data-columns="2"] .notebook-simulation-wrapper,
+.page-body-content .notebook-span-figure,
+.page-body-content .textbook-span-full {
   column-span: all;
   -webkit-column-span: all;
   break-inside: avoid;
+}
+
+/* Textbook Wrap Figures & Float Formatting */
+.textbook-wrap-left,
+.notebook-float-left {
+  float: left;
+  margin-right: 1.25rem;
+  margin-bottom: 0.75rem;
+  margin-top: 0.25rem;
+  max-width: 50%;
+  clear: left;
+}
+
+.textbook-wrap-right,
+.notebook-float-right {
+  float: right;
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  margin-top: 0.25rem;
+  max-width: 50%;
+  clear: right;
+}
+
+.textbook-margin-figure,
+.notebook-margin-figure {
+  float: left;
+  width: 32%;
+  margin-right: 3%;
+  margin-bottom: 1rem;
+  clear: left;
+}
+
+/* Margin Rail Layout Container Styles */
+.page-body-content[data-layout-mode="margin-rail"] {
+  width: 100%;
+}
+
+.page-body-content[data-layout-mode="margin-rail"] .textbook-margin-figure {
+  float: left;
+  width: 30%;
+  margin-right: 3.5%;
+  margin-bottom: 1rem;
+}
+
+/* Clearfix for paragraph flows */
+.page-body-content::after,
+.page-body-content p::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* ==========================================================================
+   Page-by-Page Print Standards (Strict 1:1 Page Previews)
+   Ensures ONLY the sheet previews are printed, exactly 1 page per sheet,
+   with no clipped headers, toolbars, sidebars or overflowing scroll desks.
+   ========================================================================== */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide all app chrome, headers, toolbars, selection docks, and modals */
+  header,
+  nav,
+  .notebook-toolbar,
+  .notebook-image-toolbar,
+  .notebook-caption-popover,
+  .notebook-preview-dock,
+  .preview-selection-toolbar,
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset layout container to cleanly stream pages */
+  #root,
+  main,
+  .flex-col,
+  .split-pane {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Target the preview container */
+  .page-frame-wrapper {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    display: block !important;
+    position: relative !important;
+  }
+
+  .page-sheet-content {
+    box-shadow: none !important;
+    transform: none !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Hide page number badge badge floating on desk */
+  .page-frame-wrapper > div:last-child {
+    display: none !important;
+  }
 }
 
 

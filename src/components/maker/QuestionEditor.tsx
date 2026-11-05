@@ -8,7 +8,10 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
-  RefreshCw
+  Copy,
+  ArrowUp,
+  ArrowDown,
+  Lightbulb
 } from 'lucide-react';
 import { Question, QuestionType, Section } from '../../types/cbtMaker';
 import AutoExpandingTextarea from './AutoExpandingTextarea';
@@ -68,7 +71,13 @@ interface QuestionEditorProps {
   onPrevQuestion?: () => void;
   onNextQuestion?: () => void;
   onAddQuestionNext?: () => void;
+  onDuplicateQuestion?: () => void;
+  onDeleteQuestion?: () => void;
+  onMoveQuestionUp?: () => void;
+  onMoveQuestionDown?: () => void;
 }
+
+type FocusedFieldTarget = 'text' | 'explanation' | { optionIndex: number };
 
 const QuestionEditor = memo(function QuestionEditor({
   question,
@@ -86,9 +95,17 @@ const QuestionEditor = memo(function QuestionEditor({
   onOpenCropper,
   onPrevQuestion,
   onNextQuestion,
-  onAddQuestionNext
+  onAddQuestionNext,
+  onDuplicateQuestion,
+  onDeleteQuestion,
+  onMoveQuestionUp,
+  onMoveQuestionDown
 }: QuestionEditorProps) {
   const [openTable, setOpenTable] = useState<boolean>(false);
+  const [openExplanation, setOpenExplanation] = useState<boolean>(() => Boolean(question?.explanation));
+
+  // Track which field was last focused so math toolbar buttons insert into the active input
+  const [focusedField, setFocusedField] = useState<FocusedFieldTarget>('text');
 
   // Local state for raw text in marks inputs to support fractions like "1/2" or "1/4"
   const [rawMarksStr, setRawMarksStr] = useState<string | null>(null);
@@ -98,24 +115,28 @@ const QuestionEditor = memo(function QuestionEditor({
   const [localText, setLocalText] = useState<string>(() => question?.text || '');
   const [localOptions, setLocalOptions] = useState<string[]>(() => question?.options || []);
   const [localCorrectNat, setLocalCorrectNat] = useState<string>(() => question?.correctNat || '');
+  const [localExplanation, setLocalExplanation] = useState<string>(() => question?.explanation || '');
 
   // Track active question and last synced prop values to support both 0ms typing and external resets
   const activeQIdRef = useRef<number | string | null>(question?.id ?? null);
   const lastPropTextRef = useRef(question?.text || '');
   const lastPropOptionsStrRef = useRef(JSON.stringify(question?.options || []));
   const lastPropNatRef = useRef(question?.correctNat || '');
+  const lastPropExpRef = useRef(question?.explanation || '');
 
   useEffect(() => {
     if (!question) {
       setLocalText('');
       setLocalOptions(['', '', '', '']);
       setLocalCorrectNat('');
+      setLocalExplanation('');
       return;
     }
 
     const qText = question.text || '';
     const qOptions = question.options || [];
     const qNat = question.correctNat || '';
+    const qExp = question.explanation || '';
     const qOptionsStr = JSON.stringify(qOptions);
 
     // Question ID changed (user switched question)
@@ -124,9 +145,12 @@ const QuestionEditor = memo(function QuestionEditor({
       lastPropTextRef.current = qText;
       lastPropOptionsStrRef.current = qOptionsStr;
       lastPropNatRef.current = qNat;
+      lastPropExpRef.current = qExp;
       setLocalText(qText);
       setLocalOptions(qOptions);
       setLocalCorrectNat(qNat);
+      setLocalExplanation(qExp);
+      setOpenExplanation(Boolean(qExp));
       return;
     }
 
@@ -145,9 +169,14 @@ const QuestionEditor = memo(function QuestionEditor({
       lastPropNatRef.current = qNat;
       setLocalCorrectNat(qNat);
     }
-  }, [question?.id, question?.text, JSON.stringify(question?.options), question?.correctNat, questionIndex]);
 
-  // Debounce sync localText -> parent onUpdateQuestion
+    if (qExp !== lastPropExpRef.current) {
+      lastPropExpRef.current = qExp;
+      setLocalExplanation(qExp);
+    }
+  }, [question?.id, question?.text, JSON.stringify(question?.options), question?.correctNat, question?.explanation, questionIndex]);
+
+  // Rapid 50ms debounce sync localText -> parent onUpdateQuestion for instant KaTeX live preview
   useEffect(() => {
     if (!question) return;
     const timer = setTimeout(() => {
@@ -155,11 +184,11 @@ const QuestionEditor = memo(function QuestionEditor({
         lastPropTextRef.current = localText;
         onUpdateQuestion({ text: localText });
       }
-    }, 200);
+    }, 50);
     return () => clearTimeout(timer);
   }, [localText]);
 
-  // Debounce sync localOptions -> parent onUpdateQuestion
+  // Rapid 50ms debounce sync localOptions -> parent onUpdateQuestion
   useEffect(() => {
     if (!question) return;
     const timer = setTimeout(() => {
@@ -167,11 +196,11 @@ const QuestionEditor = memo(function QuestionEditor({
         lastPropOptionsStrRef.current = JSON.stringify(localOptions);
         onUpdateQuestion({ options: localOptions });
       }
-    }, 200);
+    }, 50);
     return () => clearTimeout(timer);
   }, [localOptions]);
 
-  // Debounce sync localCorrectNat -> parent onUpdateQuestion
+  // Rapid 50ms debounce sync localCorrectNat -> parent onUpdateQuestion
   useEffect(() => {
     if (!question) return;
     const timer = setTimeout(() => {
@@ -179,231 +208,429 @@ const QuestionEditor = memo(function QuestionEditor({
         lastPropNatRef.current = localCorrectNat;
         onUpdateQuestion({ correctNat: localCorrectNat });
       }
-    }, 200);
+    }, 50);
     return () => clearTimeout(timer);
   }, [localCorrectNat]);
+
+  // Rapid 50ms debounce sync localExplanation -> parent onUpdateQuestion
+  useEffect(() => {
+    if (!question) return;
+    const timer = setTimeout(() => {
+      if (question.id === activeQIdRef.current && localExplanation !== (question.explanation || '')) {
+        lastPropExpRef.current = localExplanation;
+        onUpdateQuestion({ explanation: localExplanation });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [localExplanation]);
 
   if (!question) return null;
 
   const insertMathSnippet = (snippet: string) => {
-    const newText = (localText || '') + snippet;
+    if (typeof focusedField === 'object' && 'optionIndex' in focusedField) {
+      const idx = focusedField.optionIndex;
+      const currentOpts = [...(localOptions || [])];
+      if (idx >= 0 && idx < currentOpts.length) {
+        const { text: optText, image: optImgSrc } = parseOptionData(currentOpts[idx]);
+        const updatedText = `${optText}${snippet}`;
+        currentOpts[idx] = optImgSrc ? `${updatedText} ||IMG:${optImgSrc}||` : updatedText;
+        setLocalOptions(currentOpts);
+        onUpdateQuestion({ options: currentOpts });
+        return;
+      }
+    }
+    if (focusedField === 'explanation') {
+      const newExp = `${localExplanation || ''}${snippet}`;
+      setLocalExplanation(newExp);
+      setOpenExplanation(true);
+      onUpdateQuestion({ explanation: newExp });
+      return;
+    }
+    const newText = `${localText || ''}${snippet}`;
     setLocalText(newText);
     onUpdateQuestion({ text: newText });
   };
 
   const sLabel = `S${sectionIndex + 1}Q${questionIndex + 1}`;
 
-  // Question Type Cycle: MCQ (SCQ) -> MSQ (MCQ) -> NAT -> MCQ (SCQ)
-  const cycleQuestionType = () => {
-    if (question.type === 'MCQ') {
+  const handleSelectQuestionType = (newType: QuestionType) => {
+    if (newType === question.type) return;
+    if (newType === 'MCQ') {
+      onUpdateQuestion({
+        type: 'MCQ',
+        options: question.options?.length ? question.options : ['', '', '', ''],
+        correct: Array.isArray(question.correct) ? (question.correct[0] ?? 0) : (typeof question.correct === 'number' ? question.correct : 0)
+      });
+    } else if (newType === 'MSQ') {
       onUpdateQuestion({
         type: 'MSQ',
         options: question.options?.length ? question.options : ['', '', '', ''],
-        correct: [0]
-      });
-    } else if (question.type === 'MSQ') {
-      onUpdateQuestion({
-        type: 'NAT',
-        options: [],
-        correctNat: ''
+        correct: Array.isArray(question.correct) ? question.correct : [typeof question.correct === 'number' ? question.correct : 0]
       });
     } else {
       onUpdateQuestion({
-        type: 'MCQ',
-        options: ['', '', '', ''],
-        correct: 0
+        type: 'NAT',
+        options: [],
+        correctNat: question.correctNat || ''
       });
     }
   };
 
-  const typeDisplayLabel =
-    question.type === 'MCQ' ? 'SCQ (Single Correct)' : question.type === 'MSQ' ? 'MCQ (Multiple Correct)' : 'NAT (Numerical)';
+  const activeTargetLabel =
+    focusedField === 'text'
+      ? 'Statement'
+      : focusedField === 'explanation'
+      ? 'Solution'
+      : `Option ${String.fromCharCode(65 + focusedField.optionIndex)}`;
 
   return (
     <div
       id={`editor-question-${questionIndex}`}
       onClick={onFocusQuestion}
-      className={`max-w-3xl mx-auto w-full space-y-3 pb-6 scroll-mt-16 transition-all duration-200 rounded-3xl ${
-        isActive ? 'ring-2 ring-blue-500/40 bg-blue-50/10 dark:bg-blue-950/10 p-1 sm:p-2' : 'p-0'
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 320px' }}
+      className={`w-full bg-white dark:bg-slate-900 rounded-2xl border p-3 sm:p-3.5 space-y-2.5 scroll-mt-16 transition-colors ${
+        isActive
+          ? 'border-blue-500 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
+          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
       }`}
     >
-      {/* Question Header Bar: Single-line compact structure */}
-      <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-slate-900 p-2 sm:p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex-nowrap overflow-x-auto scrollbar-none">
-        {/* Left: Compact S1Q1 Label & Short-form Type Switcher */}
+      {/* Compact Header Row: Badge + Type Switcher + Marks + Quick Actions */}
+      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+        {/* Left: S1Q1 Badge & Direct Question Type Segmented Switcher */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-1 rounded-xl border border-blue-200 dark:border-blue-900/50 shrink-0 font-mono">
+          <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-xl border border-blue-200 dark:border-blue-900/50 shrink-0 font-mono">
             {sLabel}
           </span>
 
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation();
-              cycleQuestionType();
-            }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shrink-0 cursor-pointer select-none"
-            title="Click to cycle Question Type: MCQ -> MSQ -> NAT"
-          >
-            <span>{question.type}</span>
-            <RefreshCw size={11} className="text-blue-500 shrink-0" />
-          </button>
-        </div>
-
-        {/* Right: Compact +[4] -[1] Inline Marks with Fraction Support */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 px-2 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold shrink-0">
-          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">+</span>
-          <input
-            type="text"
-            value={rawMarksStr !== null ? rawMarksStr : question.marksCorrect !== undefined ? String(question.marksCorrect) : ''}
-            placeholder={String(section?.marks ?? 4)}
-            onChange={e => {
-              const val = e.target.value;
-              setRawMarksStr(val);
-              const parsed = parseFractionOrNumber(val);
-              onUpdateQuestion({ marksCorrect: parsed });
-            }}
-            onFocus={onFocusQuestion}
-            onBlur={() => setRawMarksStr(null)}
-            className="w-10 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
-            title="Correct Marks (e.g., 4 or 1/2)"
-          />
-
-          <span className="text-red-500 font-extrabold ml-0.5">-</span>
-          <input
-            type="text"
-            value={rawPenaltyStr !== null ? rawPenaltyStr : question.marksWrong !== undefined ? String(question.marksWrong) : ''}
-            placeholder={String(question.type === 'NAT' ? 0 : (section?.negative ?? 1))}
-            onChange={e => {
-              const val = e.target.value;
-              setRawPenaltyStr(val);
-              const parsed = parseFractionOrNumber(val);
-              onUpdateQuestion({ marksWrong: parsed });
-            }}
-            onFocus={onFocusQuestion}
-            onBlur={() => setRawPenaltyStr(null)}
-            className="w-10 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
-            title="Incorrect Penalty (e.g., 1 or 1/4)"
-          />
-
-          {(question.marksCorrect !== undefined || question.marksWrong !== undefined) && (
-            <button
-              type="button"
-              onClick={() => {
-                setRawMarksStr(null);
-                setRawPenaltyStr(null);
-                onUpdateQuestion({ marksCorrect: undefined, marksWrong: undefined });
-              }}
-              title="Reset to Section Defaults"
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-0.5"
-            >
-              <RotateCcw size={12} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Question Statement Box */}
-      <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5 w-full">
-        <div className="flex items-center justify-between gap-2">
-          <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <span>Question Statement ({sLabel})</span>
-            <span
-              title={mathMode === 'LATEX' ? 'Markdown & LaTeX math ($...$) enabled' : 'HTML tags & Unicode enabled'}
-              className="text-slate-400 hover:text-blue-500 cursor-help"
-            >
-              <Info size={14} />
-            </span>
-          </label>
-
-          {/* Quick Math Formatters */}
-          <div className="flex items-center gap-1 flex-wrap">
-            {mathMode === 'LATEX' ? (
-              <>
+          <div className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold">
+            {(['MCQ', 'MSQ', 'NAT'] as QuestionType[]).map(t => {
+              const label = t === 'MCQ' ? 'SCQ' : t === 'MSQ' ? 'MCQ' : 'NAT';
+              const active = question.type === t;
+              return (
                 <button
+                  key={t}
                   type="button"
-                  onClick={() => insertMathSnippet('$x$')}
-                  className="px-2 py-0.5 text-xs font-mono font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Inline Math ($x$)"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleSelectQuestionType(t);
+                  }}
+                  title={
+                    t === 'MCQ'
+                      ? 'Single Choice Question (SCQ)'
+                      : t === 'MSQ'
+                      ? 'Multiple Correct Question (MSQ)'
+                      : 'Numerical Answer Type (NAT)'
+                  }
+                  className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                    active
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
                 >
-                  $x$
+                  {label}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => insertMathSnippet('$$\\frac{a}{b}$$')}
-                  className="px-2 py-0.5 text-xs font-mono font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Fraction (\frac)"
-                >
-                  \frac
-                </button>
-                <button
-                  type="button"
-                  onClick={() => insertMathSnippet('$$\\sqrt{x}$$')}
-                  className="px-2 py-0.5 text-xs font-mono font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Square Root (\sqrt)"
-                >
-                  \sqrt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => insertMathSnippet('$x^2$')}
-                  className="px-2 py-0.5 text-xs font-mono font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Superscript / Power (x²)"
-                >
-                  x²
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenLaTeXGuide}
-                  className="flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-md hover:bg-emerald-100 transition-colors"
-                  title="LaTeX Guide"
-                >
-                  <Info size={13} />
-                  <span>Guide</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => insertMathSnippet('<sup>2</sup>')}
-                  className="px-2 py-0.5 text-xs font-mono font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Superscript <sup>2</sup>"
-                >
-                  x²
-                </button>
-                <button
-                  type="button"
-                  onClick={() => insertMathSnippet('<sub>2</sub>')}
-                  className="px-2 py-0.5 text-xs font-mono font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Subscript <sub>2</sub>"
-                >
-                  x₂
-                </button>
-                <button
-                  type="button"
-                  onClick={() => insertMathSnippet('√')}
-                  className="px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                  title="Square Root Symbol"
-                >
-                  √
-                </button>
-              </>
-            )}
+              );
+            })}
           </div>
         </div>
 
-        <AutoExpandingTextarea
-          value={localText}
-          onChange={e => setLocalText(e.target.value)}
-          onFocus={onFocusQuestion}
-          placeholder="Enter question statement..."
-          className="w-full min-h-[90px] p-3 text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
-          minRows={3}
-        />
+        {/* Right: Marks Override + Quick Question Actions */}
+        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          {/* Compact +[4] -[1] Inline Marks with Fraction Support */}
+          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 px-2 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold shrink-0">
+            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">+</span>
+            <input
+              type="text"
+              value={rawMarksStr !== null ? rawMarksStr : question.marksCorrect !== undefined ? String(question.marksCorrect) : ''}
+              placeholder={String(section?.marks ?? 4)}
+              onChange={e => {
+                const val = e.target.value;
+                setRawMarksStr(val);
+                const parsed = parseFractionOrNumber(val);
+                onUpdateQuestion({ marksCorrect: parsed });
+              }}
+              onFocus={onFocusQuestion}
+              onBlur={() => setRawMarksStr(null)}
+              className="w-9 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
+              title="Correct Marks (supports fractions like 1/2)"
+            />
+
+            <span className="text-red-500 font-extrabold ml-0.5">-</span>
+            <input
+              type="text"
+              value={rawPenaltyStr !== null ? rawPenaltyStr : question.marksWrong !== undefined ? String(question.marksWrong) : ''}
+              placeholder={String(question.type === 'NAT' ? 0 : (section?.negative ?? 1))}
+              onChange={e => {
+                const val = e.target.value;
+                setRawPenaltyStr(val);
+                const parsed = parseFractionOrNumber(val);
+                onUpdateQuestion({ marksWrong: parsed });
+              }}
+              onFocus={onFocusQuestion}
+              onBlur={() => setRawPenaltyStr(null)}
+              className="w-9 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
+              title="Incorrect Penalty (supports fractions like 1/4)"
+            />
+
+            {(question.marksCorrect !== undefined || question.marksWrong !== undefined) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRawMarksStr(null);
+                  setRawPenaltyStr(null);
+                  onUpdateQuestion({ marksCorrect: undefined, marksWrong: undefined });
+                }}
+                title="Reset to Section Defaults"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-0.5"
+              >
+                <RotateCcw size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Reorder / Duplicate / Delete Controls */}
+          <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            {onMoveQuestionUp && (
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onMoveQuestionUp();
+                }}
+                disabled={questionIndex <= 0}
+                title="Move Question Up"
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"
+              >
+                <ArrowUp size={13} />
+              </button>
+            )}
+            {onMoveQuestionDown && (
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onMoveQuestionDown();
+                }}
+                disabled={questionIndex >= totalQuestions - 1}
+                title="Move Question Down"
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"
+              >
+                <ArrowDown size={13} />
+              </button>
+            )}
+            {onDuplicateQuestion && (
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onDuplicateQuestion();
+                }}
+                title="Duplicate Question"
+                className="p-1 rounded-lg text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              >
+                <Copy size={13} />
+              </button>
+            )}
+            {onDeleteQuestion && (
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onDeleteQuestion();
+                }}
+                title="Delete / Clear Question"
+                className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Auxiliary Tools Row (Diagram Guard & Table Grid) */}
-      <div className="bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5 w-full">
+      {/* Context-Aware Math & Formatting Ribbon (Rendered on active card to eliminate DOM bloat across 100+ questions) */}
+      {isActive && (
+        <div className="bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-1.5 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100/80 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+              {activeTargetLabel}
+            </span>
+          {mathMode === 'LATEX' ? (
+            <>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$x$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Inline Math ($x$)"
+              >
+                $x$
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$$x = y$$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Display Block Equation ($$...$$)"
+              >
+                $$
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\frac{a}{b}$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Fraction (\frac{a}{b})"
+              >
+                a/b
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\sqrt{x}$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Square Root (\sqrt{x})"
+              >
+                √x
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('^{2}')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Superscript ^{2}"
+              >
+                x²
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('_{i}')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Subscript _{i}"
+              >
+                xᵢ
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\vec{F}$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Vector (\vec{F})"
+              >
+                F⃗
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\int_{a}^{b}$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Definite Integral"
+              >
+                ∫
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\Delta$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Delta (\Delta)"
+              >
+                Δ
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\theta$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Theta (\theta)"
+              >
+                θ
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$\\rightleftharpoons$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Equilibrium (\rightleftharpoons)"
+              >
+                ⇌
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('$^{\\circ}\\text{C}$')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                title="Degree Celsius"
+              >
+                °C
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('<sup>2</sup>')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
+              >
+                x²
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('<sub>2</sub>')}
+                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
+              >
+                x₂
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('√')}
+                className="px-2 py-0.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
+              >
+                √
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertMathSnippet('⇌')}
+                className="px-2 py-0.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
+              >
+                ⇌
+              </button>
+            </>
+          )}
+        </div>
+
+          <button
+            type="button"
+            onClick={onOpenLaTeXGuide}
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg hover:bg-emerald-100 transition-colors shrink-0"
+            title="LaTeX Cheatsheet"
+          >
+            <Info size={12} />
+            <span>LaTeX</span>
+          </button>
+        </div>
+      )}
+
+      {/* Question Statement Input (No redundant headings) */}
+      <AutoExpandingTextarea
+        value={localText}
+        onChange={e => setLocalText(e.target.value)}
+        onFocus={() => {
+          setFocusedField('text');
+          onFocusQuestion?.();
+        }}
+        placeholder={`Question ${questionIndex + 1} statement... ($x^2$ for inline math, $$...$$ for display)`}
+        className="w-full min-h-[76px] p-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
+        minRows={2}
+      />
+
+      {/* Auxiliary Tools Row (Diagram, Table, Solution) */}
+      <div className="space-y-2 w-full">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Diagram Attach Button or Base64 Image Guard */}
           {question.image ? (
@@ -442,6 +669,20 @@ const QuestionEditor = memo(function QuestionEditor({
             <Code size={14} />
             <span>Table / Matrix {question.table ? '• Active' : ''}</span>
           </button>
+
+          {/* Solution / Explanation Toggle */}
+          <button
+            type="button"
+            onClick={() => setOpenExplanation(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border ${
+              localExplanation || openExplanation
+                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <Lightbulb size={14} className="text-amber-500" />
+            <span>Solution / Explanation {localExplanation ? '• Added' : ''}</span>
+          </button>
         </div>
 
         {/* Table Drawer (Visual Grid Mode) */}
@@ -454,30 +695,11 @@ const QuestionEditor = memo(function QuestionEditor({
         )}
       </div>
 
-      {/* Options Card */}
-      <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5 w-full">
+      {/* Options Section */}
+      <div className="space-y-1.5 w-full">
         {question.type !== 'NAT' ? (
-          <div className="space-y-2.5 w-full">
-            <div className="flex items-center justify-between">
-              <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
-                Options ({question.type === 'MSQ' ? 'Select all correct' : 'Select one correct'})
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  const currentOpts = [...(localOptions || [])];
-                  currentOpts.push('');
-                  setLocalOptions(currentOpts);
-                  onUpdateQuestion({ options: currentOpts });
-                }}
-                className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                <Plus size={14} />
-                <span>Add Option</span>
-              </button>
-            </div>
-
-            <div className="space-y-2 w-full">
+          <div className="space-y-1.5 w-full">
+            <div className="space-y-1.5 w-full">
               {(localOptions || []).map((opt, oi) => {
                 const { text: optText, image: optImgSrc } = parseOptionData(opt);
 
@@ -508,7 +730,7 @@ const QuestionEditor = memo(function QuestionEditor({
                             onUpdateQuestion({ correct: oi });
                           }
                         }}
-                        title="Click to mark correct"
+                        title="Click to mark as correct answer key"
                         className={`w-7 h-7 mt-0.5 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors touch-manipulation ${
                           isCorrect
                             ? 'bg-emerald-600 text-white shadow-xs'
@@ -528,7 +750,10 @@ const QuestionEditor = memo(function QuestionEditor({
                             currentOpts[oi] = optImgSrc ? `${newText} ||IMG:${optImgSrc}||` : newText;
                             setLocalOptions(currentOpts);
                           }}
-                          onFocus={onFocusQuestion}
+                          onFocus={() => {
+                            setFocusedField({ optionIndex: oi });
+                            onFocusQuestion?.();
+                          }}
                           placeholder={`Option ${String.fromCharCode(65 + oi)} statement...`}
                           className="w-full px-2 py-1 text-xs sm:text-sm rounded-lg bg-transparent border-0 text-slate-800 dark:text-slate-100 focus:outline-none min-h-[32px] leading-relaxed"
                           minRows={1}
@@ -540,7 +765,7 @@ const QuestionEditor = memo(function QuestionEditor({
                         {!optImgSrc && (
                           <label
                             className="p-1 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer shrink-0 transition-colors flex items-center gap-1"
-                            title="Attach Image"
+                            title="Attach Image to Option"
                           >
                             <ImageIcon size={14} />
                             <input
@@ -593,24 +818,70 @@ const QuestionEditor = memo(function QuestionEditor({
                 );
               })}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                const currentOpts = [...(localOptions || [])];
+                currentOpts.push('');
+                setLocalOptions(currentOpts);
+                onUpdateQuestion({ options: currentOpts });
+              }}
+              className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline pt-0.5"
+            >
+              <Plus size={12} />
+              <span>Add Option</span>
+            </button>
           </div>
         ) : (
           /* NAT Mode Input */
-          <div className="space-y-1.5">
-            <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 block">
-              Numerical Answer (NAT Correct Range or Value)
-            </label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0">NAT Key:</span>
             <input
               type="text"
               value={localCorrectNat}
               onChange={e => setLocalCorrectNat(e.target.value)}
               onFocus={onFocusQuestion}
-              placeholder="e.g. 15 or 14.5-15.5"
-              className="w-full px-3 py-1.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-mono font-bold focus:outline-none"
+              placeholder="Numerical value or range (e.g. 15 or 14.5-15.5)"
+              className="flex-1 px-3 py-1.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-mono font-bold focus:outline-none"
             />
           </div>
         )}
       </div>
+
+      {/* Solution / Explanation Editor Card */}
+      {(openExplanation || Boolean(localExplanation)) && (
+        <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 shadow-xs space-y-2 w-full">
+          <div className="flex items-center justify-between">
+            <label className="text-xs sm:text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+              <Lightbulb size={15} />
+              <span>Solution / Step-by-Step Explanation</span>
+            </label>
+            {localExplanation && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLocalExplanation('');
+                  onUpdateQuestion({ explanation: '' });
+                }}
+                className="text-xs text-slate-400 hover:text-red-500 font-semibold"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <AutoExpandingTextarea
+            value={localExplanation}
+            onChange={e => setLocalExplanation(e.target.value)}
+            onFocus={() => {
+              setFocusedField('explanation');
+              onFocusQuestion?.();
+            }}
+            placeholder="Write the detailed solution or derivation here (supports $...$ and $$...$$ LaTeX equations)..."
+            className="w-full min-h-[72px] p-3 text-sm rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/50 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed"
+            minRows={2}
+          />
+        </div>
+      )}
 
       {/* Bottom Sticky Question Navigation & Addition Footer (Shown only in Single Focus mode) */}
       {showNavigationFooter && onPrevQuestion && onNextQuestion && (
@@ -648,6 +919,18 @@ const QuestionEditor = memo(function QuestionEditor({
         </div>
       )}
     </div>
+  );
+}, (prev, next) => {
+  return (
+    prev.question === next.question &&
+    prev.isActive === next.isActive &&
+    prev.questionIndex === next.questionIndex &&
+    prev.totalQuestions === next.totalQuestions &&
+    prev.sectionIndex === next.sectionIndex &&
+    prev.mathMode === next.mathMode &&
+    prev.showNavigationFooter === next.showNavigationFooter &&
+    prev.section?.marks === next.section?.marks &&
+    prev.section?.negative === next.section?.negative
   );
 });
 

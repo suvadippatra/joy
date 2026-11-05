@@ -2,7 +2,9 @@ export type PaperSize = 'A4' | 'Letter' | 'Legal' | 'B5' | 'Custom';
 export type PageOrientation = 'portrait' | 'landscape';
 export type MarginPreset = 'normal' | 'narrow' | 'wide' | 'custom';
 export type PaperRuling = 'plain' | 'ruled' | 'grid' | 'dots' | 'ivory';
-export type ImageAlignment = 'block-center' | 'float-left' | 'float-right' | 'inline';
+export type PageLayoutMode = 'single' | 'margin-rail' | 'two-column';
+export type ImageAlignment = 'block-center' | 'float-left' | 'float-right' | 'inline' | 'block-left' | 'block-right';
+export type ImageWrapMode = 'none' | 'wrap-left' | 'wrap-right' | 'margin' | 'span-full' | 'center' | 'inline';
 
 export interface PageMargins {
   top: number; // in mm
@@ -34,6 +36,9 @@ export interface PageSettings {
   runningHeader: RunningHeaderConfig;
   paperRuling: PaperRuling;
   columns: 1 | 2;
+  layoutMode: PageLayoutMode;
+  columnGap: string;
+  marginRailWidth: string;
   fontFamily: string;
   fontSizePt: number;
   lineHeight: number;
@@ -55,6 +60,9 @@ export interface DocumentAsset {
   filter?: string;
   widthPercent?: number;
   alignment?: ImageAlignment;
+  wrapMode?: ImageWrapMode;
+  caption?: string;
+  figureNumber?: string;
   isAnimatedGif?: boolean;
 }
 
@@ -102,6 +110,9 @@ export const DEFAULT_PAGE_SETTINGS: PageSettings = {
   },
   paperRuling: 'plain',
   columns: 1,
+  layoutMode: 'single',
+  columnGap: '1.5rem',
+  marginRailWidth: '32%',
   fontFamily: "'KaTeX_Main', serif",
   fontSizePt: 11,
   lineHeight: 1.55

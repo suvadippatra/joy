@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Settings, X, FileText, Check, Layout, Columns, Hash, Sparkles, BookOpen, Compass, Layers } from 'lucide-react';
-import { PageSettings, PAPER_DIMENSIONS, PaperSize, MarginPreset, PageOrientation, PaperRuling } from '../../types/notebook';
+import { Settings, X, FileText, Check, Layout, Columns, Hash, Sparkles, BookOpen, Compass, Layers, PanelLeft, Columns2 } from 'lucide-react';
+import { PageSettings, PAPER_DIMENSIONS, PaperSize, MarginPreset, PageOrientation, PaperRuling, PageLayoutMode } from '../../types/notebook';
 import { NOTEBOOK_TEMPLATES } from '../../data/notebookTemplates';
 
 interface NotebookPageSettingsModalProps {
@@ -204,28 +204,95 @@ export default function NotebookPageSettingsModal({
                 </div>
               </div>
 
-              {/* Columns */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Document Layout Mode & Multi-column Options */}
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Columns size={14} className="text-blue-500" />
-                  <span>Column Layout</span>
+                  <Layout size={14} className="text-blue-500" />
+                  <span>Document Layout System</span>
                 </label>
-                <div className="flex gap-2">
-                  {[1, 2].map(cols => (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {[
+                    {
+                      id: 'single',
+                      label: 'Single Column',
+                      sub: 'Full width flow',
+                      icon: <Layout size={16} className="text-blue-500" />,
+                      cols: 1 as const
+                    },
+                    {
+                      id: 'margin-rail',
+                      label: 'Textbook Margin Rail',
+                      sub: 'Side notes & diagrams',
+                      icon: <PanelLeft size={16} className="text-purple-500" />,
+                      cols: 1 as const
+                    },
+                    {
+                      id: 'two-column',
+                      label: 'Two-Column Scientific',
+                      sub: 'Academic paper style',
+                      icon: <Columns2 size={16} className="text-amber-500" />,
+                      cols: 2 as const
+                    }
+                  ].map(mode => (
                     <button
-                      key={cols}
+                      key={mode.id}
                       type="button"
-                      onClick={() => onUpdateSettings({ ...settings, columns: cols as 1 | 2 })}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                        settings.columns === cols
-                          ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-700 dark:text-blue-300'
-                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                      onClick={() => onUpdateSettings({
+                        ...settings,
+                        layoutMode: mode.id as PageLayoutMode,
+                        columns: mode.cols
+                      })}
+                      className={`p-3 rounded-2xl border text-left flex flex-col justify-between gap-2 transition-all ${
+                        (settings.layoutMode === mode.id || (!settings.layoutMode && mode.id === 'single' && settings.columns !== 2))
+                          ? 'bg-blue-50/80 dark:bg-blue-950/60 border-blue-500 text-blue-700 dark:text-blue-300 font-bold shadow-xs'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                       }`}
                     >
-                      {cols === 1 ? 'Single Column (Standard)' : 'Two Columns (Academic Paper)'}
+                      <div className="flex items-center justify-between">
+                        {mode.icon}
+                        {(settings.layoutMode === mode.id || (!settings.layoutMode && mode.id === 'single' && settings.columns !== 2)) && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold">{mode.label}</div>
+                        <div className="text-[10px] text-slate-400 font-normal">{mode.sub}</div>
+                      </div>
                     </button>
                   ))}
                 </div>
+
+                {/* Additional Spacing / Column Gaps based on Mode */}
+                {settings.layoutMode === 'two-column' && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs">
+                    <span className="text-slate-600 dark:text-slate-400 font-bold">Two-Column Gap:</span>
+                    <select
+                      value={settings.columnGap || '8mm'}
+                      onChange={e => onUpdateSettings({ ...settings, columnGap: e.target.value })}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                    >
+                      <option value="6mm">6 mm (Tight)</option>
+                      <option value="8mm">8 mm (Standard)</option>
+                      <option value="12mm">12 mm (Spacious)</option>
+                      <option value="15mm">15 mm (Wide)</option>
+                    </select>
+                  </div>
+                )}
+
+                {settings.layoutMode === 'margin-rail' && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 text-xs">
+                    <span className="text-purple-900 dark:text-purple-300 font-bold">Margin Rail Proportion:</span>
+                    <select
+                      value={settings.marginRailWidth || '32%'}
+                      onChange={e => onUpdateSettings({ ...settings, marginRailWidth: e.target.value })}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                    >
+                      <option value="28%">28% Side Rail / 72% Text</option>
+                      <option value="32%">32% Side Rail / 68% Text (Recommended)</option>
+                      <option value="36%">36% Side Rail / 64% Text</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Running Header */}

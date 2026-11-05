@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { useCBTData } from '../hooks/useCBTData';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '../components/ThemeProvider';
 import localforage from 'localforage';
 import { useReports } from '../hooks/useReports';
@@ -22,7 +22,14 @@ export default function CBTViewer() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const [iframeSrc, setIframeSrc] = useState<string>('');
-  const [iframeSrcDoc, setIframeSrcDoc] = useState<string>('');
+  const [iframeSrcDoc, setIframeSrcDoc] = useState<string>(() => {
+    if (id && htmlMemoryCache.has(id)) {
+      const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
+      const useLatexFont = settings.useLatexFont ?? true;
+      return prepareTestHtmlForViewer(htmlMemoryCache.get(id)!, { useLatexFont });
+    }
+    return '';
+  });
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExamSaved, setIsExamSaved] = useState(false);
   const hasSavedReportRef = useRef<boolean>(false);
@@ -49,7 +56,7 @@ export default function CBTViewer() {
     attempt: number | string;
     time: string;
   }) => {
-    if (!test || hasSavedReportRef.current) return;
+    if (!id || hasSavedReportRef.current) return;
     
     const parsedScore = typeof data.score === 'number' ? data.score : (parseFloat(String(data.score)) || 0);
     const parsedCorrect = typeof data.correct === 'number' ? data.correct : (parseInt(String(data.correct), 10) || 0);
@@ -62,9 +69,9 @@ export default function CBTViewer() {
     setIsExamSaved(true);
 
     addReport({
-      testId: test.id,
-      testTitle: test.title,
-      subject: test.subject,
+      testId: test?.id || id,
+      testTitle: test?.title || 'CBT Test',
+      subject: test?.subject || 'General',
       score: parsedScore,
       correct: parsedCorrect,
       wrong: parsedWrong,
@@ -72,11 +79,11 @@ export default function CBTViewer() {
       attempt: parsedAttempt,
       time: String(data.time || '0s')
     });
-  }, [test, addReport]);
+  }, [test, id, addReport]);
 
-  // Load test HTML content (with instant cache & local storage support)
+  // Load test HTML content immediately by id (with instant memory cache & localforage support)
   useEffect(() => {
-    if (!test) return;
+    if (!id) return;
 
     // Reset saved state on test load
     hasSavedReportRef.current = false;
@@ -84,7 +91,7 @@ export default function CBTViewer() {
 
     try {
       const recent = JSON.parse(localStorage.getItem('recentTests') || '[]');
-      const updated = [test.id, ...recent.filter((id: string) => id !== test.id)].slice(0, 10);
+      const updated = [id, ...recent.filter((tid: string) => tid !== id)].slice(0, 10);
       localStorage.setItem('recentTests', JSON.stringify(updated));
     } catch (e) {
       console.error("Failed to update recent tests", e);
@@ -94,24 +101,25 @@ export default function CBTViewer() {
       try {
         let html = '';
 
-        // 1. Check memory cache first
-        if (htmlMemoryCache.has(test.id)) {
-          html = htmlMemoryCache.get(test.id)!;
+        // 1. Check memory cache first (0ms synchronous hit)
+        if (htmlMemoryCache.has(id)) {
+          html = htmlMemoryCache.get(id)!;
         }
 
-        // 2. Try fetching imported/local test directly from localforage storage
+        // 2. Try fetching imported/local test directly from localforage storage by id
         if (!html) {
-          const cachedHtml = (await localforage.getItem(test.id + '_html')) || (await localforage.getItem(test.id));
+          const cachedHtml = (await localforage.getItem(id + '_html')) || (await localforage.getItem(id));
           if (cachedHtml && typeof cachedHtml === 'string' && cachedHtml.trim()) {
             html = cachedHtml;
           }
         }
 
         // 3. Fallback to static bundled demo files if not in localforage
-        if (!html && test.filename) {
+        const filename = test?.filename || initialTest?.filename;
+        if (!html && filename) {
           try {
             const basePath = import.meta.env.BASE_URL;
-            const normalizedPath = test.filename.startsWith('/') ? test.filename.slice(1) : test.filename;
+            const normalizedPath = filename.startsWith('/') ? filename.slice(1) : filename;
             const res = await fetch(basePath + normalizedPath);
             if (res.ok) {
               html = await res.text();
@@ -119,6 +127,11 @@ export default function CBTViewer() {
           } catch (e) {
             console.warn("Could not fetch static test file:", e);
           }
+        }
+
+        // If still loading test metadata from IndexedDB and no HTML yet, wait for `test` to resolve
+        if ((!html || !html.trim()) && loading && !test) {
+          return;
         }
 
         // 4. Handle blank or missing HTML gracefully with an informative status view
@@ -142,13 +155,13 @@ export default function CBTViewer() {
             <div class="card">
               <div class="icon">📄</div>
               <h2>Test File Content Unavailable</h2>
-              <p>The stored HTML content for "<strong>${test.title || 'Selected Test'}</strong>" could not be retrieved from local storage or network.</p>
+              <p>The stored HTML content for "<strong>${test?.title || 'Selected Test'}</strong>" could not be retrieved from local storage or network.</p>
               <button onclick="window.parent.location.hash='#/'">Return to Dashboard</button>
             </div>
           </body>
           </html>`;
         } else {
-          htmlMemoryCache.set(test.id, html);
+          htmlMemoryCache.set(id, html);
         }
 
         const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
@@ -160,15 +173,13 @@ export default function CBTViewer() {
         });
         
         setIframeSrcDoc(processedHtml);
-        const blob = new Blob([processedHtml], { type: 'text/html' });
-        setIframeSrc(URL.createObjectURL(blob));
       } catch (error) {
         console.error("Failed to load test HTML", error);
       }
     };
 
     loadTestContent();
-  }, [test]);
+  }, [id, test, initialTest, loading]);
 
   // Revoke Blob URLs on unmount
   useEffect(() => {
@@ -204,7 +215,7 @@ export default function CBTViewer() {
 
   // Proactive DOM Auto-Catch: Same-origin inspection for Result Gateway
   useEffect(() => {
-    if (!iframeSrc) return;
+    if (!iframeSrcDoc && !iframeSrc) return;
 
     const interval = setInterval(() => {
       if (hasSavedReportRef.current) return;
@@ -234,7 +245,7 @@ export default function CBTViewer() {
     }, 800);
 
     return () => clearInterval(interval);
-  }, [iframeSrc, recordReport]);
+  }, [iframeSrcDoc, iframeSrc, recordReport]);
 
   const handleLeaveExam = () => {
     setShowExitConfirm(false);
@@ -309,7 +320,7 @@ export default function CBTViewer() {
     }
   };
 
-  if (loading) {
+  if (loading && !test && !iframeSrcDoc) {
     return (
       <div className="h-screen bg-transparent flex flex-col font-sans transition-colors">
         <Header title="Loading Test..." showBack onBack={handleLeaveExam} />
@@ -320,7 +331,7 @@ export default function CBTViewer() {
     );
   }
 
-  if (!test) {
+  if (!test && !iframeSrcDoc) {
     return (
       <div className="min-h-screen bg-transparent flex flex-col font-sans transition-colors">
         <Header title="Test Not Found" showBack onBack={() => navigate('/', { replace: true })} />
@@ -334,7 +345,7 @@ export default function CBTViewer() {
   return (
     <div className="h-screen bg-transparent flex flex-col font-sans transition-colors overflow-hidden">
       <Header 
-        title={test.title} 
+        title={test?.title || 'CBT Test'} 
         showBack 
         hideControls 
         onBack={() => {
@@ -376,7 +387,7 @@ export default function CBTViewer() {
               srcDoc={iframeSrcDoc || undefined}
               src={!iframeSrcDoc ? iframeSrc : undefined}
               className="absolute inset-0 w-full h-full border-0 bg-transparent"
-              title={test.title}
+              title={test?.title || 'CBT Test'}
               allow="fullscreen"
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
               onLoad={handleIframeLoad}

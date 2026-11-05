@@ -10,7 +10,7 @@ import { generateFlipbookHtml } from './flipbookGenerator';
  * 3. Offline KaTeX and zero external dependency risk.
  */
 export function buildStandaloneHtml(doc: NotebookDocument): string {
-  const pages = parseDocumentToPages(doc.content, doc.assets);
+  const pages = parseDocumentToPages(doc.content, doc.assets, doc.pageSettings);
   const settings = doc.pageSettings;
   const paperInfo = settings.paperSize !== 'Custom' 
     ? PAPER_DIMENSIONS[settings.paperSize] 

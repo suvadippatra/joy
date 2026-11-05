@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback, startTransition, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -29,7 +29,8 @@ import {
   Maximize2,
   PenTool,
   X,
-  LayoutGrid
+  LayoutGrid,
+  FolderOpen
 } from 'lucide-react';
 import { AppState, defaultAppState, cleanAppState, createCleanAppState, demoShowcaseAppState, Question, QuestionType } from '../types/cbtMaker';
 import { compileCBTHTML } from '../utils/cbtCompiler';
@@ -49,9 +50,11 @@ import SectionTabSelector from '../components/maker/SectionTabSelector';
 import QuestionEditor from '../components/maker/QuestionEditor';
 import QuestionPaletteTray from '../components/maker/QuestionPaletteTray';
 import MobileMoreMenu from '../components/maker/MobileMoreMenu';
+import StudioLandingHub from '../components/StudioLandingHub';
 
 export default function CBTMaker() {
   const navigate = useNavigate();
+  const [showLandingHub, setShowLandingHub] = useState<boolean>(true);
 
   // Load draft from localStorage or fallback to default (clean initial state)
   const [appState, setAppState] = useState<AppState>(() => {
@@ -59,7 +62,12 @@ export default function CBTMaker() {
       const saved = localStorage.getItem('cbt_maker_draft');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.sections && parsed.sections.length > 0) return parsed;
+        if (parsed.sections && parsed.sections.length > 0) {
+          return {
+            ...parsed,
+            questionViewMode: parsed.questionViewMode || 'CONTINUOUS'
+          };
+        }
       }
     } catch (e) {
       console.error('Failed to load cbt_maker_draft', e);
@@ -88,6 +96,24 @@ export default function CBTMaker() {
 
   const [isDraggingSplitter, setIsDraggingSplitter] = useState<boolean>(false);
 
+  // Measure Editor Pane container width to automatically switch between 1-col and 2-col editor layout
+  const editorPaneRef = useRef<HTMLDivElement>(null);
+  const [editorPaneWidth, setEditorPaneWidth] = useState<number>(700);
+
+  useEffect(() => {
+    const el = editorPaneRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setEditorPaneWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [showLandingHub, layoutMode]);
+
+  const isEditorTwoCol = (appState.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS' && editorPaneWidth >= 820;
+
   // Navigation State
   const [activeSectionName, setActiveSectionName] = useState<string>(() => {
     return appState.sections[0]?.name || 'Section 1';
@@ -113,6 +139,17 @@ export default function CBTMaker() {
   const [isImportToAppOpen, setIsImportToAppOpen] = useState(false);
   const [compiledResult, setCompiledResult] = useState<{ html: string; filename: string } | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
+  const [toastNotice, setToastNotice] = useState<{ message: string; type: 'success' | 'warning' | 'error' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'warning' | 'error' = 'success') => {
+    setToastNotice({ message, type });
+    setTimeout(() => {
+      setToastNotice(prev => (prev?.message === message ? null : prev));
+    }, 4500);
+  }, []);
+
+  // Deferred state for live preview so typing in editor never blocks on heavy preview updates
+  const deferredAppState = useDeferredValue(appState);
 
   // Quick In-Place Title Rename
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -218,6 +255,11 @@ export default function CBTMaker() {
   const activeSection = appState.sections.find(s => s.name === activeSectionName) || appState.sections[0];
   const questionsInCurrentSection = appState.questionsBySection[activeSection?.name] || [];
   const activeQuestion: Question | null = questionsInCurrentSection[activeQuestionIndex] || null;
+
+  // Deferred Preview Data
+  const deferredActiveSection = deferredAppState.sections.find(s => s.name === activeSectionName) || deferredAppState.sections[0] || activeSection;
+  const deferredQuestionsInSection = deferredAppState.questionsBySection[deferredActiveSection?.name] || questionsInCurrentSection;
+  const deferredActiveQuestion: Question | null = deferredQuestionsInSection[activeQuestionIndex] || activeQuestion;
 
   // Question State Updater by Index
   const updateQuestionAtIndex = useCallback((qIndex: number, partial: Partial<Question>) => {
@@ -661,7 +703,7 @@ export default function CBTMaker() {
       setCompiledResult(res);
       setIsImportToAppOpen(true);
     } catch (err: any) {
-      alert(`Error compiling test: ${err.message || err}`);
+      showToast(`Error compiling test: ${err.message || err}`, 'error');
     } finally {
       setIsCompiling(false);
     }
@@ -669,6 +711,19 @@ export default function CBTMaker() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden select-none">
+      {/* Non-blocking In-App Toast Banner */}
+      {toastNotice && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[10000] max-w-md w-[92%] px-4 py-2.5 rounded-2xl shadow-xl border flex items-center justify-between gap-3 text-xs sm:text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-200 bg-slate-900 text-white border-slate-700">
+          <span>{toastNotice.message}</span>
+          <button
+            type="button"
+            onClick={() => setToastNotice(null)}
+            className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white shrink-0"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {/* Responsive Single-Row Top Toolbar */}
       <header className="px-3 sm:px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 z-30">
         {/* Left: Back + Title + Active Section Pill */}
@@ -739,6 +794,21 @@ export default function CBTMaker() {
 
         {/* Right: Controls & Main Action Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Recent Projects & Guides Hub Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowLandingHub(prev => !prev)}
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+              showLandingHub
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
+            }`}
+            title="Recent Projects & User Guides Hub"
+          >
+            <FolderOpen size={14} />
+            <span className="hidden sm:inline">Projects</span>
+          </button>
+
           {/* Question Palette / Tray Toggle Button */}
           <button
             type="button"
@@ -859,10 +929,180 @@ export default function CBTMaker() {
         </div>
       </header>
 
-      {/* Main Workspace Split Body */}
+      {/* Docked Section & Question Quick-Navigator Bar */}
+      <div className="px-3 sm:px-4 py-1.5 bg-slate-100/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 z-20 overflow-x-auto scrollbar-none">
+        {/* Left: Section Tabs + Add Section */}
+        <div className="flex items-center gap-1 shrink-0">
+          {appState.sections.map(sec => {
+            const isSecActive = sec.name === activeSectionName;
+            const qCount = (appState.questionsBySection[sec.name] || []).length;
+            return (
+              <button
+                key={sec.name}
+                type="button"
+                onClick={() => handleSelectSection(sec.name)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isSecActive
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                }`}
+              >
+                <span className="truncate max-w-[110px]">{sec.name}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                    isSecActive
+                      ? 'bg-blue-700 text-blue-100'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  {qCount}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={handleAddSection}
+            title="Add New Section"
+            className="flex items-center gap-0.5 px-2 py-1 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-dashed border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors shrink-0"
+          >
+            <Plus size={12} />
+            <span className="hidden sm:inline">Sec</span>
+          </button>
+        </div>
+
+        {/* Center: Question Number Pills with Status Dot + Add Q */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
+          {questionsInCurrentSection.map((qItem, idx) => {
+            const isQActive = idx === activeQuestionIndex;
+            const hasStatement = Boolean(qItem.text && qItem.text.trim().length > 0);
+            return (
+              <button
+                key={qItem.id || idx}
+                type="button"
+                onClick={() => {
+                  handleSelectQuestion(idx);
+                  if (appState.questionViewMode === 'CONTINUOUS') {
+                    const el = document.getElementById(`editor-question-${idx}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const prevEl = document.getElementById(`preview-question-${idx}`);
+                    if (prevEl) prevEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                title={`Question ${idx + 1} (${qItem.type}) ${hasStatement ? '• Ready' : '• Empty'}`}
+                className={`relative flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-mono font-bold shrink-0 transition-all cursor-pointer ${
+                  isQActive
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs ring-2 ring-blue-500/40'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    hasStatement ? 'bg-emerald-500' : 'bg-amber-400'
+                  }`}
+                />
+                <span>Q{idx + 1}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={handleAddQuestion}
+            title="Append New Question to Section"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors shrink-0 cursor-pointer"
+          >
+            <Plus size={12} />
+            <span>Add Q</span>
+          </button>
+        </div>
+
+        {/* Right: Quick Engine & Stream Status Toggles */}
+        <div className="hidden md:flex items-center gap-1.5 shrink-0">
+          {(appState.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS' && layoutMode !== 'preview' && (
+            <span
+              className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+              title="Editor automatically adjusts between 1-column and 2-column grid based on pane width"
+            >
+              {isEditorTwoCol ? '2-Col Edit' : '1-Col Edit'}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              setAppState(prev => ({
+                ...prev,
+                mathMode: prev.mathMode === 'LATEX' ? 'HTML' : 'LATEX'
+              }))
+            }
+            title="Toggle between LaTeX ($...$) and Pure HTML math mode"
+            className="px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-blue-400 transition-colors"
+          >
+            {appState.mathMode === 'LATEX' ? 'LaTeX • Offline' : 'HTML Mode'}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setAppState(prev => ({
+                ...prev,
+                questionViewMode: (prev.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS' ? 'SINGLE' : 'CONTINUOUS'
+              }))
+            }
+            title="Switch between Multi-Question Stream View and Single Question Focus"
+            className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-colors ${
+              (appState.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS'
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            {(appState.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS' ? 'Multi-Q Stream' : 'Single Q'}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Workspace Split Body or Recent Projects & Guides Hub */}
+      {showLandingHub ? (
+        <StudioLandingHub<AppState>
+          mode="cbt-maker"
+          activeTitle={appState.examTitle || 'New CBT Test'}
+          activeSubtitle={appState.examSubtitle || appState.agencyName || 'National Testing Agency'}
+          activeMetaBadge={`${appState.sections.length} Sec • ${(Object.values(appState.questionsBySection) as Question[][]).reduce((acc: number, arr: Question[]) => acc + arr.length, 0)} Qs • ${appState.duration} mins`}
+          activeData={appState}
+          onResumeActive={() => setShowLandingHub(false)}
+          onCreateNewBlank={() => {
+            const freshClean = createCleanAppState();
+            setAppState(freshClean);
+            setActiveSectionName(freshClean.sections[0].name);
+            setActiveQuestionIndex(0);
+            setDraftResetCounter(c => c + 1);
+            setShowLandingHub(false);
+          }}
+          onLoadProjectData={(payload) => {
+            if (payload && payload.sections && payload.sections.length > 0) {
+              setAppState({
+                ...payload,
+                questionViewMode: payload.questionViewMode || 'CONTINUOUS'
+              });
+              setActiveSectionName(payload.sections[0].name);
+              setActiveQuestionIndex(0);
+              setDraftResetCounter(c => c + 1);
+            }
+            setShowLandingHub(false);
+          }}
+          onSelectTemplate={() => {
+            const demoCopy = JSON.parse(JSON.stringify(demoShowcaseAppState));
+            setAppState(demoCopy);
+            setActiveSectionName(demoCopy.sections[0].name);
+            setActiveQuestionIndex(0);
+            setDraftResetCounter(c => c + 1);
+            setShowLandingHub(false);
+          }}
+          onOpenFullGuide={() => setIsLaTeXGuideOpen(true)}
+        />
+      ) : (
       <div className="flex-1 flex overflow-hidden w-full relative">
         {/* Left / Editor Container */}
         <div
+          ref={editorPaneRef}
           style={{
             width: layoutMode === 'split' ? `${100 - previewWidthPercent}%` : layoutMode === 'editor' ? '100%' : '0%'
           }}
@@ -871,122 +1111,106 @@ export default function CBTMaker() {
           }`}
         >
           {/* Active Question Editor Area */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-5 w-full">
-            {appState.questionViewMode === 'CONTINUOUS' && questionsInCurrentSection.length > 0 ? (
-              <div className="space-y-6 pb-20 max-w-3xl mx-auto w-full">
-                {/* Continuous Editor Sticky Quick-Jump Bar (Desktop & Tablet Landscape only, hidden on smaller screens where Palette is used) */}
-                {questionsInCurrentSection.length > 1 && (
-                  <div className="sticky top-0 z-20 hidden lg:flex px-2.5 py-1.5 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs items-center gap-1.5 overflow-x-auto scrollbar-none mb-3">
-                    <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0 px-1">
-                      Edit Q:
-                    </span>
-                    {questionsInCurrentSection.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          setActiveQuestionIndex(i);
-                          const el = document.getElementById(`editor-question-${i}`);
-                          if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }
-                          const previewEl = document.getElementById(`preview-question-${i}`);
-                          if (previewEl) {
-                            previewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }
-                        }}
-                        className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold shrink-0 transition-colors ${
-                          i === activeQuestionIndex
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        Q{i + 1}
-                      </button>
-                    ))}
-                  </div>
-                )}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 w-full">
+            {(appState.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS' && questionsInCurrentSection.length > 0 ? (
+              <div className="pb-20 w-full">
+                {/* Adaptive 1-Column / 2-Column Grid of Question Editors */}
+                <div
+                  className={
+                    isEditorTwoCol
+                      ? 'grid grid-cols-2 gap-4 items-start max-w-6xl mx-auto'
+                      : 'grid grid-cols-1 gap-3.5 max-w-3xl mx-auto'
+                  }
+                >
+                  {questionsInCurrentSection.map((qItem, qIdx) => (
+                    <QuestionEditor
+                      key={`${activeSectionName}_${qItem.id ?? qIdx}_${draftResetCounter}`}
+                      question={qItem}
+                      questionIndex={qIdx}
+                      totalQuestions={questionsInCurrentSection.length}
+                      section={activeSection}
+                      sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
+                      mathMode={appState.mathMode}
+                      isActive={qIdx === activeQuestionIndex}
+                      showNavigationFooter={false}
+                      onFocusQuestion={() => {
+                        setActiveQuestionIndex(qIdx);
+                        const previewEl = document.getElementById(`preview-question-${qIdx}`);
+                        if (previewEl) {
+                          previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                      }}
+                      onUpdateQuestion={partial => updateQuestionAtIndex(qIdx, partial)}
+                      onImageFilePicked={(e, target) => handleImageFilePickedForIndex(qIdx, e, target)}
+                      onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
+                      onOpenCropper={(src, target) => {
+                        setCropperData({
+                          isOpen: true,
+                          imageSrc: src,
+                          target,
+                          questionIndex: qIdx
+                        });
+                      }}
+                      onDuplicateQuestion={() => handleDuplicateQuestionAtIndex(qIdx)}
+                      onDeleteQuestion={() => handleDeleteQuestionAtIndex(qIdx)}
+                      onMoveQuestionUp={() => handleMoveQuestionAtIndex(qIdx, 'up')}
+                      onMoveQuestionDown={() => handleMoveQuestionAtIndex(qIdx, 'down')}
+                    />
+                  ))}
+                </div>
 
-                {/* Stack of Question Editors */}
-                {questionsInCurrentSection.map((qItem, qIdx) => (
-                  <QuestionEditor
-                    key={`${activeSectionName}_${qItem.id ?? qIdx}_${draftResetCounter}`}
-                    question={qItem}
-                    questionIndex={qIdx}
-                    totalQuestions={questionsInCurrentSection.length}
-                    section={activeSection}
-                    sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
-                    mathMode={appState.mathMode}
-                    isActive={qIdx === activeQuestionIndex}
-                    showNavigationFooter={false}
-                    onFocusQuestion={() => {
-                      setActiveQuestionIndex(qIdx);
-                      // In split mode or when preview is present, scroll preview to this question
-                      const previewEl = document.getElementById(`preview-question-${qIdx}`);
-                      if (previewEl) {
-                        previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                      }
-                    }}
-                    onUpdateQuestion={partial => updateQuestionAtIndex(qIdx, partial)}
-                    onImageFilePicked={(e, target) => handleImageFilePickedForIndex(qIdx, e, target)}
-                    onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
-                    onOpenCropper={(src, target) => {
-                      setCropperData({
-                        isOpen: true,
-                        imageSrc: src,
-                        target,
-                        questionIndex: qIdx
-                      });
-                    }}
-                  />
-                ))}
-
-                <div className="flex justify-center pt-2">
+                <div className="flex justify-center pt-4">
                   <button
                     type="button"
                     onClick={handleAddQuestion}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold shadow-sm transition-all"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all cursor-pointer"
                   >
                     <Plus size={16} />
-                    <span>+ Add Next Question to {activeSectionName}</span>
+                    <span>+ Add Question to {activeSectionName}</span>
                   </button>
                 </div>
               </div>
             ) : activeQuestion ? (
-              <QuestionEditor
-                key={`${activeSectionName}_${activeQuestion?.id ?? activeQuestionIndex}_${draftResetCounter}`}
-                question={activeQuestion}
-                questionIndex={activeQuestionIndex}
-                totalQuestions={questionsInCurrentSection.length}
-                section={activeSection}
-                sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
-                mathMode={appState.mathMode}
-                isActive={true}
-                showNavigationFooter={true}
-                onFocusQuestion={() => {
-                  const previewEl = document.getElementById(`preview-question-${activeQuestionIndex}`);
-                  if (previewEl) {
-                    previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                  }
-                }}
-                onUpdateQuestion={updateCurrentQuestion}
-                onImageFilePicked={handleImageFilePicked}
-                onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
-                onOpenCropper={(src, target) => {
-                  setCropperData({
-                    isOpen: true,
-                    imageSrc: src,
-                    target,
-                    questionIndex: activeQuestionIndex
-                  });
-                }}
-                onPrevQuestion={() => setActiveQuestionIndex(prev => Math.max(0, prev - 1))}
-                onNextQuestion={() => setActiveQuestionIndex(prev => Math.min(questionsInCurrentSection.length - 1, prev + 1))}
-                onAddQuestionNext={handleAddQuestionNext}
-              />
+              <div className="max-w-3xl mx-auto w-full">
+                <QuestionEditor
+                  key={`${activeSectionName}_${activeQuestion?.id ?? activeQuestionIndex}_${draftResetCounter}`}
+                  question={activeQuestion}
+                  questionIndex={activeQuestionIndex}
+                  totalQuestions={questionsInCurrentSection.length}
+                  section={activeSection}
+                  sectionIndex={appState.sections.findIndex(s => s.name === activeSectionName)}
+                  mathMode={appState.mathMode}
+                  isActive={true}
+                  showNavigationFooter={true}
+                  onFocusQuestion={() => {
+                    const previewEl = document.getElementById(`preview-question-${activeQuestionIndex}`);
+                    if (previewEl) {
+                      previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                  }}
+                  onUpdateQuestion={updateCurrentQuestion}
+                  onImageFilePicked={handleImageFilePicked}
+                  onOpenLaTeXGuide={() => setIsLaTeXGuideOpen(true)}
+                  onOpenCropper={(src, target) => {
+                    setCropperData({
+                      isOpen: true,
+                      imageSrc: src,
+                      target,
+                      questionIndex: activeQuestionIndex
+                    });
+                  }}
+                  onPrevQuestion={() => setActiveQuestionIndex(prev => Math.max(0, prev - 1))}
+                  onNextQuestion={() => setActiveQuestionIndex(prev => Math.min(questionsInCurrentSection.length - 1, prev + 1))}
+                  onAddQuestionNext={handleAddQuestionNext}
+                  onDuplicateQuestion={() => handleDuplicateQuestionAtIndex(activeQuestionIndex)}
+                  onDeleteQuestion={() => handleDeleteQuestionAtIndex(activeQuestionIndex)}
+                  onMoveQuestionUp={() => handleMoveQuestionAtIndex(activeQuestionIndex, 'up')}
+                  onMoveQuestionDown={() => handleMoveQuestionAtIndex(activeQuestionIndex, 'down')}
+                />
+              </div>
             ) : (
               <div className="py-12 text-center text-slate-400 text-base font-medium">
-                No question available. Click <strong>+ Add Question</strong> above to start.
+                No question available. Click <strong>+ Add Q</strong> above to start.
               </div>
             )}
           </div>
@@ -1032,17 +1256,17 @@ export default function CBTMaker() {
           }`}
         >
           <QuestionLivePreview
-            question={activeQuestion}
+            question={deferredActiveQuestion}
             questionIndex={activeQuestionIndex}
-            totalQuestions={questionsInCurrentSection.length}
-            section={activeSection || { name: 'Default', marks: 4, negative: 1, maxAttempts: 0 }}
-            allSections={appState.sections}
-            allQuestionsInSection={questionsInCurrentSection}
-            questionViewMode={appState.questionViewMode || 'SINGLE'}
+            totalQuestions={deferredQuestionsInSection.length}
+            section={deferredActiveSection || { name: 'Default', marks: 4, negative: 1, maxAttempts: 0 }}
+            allSections={deferredAppState.sections}
+            allQuestionsInSection={deferredQuestionsInSection}
+            questionViewMode={deferredAppState.questionViewMode || 'CONTINUOUS'}
             onToggleViewMode={() => {
               setAppState(prev => ({
                 ...prev,
-                questionViewMode: prev.questionViewMode === 'CONTINUOUS' ? 'SINGLE' : 'CONTINUOUS'
+                questionViewMode: (prev.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS' ? 'SINGLE' : 'CONTINUOUS'
               }));
             }}
             onSelectQuestionIndex={idx => {
@@ -1070,14 +1294,15 @@ export default function CBTMaker() {
             }}
             onPrevQuestion={() => setActiveQuestionIndex(prev => Math.max(0, prev - 1))}
             onNextQuestion={() => setActiveQuestionIndex(prev => Math.min(questionsInCurrentSection.length - 1, prev + 1))}
-            fontName={appState.fontName}
-            previewTableFontSize={appState.previewTableFontSize}
-            mathMode={appState.mathMode}
-            renderEngine={appState.renderEngine}
+            fontName={deferredAppState.fontName}
+            previewTableFontSize={deferredAppState.previewTableFontSize}
+            mathMode={deferredAppState.mathMode}
+            renderEngine={deferredAppState.renderEngine}
             layoutMode={layoutMode}
           />
         </div>
       </div>
+      )}
 
       {/* Fullscreen overlay while dragging divider */}
       {isDraggingSplitter && (
@@ -1238,9 +1463,9 @@ export default function CBTMaker() {
               setActiveQuestionIndex(0);
             }
             if (missingImages && missingImages > 0) {
-              alert(`Successfully imported ${count} questions!\n\n⚠️ NOTE: ${missingImages} question(s) contain diagram/image placeholders ([IMAGE]). Please upload the required diagram images for these questions.`);
+              showToast(`Imported ${count} questions! Note: ${missingImages} question(s) have [IMAGE] placeholders.`, 'warning');
             } else {
-              alert(`Successfully imported ${count} questions!`);
+              showToast(`Successfully imported ${count} questions!`, 'success');
             }
           }}
         />

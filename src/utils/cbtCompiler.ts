@@ -1,15 +1,82 @@
 import katex from 'katex';
 import { AppState } from '../types/cbtMaker';
 
-const KATEX_MACROS = {
+const KATEX_MACROS: Record<string, string> = {
   "\\cbrt": "\\sqrt[3]{#1}",
   "\\root": "\\sqrt[#1]{#2}",
   "\\d": "\\mathrm{d}",
   "\\degree": "^{\\circ}",
   "\\angstrom": "\\text{\\AA}",
   "\\Angstrom": "\\text{\\AA}",
-  "\\unit": "\\,\\text{#1}"
+  "\\unit": "\\,\\mathrm{#1}",
+  "\\ce": "\\mathrm{#1}",
+  "\\pu": "\\mathrm{#1}"
 };
+
+/**
+ * Balances incomplete LaTeX expressions during live preview typing
+ * so KaTeX renders smoothly on every keystroke instead of flashing raw code.
+ */
+function balanceLiveMathExpression(expr: string): string {
+  if (!expr) return '';
+  let s = expr.trim();
+
+  // Strip trailing solitary backslash being typed (e.g. "\fra" works or "\" alone)
+  if (s.endsWith('\\') && !s.endsWith('\\\\')) {
+    s = s.slice(0, -1);
+  }
+
+  // Handle trailing '^' or '_' while typing superscripts/subscripts
+  if (/[_^]$/.test(s)) {
+    s += '{\\phantom{x}}';
+  }
+
+  // Handle incomplete \frac{a} without second group yet
+  s = s.replace(/\\(frac|dfrac|tfrac)\{([^{}]*)\}$/, '\\$1{$2}{\\phantom{x}}');
+  s = s.replace(/\\(frac|dfrac|tfrac|sqrt|vec|hat|bar|text|mathrm|mathbf)$/, '\\$1{\\phantom{x}}');
+
+  // Balance curly braces
+  let openBraces = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\') {
+      i++;
+      continue;
+    }
+    if (s[i] === '{') openBraces++;
+    else if (s[i] === '}') openBraces = Math.max(0, openBraces - 1);
+  }
+  if (openBraces > 0) {
+    s += '}'.repeat(openBraces);
+  }
+
+  // Balance \left and \right
+  const leftCount = (s.match(/\\left\b/g) || []).length;
+  const rightCount = (s.match(/\\right\b/g) || []).length;
+  if (leftCount > rightCount) {
+    s += '\\right.'.repeat(leftCount - rightCount);
+  }
+
+  return s;
+}
+
+/**
+ * Automatically closes dangling $ or $$ delimiters at the end of a string when in Live Preview mode
+ */
+function closeDanglingDelimitersForPreview(input: string): string {
+  let out = input;
+  // Check for unclosed $$ display math
+  const doubleDollarMatches = out.match(/\$\$/g);
+  if (doubleDollarMatches && doubleDollarMatches.length % 2 === 1) {
+    return out + '$$';
+  }
+  // Check for unclosedsingle $ inline math on the last line
+  const withoutDouble = out.replace(/\$\$[\s\S]*?\$\$/g, '').replace(/\\\$/g, '');
+  const singleDollarMatches = withoutDouble.match(/\$/g);
+  if (singleDollarMatches && singleDollarMatches.length % 2 === 1) {
+    return out + '$';
+  }
+  return out;
+}
 
 // Rich HTML & Unicode Math Formatter for Pure HTML Engine
 export function formatMathToHTMLFallback(s: string, isDisplay = false): string {
@@ -180,7 +247,7 @@ export function formatContent(
   }
 
   const mathBlocks: { raw: string; content: string; isDisplay: boolean }[] = [];
-  let maskedText = text;
+  let maskedText = isLivePreview && mathMode === 'LATEX' ? closeDanglingDelimitersForPreview(text) : text;
 
   // 1. Protect explicitly escaped dollars
   maskedText = maskedText.replace(/\\\$/g, '@@ESC_DOLLAR@@');
@@ -218,7 +285,14 @@ export function formatContent(
   // 6. Process Math Blocks based on specific engine and mode
   mathBlocks.forEach((block, i) => {
     let processedMath = '';
-    const rawContent = block.content.trim();
+    const rawContent = isLivePreview
+      ? balanceLiveMathExpression(block.content)
+      : block.content.trim();
+
+    if (!rawContent) {
+      maskedText = maskedText.replace(`@@MATH_BLOCK_${i}@@`, '');
+      return;
+    }
 
     if (mathMode === 'HTML' || engine === 'HTML_FALLBACK') {
       // Pure HTML Engine: Formatted with standard HTML & Unicode symbols
@@ -230,6 +304,7 @@ export function formatContent(
           displayMode: block.isDisplay,
           output: 'mathml',
           throwOnError: false,
+          strict: false,
           macros: KATEX_MACROS
         });
       } catch {
@@ -241,10 +316,10 @@ export function formatContent(
         processedMath = katex.renderToString(rawContent, {
           displayMode: block.isDisplay,
           throwOnError: false,
+          strict: false,
           macros: KATEX_MACROS
         });
       } catch {
-        // Double-escape backslashes in fallback raw math string to prevent JS escape character corruption (\f, \t, \b, \r)
         const safeRaw = rawContent.replace(/\\/g, '\\\\');
         processedMath = block.isDisplay ? `$$${safeRaw}$$` : `$${safeRaw}$`;
       }

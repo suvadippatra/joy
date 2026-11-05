@@ -140,10 +140,10 @@ export default function NotebookHelpModal({ isOpen, onClose }: NotebookHelpModal
                   <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50">
                     <div className="font-bold text-xs text-emerald-700 dark:text-emerald-300 mb-1 flex items-center gap-1.5">
                       <FileText size={15} />
-                      <span>Paginated Preview</span>
+                      <span>Sheets &amp; Flow Preview</span>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Displays exact virtual paper sheets with margin boundaries, zoom controls, fit-to-width, running headers, and page numbering.
+                      Switch between <strong>Sheets</strong> (exact 1:1 virtual A4/Letter pages with headers &amp; footers) and <strong>Flow</strong> (unbroken continuous academic sheet for distraction-free drafting).
                     </p>
                   </div>
                 </div>
@@ -151,11 +151,13 @@ export default function NotebookHelpModal({ isOpen, onClose }: NotebookHelpModal
                 <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                   <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <Sparkles size={14} className="text-amber-500" />
-                    <span>How Draggable Split Resizing Works</span>
+                    <span>Recent Projects Hub, 2-Tab Ribbon &amp; Active Edit-to-Preview Sync</span>
                   </h4>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Hover over or touch the divider line between the editor and preview. A glowing handle appears with a column-resize cursor. Drag left or right to expand the editor up to 80% or preview up to 80%. It works on desktops, tablets (both portrait and landscape), and touch screens!
-                  </p>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 list-disc pl-4 space-y-1">
+                    <li><strong>Recent Projects &amp; Guides Hub:</strong> Click <strong>Projects</strong> in the top bar anytime to save snapshots to browser IndexedDB, resume recent papers in 1 click, or load academic templates.</li>
+                    <li><strong>2-Tab Word Processor Ribbon:</strong> Switch between the <strong>Home</strong> tab (Undo/Redo, Fonts, Alignment Left/Center/Right/Justify, Line Spacing, Callouts, Tables, Figures) and the <strong>Page Layout</strong> tab (Paper Size, Orientation, Custom Top/Bottom/Left/Right mm Margins, Columns, Running Header &amp; Footer Page Numbering).</li>
+                    <li><strong>Live Active Block Highlight &amp; Auto-Scroll:</strong> As you type or click any line in the Markdown/LaTeX editor, the corresponding block on the virtual sheet automatically scrolls into view and highlights with a subtle blue indicator.</li>
+                  </ul>
                 </div>
               </div>
             )}
@@ -175,13 +177,13 @@ export default function NotebookHelpModal({ isOpen, onClose }: NotebookHelpModal
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
                     <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">
-                      1. Inline Math: Surround with single dollars ($ ... $)
+                      1. Universal Inline Math: $ ... $, \( ... \), or Bare Commands
                     </h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
-                      Renders equations inline seamlessly with the surrounding body text:
+                      Renders inline equations seamlessly inside sentences, headings, lists, and tables (subscripts like <code className="font-mono">v_0</code> and bare commands like <code className="font-mono">\frac&#123;a&#125;&#123;b&#125;</code> are protected from Markdown italics):
                     </p>
                     <div className="p-2.5 rounded-xl bg-slate-900 text-emerald-300 font-mono text-xs">
-                      The famous relation is $E = mc^2$, where $m$ is rest mass and $c$ is speed of light.
+                      The relation is $E_k = \frac&#123;1&#125;&#123;2&#125; m v_0^2$, or \( \alpha + \beta = \pi \), or bare \sqrt&#123;x^2 + y^2&#125;.
                     </div>
                   </div>
 
@@ -281,10 +283,10 @@ $$`}
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 space-y-2">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Text Colors &amp; Highlights
+                    Interactive Tables, Text Colors &amp; Viewport-Clamped Toolbars
                   </h4>
                   <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Select any text and click the <strong>Palette</strong> icon in the toolbar. Choose a text color or background highlight color. It automatically wraps your selection in a safe semantic span without disrupting math or document flow.
+                    Select any text in the Editor or Preview to open the viewport-clamped styling toolbar (Bold, Italic, Font Size, Text Color, Highlight). Hover over any rendered table in the preview to reveal quick <strong>+ Row</strong>, <strong>+ Col</strong>, and <strong>- Row</strong> buttons, or double-click any cell/paragraph to edit directly on the sheet.
                   </p>
                 </div>
               </div>
@@ -356,19 +358,19 @@ $$`}
 
                   <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
                     <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
-                      Margins &amp; Columns
+                      Margins &amp; Columns (Page Layout Ribbon)
                     </h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Choose <strong>Normal (20mm)</strong>, <strong>Narrow (12.7mm)</strong>, or <strong>Wide (25.4mm)</strong>. Switch to 2-column layout for IEEE/academic paper style.
+                      Open the <strong>Page Layout</strong> ribbon tab to pick presets (<strong>Normal 20mm</strong>, <strong>Narrow 12.7mm</strong>, <strong>Wide 25.4mm</strong>) or enter exact Top/Bottom/Left/Right margins in mm, and switch between 1-Col, 2-Col IEEE, or Margin Notes rail.
                     </p>
                   </div>
 
                   <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
                     <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
-                      Running Headers &amp; Footers
+                      Click-to-Edit Headers &amp; Footers on Sheet
                     </h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Enable running headers with custom subject title and running subtitle. Choose page numbering format: <em>Page X of Y</em>, <em>- X -</em>, or <em>Page X</em>.
+                      Configure running headers and page numbers in the <strong>Page Layout</strong> tab, or simply <strong>click the top header or bottom footer zone directly on any virtual sheet</strong> to edit running titles and page numbering inline.
                     </p>
                   </div>
 

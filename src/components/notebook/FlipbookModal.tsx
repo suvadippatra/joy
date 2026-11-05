@@ -19,8 +19,8 @@ export default function FlipbookModal({
 
   // Generate pages HTML
   const pagesHtml = useMemo(() => {
-    return parseDocumentToPages(doc.content, doc.assets);
-  }, [doc.content, doc.assets]);
+    return parseDocumentToPages(doc.content, doc.assets, doc.pageSettings);
+  }, [doc.content, doc.assets, doc.pageSettings]);
 
   // Generate standalone iframe srcdoc
   const flipbookSrcDoc = useMemo(() => {

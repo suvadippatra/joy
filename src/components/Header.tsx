@@ -1,4 +1,4 @@
-import { Moon, Sun, Search, ChevronLeft, X, Settings, Sparkles, BookOpen } from 'lucide-react';
+import { Moon, Sun, Search, ChevronLeft, X, Settings, Sparkles, CloudSun } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useRef, useEffect, ReactNode } from 'react';
@@ -214,11 +214,11 @@ export default function Header({
             </Link>
 
             <Link
-              to="/doc-studio"
-              className="p-1.5 sm:p-2 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 transition-colors shrink-0"
-              title="Document Studio (LaTeX Academic Notebook &amp; Print)"
+              to="/weather"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-sky-50 dark:hover:bg-sky-950/50 text-sky-600 dark:text-sky-400 transition-colors shrink-0"
+              title="Aakash Weather & Sky"
             >
-              <BookOpen size={20} />
+              <CloudSun size={20} />
             </Link>
 
             <Link

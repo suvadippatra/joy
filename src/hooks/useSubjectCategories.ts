@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import localforage from 'localforage';
 
 export const DEFAULT_SUBJECTS_MAP: Record<string, string[]> = {

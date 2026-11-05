@@ -34,9 +34,9 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
   // 2. Logo Replacement: PW -> CBT
   html = html.replace(/<div class="logo-circle">\s*PW\s*<\/div>/gi, '<div class="logo-circle">CBT</div>');
 
-  // 3. Clean broken / slow remote CDN links to ensure 100% offline execution
-  html = html.replace(/<link[^>]*href=["'][^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr)[^"']*["'][^>]*>/gi, '');
-  html = html.replace(/<script[^>]*src=["'][^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr)[^"']*["'][^>]*>\s*<\/script>/gi, '');
+  // 3. Clean any remote CDN links/scripts (jsdelivr, cloudflare, unpkg, googleapis, gstatic) to guarantee 0ms offline execution
+  html = html.replace(/<link[^>]*href=["']https?:\/\/[^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com|fonts\.googleapis|fonts\.gstatic)[^"']*["'][^>]*>/gi, '');
+  html = html.replace(/<script[^>]*src=["']https?:\/\/[^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com)[^"']*["'][^>]*>\s*<\/script>/gi, '');
 
   // 4. Rewrite relative asset paths (./libs/ -> ${assetBase}libs/, ./fonts/ -> ${assetBase}fonts/)
   html = html.replace(/(href|src)=["'](?:\.\/)?libs\//gi, `$1="${assetBase}libs/`);
@@ -47,91 +47,91 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
   // 5. Force window.mathRenderEngine = 'katex_local'
   html = html.replace(/window\.mathRenderEngine\s*=\s*['"][^'"]*['"]/g, "window.mathRenderEngine = 'katex_local'");
 
-  // 6. Font Preference Setting
+  // 6. Font Preference Setting (Immediate fallback stack prevents FOIT whether useLatexFont is true or false)
   const useLatexFont = options?.useLatexFont ?? true;
   const defaultBodyFont = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-  const latexBodyFont = "'KaTeX_Main', serif";
+  const latexBodyFont = "'KaTeX_Main', Georgia, 'Times New Roman', serif";
   const fontStr = useLatexFont ? latexBodyFont : defaultBodyFont;
   html = html.replace(/(?:const|let|var)\s+Q_FONT_FAMILY\s*=\s*["'][^"']*["'];/g, `const Q_FONT_FAMILY = "${fontStr}";`);
 
-  // 7. Inject Absolute @font-face Definitions & Critical KaTeX Styling
+  // 7. Inject Absolute @font-face Definitions with font-display: swap & Critical KaTeX Styling
   const fontCssInject = `
     <style id="cbt-katex-font-engine">
-      /* --- KaTeX Absolute Font Face Registrations --- */
+      /* --- KaTeX Absolute Font Face Registrations (font-display: swap ensures 0ms instant text visibility) --- */
       @font-face {
         font-family: 'KaTeX_Main';
         src: url('${assetBase}libs/fonts/KaTeX_Main-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Main';
         src: url('${assetBase}libs/fonts/KaTeX_Main-Bold.woff2') format('woff2');
-        font-weight: bold; font-style: normal;
+        font-weight: bold; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Main';
         src: url('${assetBase}libs/fonts/KaTeX_Main-Italic.woff2') format('woff2');
-        font-weight: normal; font-style: italic;
+        font-weight: normal; font-style: italic; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Math';
         src: url('${assetBase}libs/fonts/KaTeX_Math-Italic.woff2') format('woff2');
-        font-weight: normal; font-style: italic;
+        font-weight: normal; font-style: italic; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Math';
         src: url('${assetBase}libs/fonts/KaTeX_Math-BoldItalic.woff2') format('woff2');
-        font-weight: bold; font-style: italic;
+        font-weight: bold; font-style: italic; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_AMS';
         src: url('${assetBase}libs/fonts/KaTeX_AMS-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Size1';
         src: url('${assetBase}libs/fonts/KaTeX_Size1-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Size2';
         src: url('${assetBase}libs/fonts/KaTeX_Size2-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Size3';
         src: url('${assetBase}libs/fonts/KaTeX_Size3-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Size4';
         src: url('${assetBase}libs/fonts/KaTeX_Size4-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Typewriter';
         src: url('${assetBase}libs/fonts/KaTeX_Typewriter-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_SansSerif';
         src: url('${assetBase}libs/fonts/KaTeX_SansSerif-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Caligraphic';
         src: url('${assetBase}libs/fonts/KaTeX_Caligraphic-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Fraktur';
         src: url('${assetBase}libs/fonts/KaTeX_Fraktur-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
       @font-face {
         font-family: 'KaTeX_Script';
         src: url('${assetBase}libs/fonts/KaTeX_Script-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal;
+        font-weight: normal; font-style: normal; font-display: swap;
       }
 
       /* --- Question Body & Math Precision Styling --- */
@@ -158,7 +158,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
       }
 
       .katex {
-        font-family: 'KaTeX_Main', 'KaTeX_Math', 'KaTeX_AMS', serif !important;
+        font-family: 'KaTeX_Main', 'KaTeX_Math', 'KaTeX_AMS', Georgia, serif !important;
         font-size: 1.08em;
         text-indent: 0;
         font-variant-numeric: lining-nums tabular-nums !important;
@@ -193,34 +193,52 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
   `;
 
   // 8. Inlined Core KaTeX CSS with Absolute Font Paths (100% Offline Guaranteed)
-  const processedKatexCss = katexCssText.replace(/url\(["']?fonts\/([^"')]+)["']?\)/g, `url("${assetBase}libs/fonts/$1")`);
+  const processedKatexCss = katexCssText.replace(
+    /url\(["']?fonts\/([^"')]+)["']?\)/g,
+    `url("${assetBase}libs/fonts/$1")`
+  );
 
-  // 9. Blazing Fast, Single-Pass Math Render Engine with Zero-Network Parent Recovery
+  // 9. Blazing Fast, Zero-Blocking Math Render Engine with Instant Parent Window Inheritance
   const katexHeadScripts = `
     <!-- Inlined KaTeX Core CSS (Never requires network or service worker) -->
     <style id="cbt-katex-bundled-css">
       ${processedKatexCss}
     </style>
 
-    <!-- Optional external link fallback -->
-    <link rel="stylesheet" href="${assetBase}libs/katex.min.css">
-    <script src="${assetBase}libs/katex.min.js"></script>
-    <script src="${assetBase}libs/auto-render.min.js"></script>
-
     ${fontCssInject}
 
     <script id="cbt-katex-auto-render">
     (function() {
-      // Direct offline bridge: inherit KaTeX & renderMathInElement from parent window if offline network request failed
+      // Direct 0ms offline bridge: inherit KaTeX & renderMathInElement + fonts from parent window synchronously
       function ensureMathEngine() {
-        if (typeof window.katex === 'undefined' && window.parent && window.parent.katex) {
-          window.katex = window.parent.katex;
-        }
-        if (typeof window.renderMathInElement === 'undefined' && window.parent && window.parent.renderMathInElement) {
-          window.renderMathInElement = window.parent.renderMathInElement;
-        }
+        try {
+          if (typeof window.katex === 'undefined' && window.parent && window.parent.katex) {
+            window.katex = window.parent.katex;
+          }
+          if (typeof window.renderMathInElement === 'undefined' && window.parent && window.parent.renderMathInElement) {
+            window.renderMathInElement = window.parent.renderMathInElement;
+          }
+          if (window.parent && window.parent.document && window.parent.document.fonts && document.fonts && !window._fontsBridged) {
+            window._fontsBridged = true;
+            window.parent.document.fonts.forEach(function(f) {
+              try { document.fonts.add(f); } catch(_) {}
+            });
+          }
+        } catch (_) {}
       }
       ensureMathEngine();
+
+      // Only load local script files asynchronously if opened standalone outside parent app
+      if (typeof window.katex === 'undefined') {
+        var s1 = document.createElement('script');
+        s1.src = "${assetBase}libs/katex.min.js";
+        s1.async = true;
+        document.head.appendChild(s1);
+        var s2 = document.createElement('script');
+        s2.src = "${assetBase}libs/auto-render.min.js";
+        s2.async = true;
+        document.head.appendChild(s2);
+      }
 
       var renderScheduled = false;
 

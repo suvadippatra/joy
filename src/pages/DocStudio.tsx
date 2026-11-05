@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useDeferredValue } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, FileText, Sparkles, GripVertical, GripHorizontal, HelpCircle, Printer, BookOpen, Atom, Settings } from 'lucide-react';
+import { ArrowLeft, CheckCircle, FileText, GripVertical, GripHorizontal, Printer, BookOpen, Settings, FolderOpen } from 'lucide-react';
 import { NotebookDocument, DEFAULT_PAGE_SETTINGS, PageSettings, DocumentAsset } from '../types/notebook';
 import { NOTEBOOK_TEMPLATES } from '../data/notebookTemplates';
 import { downloadNotebookHtml } from '../utils/notebookExporter';
 import { preloadDocumentFonts } from '../utils/fontManager';
-import { sanitizeCachedFonts, migrateAndSanitizeCachedDoc } from '../utils/textFormatter';
+import { migrateAndSanitizeCachedDoc } from '../utils/textFormatter';
 import NotebookToolbar from '../components/notebook/NotebookToolbar';
 import NotebookEditor, { NotebookEditorHandle } from '../components/notebook/NotebookEditor';
 import NotebookPreview, { NotebookPreviewRef } from '../components/notebook/NotebookPreview';
@@ -16,6 +16,7 @@ import NotebookHelpModal from '../components/notebook/NotebookHelpModal';
 import TableBuilderModal from '../components/notebook/TableBuilderModal';
 import SimulationModal from '../components/notebook/SimulationModal';
 import FlipbookModal from '../components/notebook/FlipbookModal';
+import StudioLandingHub from '../components/StudioLandingHub';
 
 const STORAGE_KEY = 'doc_studio_draft_v1';
 const SPLIT_KEY = 'doc_studio_split_ratio';
@@ -57,6 +58,8 @@ export default function DocStudio() {
   });
 
   const [viewMode, setViewMode] = useState<'split' | 'edit' | 'preview'>('split');
+  const [showLandingHub, setShowLandingHub] = useState<boolean>(true);
+  const [activeEditLine, setActiveEditLine] = useState<string>('');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isFontsStoreModalOpen, setIsFontsStoreModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -64,8 +67,12 @@ export default function DocStudio() {
   const [isSimulationModalOpen, setIsSimulationModalOpen] = useState(false);
   const [isFlipbookModalOpen, setIsFlipbookModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isNewDocConfirmOpen, setIsNewDocConfirmOpen] = useState(false);
   const [selectedAssetIdForEdit, setSelectedAssetIdForEdit] = useState<string | null>(null);
   const [savedStatus, setSavedStatus] = useState<'saved' | 'saving'>('saved');
+
+  // Deferred document state so typing in editor never blocks on preview pagination
+  const deferredDoc = useDeferredValue(doc);
 
   // Undo / Redo History Stack
   const [history, setHistory] = useState<{ past: string[]; future: string[] }>({
@@ -354,131 +361,166 @@ export default function DocStudio() {
   const handleLoadTemplate = (key: string) => {
     const tmpl = NOTEBOOK_TEMPLATES[key];
     if (!tmpl) return;
-    setDoc(prev => ({
-      ...prev,
-      title: tmpl.title,
-      subject: tmpl.subject,
-      content: tmpl.content,
-      updatedAt: new Date().toISOString()
-    }));
+    setDoc(prev => {
+      let layoutMode = prev.pageSettings?.layoutMode || 'single';
+      let columns = prev.pageSettings?.columns || 1;
+
+      if (key === 'textbook_vectors') {
+        layoutMode = 'margin-rail';
+        columns = 1;
+      } else if (key === 'exam') {
+        layoutMode = 'two-column';
+        columns = 2;
+      } else if (key === 'textbook_compton' || key === 'physics' || key === 'calculus' || key === 'biology') {
+        layoutMode = 'single';
+        columns = 1;
+      }
+
+      return {
+        ...prev,
+        title: tmpl.title,
+        subject: tmpl.subject,
+        content: tmpl.content,
+        pageSettings: {
+          ...prev.pageSettings,
+          layoutMode,
+          columns
+        },
+        updatedAt: new Date().toISOString()
+      };
+    });
   };
 
-  // Blank New Document
+  // Blank New Document (Opens non-blocking in-app confirmation modal)
   const handleNewDoc = () => {
-    if (window.confirm('Start a new blank document? Your current draft is autosaved.')) {
-      setDoc({
-        id: `doc-${Date.now()}`,
-        title: 'Untitled Academic Note',
-        author: 'Student',
-        subject: '',
-        content: '# Untitled Note\n\nStart typing here...\n',
-        pageSettings: { 
-          ...DEFAULT_PAGE_SETTINGS,
-          fontFamily: "'KaTeX_Main', serif"
-        },
-        customFonts: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
+    setIsNewDocConfirmOpen(true);
   };
+
+  const executeNewDoc = () => {
+    setDoc({
+      id: `doc-${Date.now()}`,
+      title: 'Untitled Academic Note',
+      author: 'Student',
+      subject: '',
+      content: '# Untitled Note\n\nStart typing here...\n',
+      pageSettings: { 
+        ...DEFAULT_PAGE_SETTINGS,
+        fontFamily: "'KaTeX_Main', serif"
+      },
+      customFonts: [],
+      assets: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    setIsNewDocConfirmOpen(false);
+    setShowLandingHub(false);
+  };
+
+  if (showLandingHub) {
+    const wordCount = doc.content.trim() ? doc.content.trim().split(/\s+/).length : 0;
+    return (
+      <>
+        <StudioLandingHub
+          mode="doc-studio"
+          activeTitle={doc.title}
+          activeSubtitle={doc.subject || 'Academic Document'}
+          activeMetaBadge={`${wordCount} words`}
+          activeUpdatedAt={doc.updatedAt}
+          activeData={doc}
+          onResumeActive={() => setShowLandingHub(false)}
+          onCreateNewBlank={executeNewDoc}
+          onLoadProjectData={loadedDoc => {
+            setDoc(migrateAndSanitizeCachedDoc(loadedDoc));
+            setShowLandingHub(false);
+          }}
+          onSelectTemplate={templateId => {
+            handleLoadTemplate(templateId);
+            setShowLandingHub(false);
+          }}
+          onOpenFullGuide={() => setIsHelpModalOpen(true)}
+        />
+        <NotebookHelpModal
+          isOpen={isHelpModalOpen}
+          onClose={() => setIsHelpModalOpen(false)}
+        />
+      </>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 overflow-hidden print:overflow-visible print:h-auto">
+    <div className="flex flex-col h-[100dvh] max-h-[100dvh] w-full bg-slate-100 dark:bg-slate-950 overflow-hidden print:bg-white print:overflow-visible print:h-auto">
       {/* Top Application Navbar */}
-      <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 flex items-center justify-between shrink-0 z-40 select-none print:hidden shadow-xs">
-        {/* Left: Back Link & Document Title */}
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+      <header className="h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-5 flex items-center justify-between shrink-0 z-40 select-none print:hidden shadow-2xs">
+        {/* Left: Back Link, Projects Hub & Document Title */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Link
             to="/"
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-            title="Return to CBT Platform"
+            className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Return to Home"
           >
-            <ArrowLeft size={16} />
-            <span className="hidden sm:inline">Back</span>
+            <ArrowLeft size={15} />
           </Link>
 
-          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 shrink-0" />
+          <button
+            type="button"
+            onClick={() => setShowLandingHub(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors shrink-0"
+            title="Open Recent Projects & Templates Hub"
+          >
+            <FolderOpen size={13} className="text-blue-600 dark:text-blue-400" />
+            <span className="hidden sm:inline">Projects</span>
+          </button>
 
           {/* Editable Document Title */}
-          <div className="flex items-center gap-2 min-w-0 flex-1 max-w-md sm:max-w-lg">
-            <div className="p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shrink-0">
-              <FileText size={18} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <input
-                type="text"
-                value={doc.title}
-                onChange={e => setDoc(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Document Title..."
-                className="w-full text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-none transition-colors truncate"
-              />
-            </div>
+          <div className="flex items-center gap-2 min-w-0 flex-1 max-w-md sm:max-w-lg ml-1">
+            <input
+              type="text"
+              value={doc.title}
+              onChange={e => setDoc(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="Document Title..."
+              className="w-full text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-none transition-colors truncate"
+            />
           </div>
         </div>
 
-        {/* Right: Settings Button, Flipbook Button, Print Button, Help Button, Autosave Status, & Studio Badge */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Settings & Templates Button */}
+        {/* Right: Settings, User Guide, Print, Autosave Status */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs active:scale-95 shrink-0 border border-slate-200/80 dark:border-slate-700/80"
-            title="Page Dimensions, Layout, and Academic Templates"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shrink-0 border border-slate-200/80 dark:border-slate-700/80"
+            title="Page Setup & Margins"
           >
-            <Settings size={14} className="shrink-0 text-slate-500 dark:text-slate-400" />
-            <span className="hidden sm:inline">Settings</span>
-          </button>
-
-          {/* Flipbook 3D Reading Mode Button (Positioned before print button) */}
-          <button
-            type="button"
-            onClick={() => setIsFlipbookModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs shadow-indigo-500/25 active:scale-95 shrink-0"
-            title="Read as Flipbook (Interactive 3D page turning)"
-          >
-            <BookOpen size={14} className="shrink-0" />
-            <span className="hidden sm:inline">Flipbook</span>
-          </button>
-
-          {/* Prominent High-Contrast Print Button */}
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs shadow-blue-500/25 active:scale-95 shrink-0"
-            title="Print or Save as PDF (1:1 paper dimensions)"
-          >
-            <Printer size={14} className="shrink-0" />
-            <span>Print</span>
+            <Settings size={13} className="shrink-0 text-slate-500 dark:text-slate-400" />
+            <span className="hidden sm:inline">Page Setup</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsHelpModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-colors"
-            title="Open Document Studio User Guide & Help"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shrink-0"
+            title="User Guide"
           >
-            <HelpCircle size={14} className="text-amber-600 dark:text-amber-400" />
-            <span className="hidden sm:inline">Guide &amp; Help</span>
+            <BookOpen size={13} className="shrink-0" />
+            <span className="hidden sm:inline">Guide</span>
           </button>
 
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-            {savedStatus === 'saving' ? (
-              <span className="flex items-center gap-1 text-amber-500">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span className="hidden md:inline">Saving...</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle size={13} />
-                <span className="hidden md:inline">Autosaved</span>
-              </span>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shrink-0"
+            title="Print or Save as PDF"
+          >
+            <Printer size={13} className="shrink-0" />
+            <span>Print</span>
+          </button>
 
-          <div className="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 border border-indigo-200/60 dark:border-indigo-800/60 hidden lg:flex">
-            <Sparkles size={11} />
-            <span>Document Studio</span>
+          <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
+            {savedStatus === 'saving' ? (
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Saving..." />
+            ) : (
+              <CheckCircle size={13} className="text-emerald-500" title="Autosaved" />
+            )}
           </div>
         </div>
       </header>
@@ -536,7 +578,7 @@ export default function DocStudio() {
               >
                 <NotebookPreview
                   ref={previewRef}
-                  document={doc}
+                  document={deferredDoc}
                   onUpdateContent={handleUpdateContent}
                   onChangePageSettings={handleUpdatePageSettings}
                   onOpenSimulationModal={() => setIsSimulationModalOpen(true)}
@@ -545,6 +587,7 @@ export default function DocStudio() {
                   onOpenImageStudio={handleOpenImageStudio}
                   onInsertPageBreak={() => handleInsertCustom('\n\n---pagebreak---\n\n')}
                   isPortrait={true}
+                  activeEditLine={activeEditLine}
                 />
               </div>
             )}
@@ -590,6 +633,7 @@ export default function DocStudio() {
                   onOpenTableBuilder={() => setIsTableBuilderOpen(true)}
                   onOpenImageModal={() => setIsImageModalOpen(true)}
                   onPrint={handlePrint}
+                  onActiveLineChange={setActiveEditLine}
                 />
               </div>
             )}
@@ -616,6 +660,7 @@ export default function DocStudio() {
                   onOpenTableBuilder={() => setIsTableBuilderOpen(true)}
                   onOpenImageModal={() => setIsImageModalOpen(true)}
                   onPrint={handlePrint}
+                  onActiveLineChange={setActiveEditLine}
                 />
               </div>
             )}
@@ -653,7 +698,7 @@ export default function DocStudio() {
               >
                 <NotebookPreview
                   ref={previewRef}
-                  document={doc}
+                  document={deferredDoc}
                   onUpdateContent={handleUpdateContent}
                   onChangePageSettings={handleUpdatePageSettings}
                   onOpenSimulationModal={() => setIsSimulationModalOpen(true)}
@@ -662,6 +707,7 @@ export default function DocStudio() {
                   onOpenImageStudio={handleOpenImageStudio}
                   onInsertPageBreak={() => handleInsertCustom('\n\n---pagebreak---\n\n')}
                   isPortrait={false}
+                  activeEditLine={activeEditLine}
                 />
               </div>
             )}
@@ -714,13 +760,49 @@ export default function DocStudio() {
       <FlipbookModal
         isOpen={isFlipbookModalOpen}
         onClose={() => setIsFlipbookModalOpen(false)}
-        document={doc}
+        document={deferredDoc}
       />
 
       <NotebookHelpModal
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
       />
+
+      {isNewDocConfirmOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150 print:hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400">
+              <div className="p-3 rounded-2xl bg-blue-100 dark:bg-blue-950/50">
+                <FileText size={24} />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Start Blank Document?
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                  This will replace the current document with a fresh blank academic sheet.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsNewDocConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeNewDoc}
+                className="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-all"
+              >
+                Create Blank Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

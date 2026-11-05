@@ -15,6 +15,7 @@ export default function Settings() {
   const [reportCount, setReportCount] = useState<number>(0);
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleanFeedback, setCleanFeedback] = useState<string | null>(null);
+  const [confirmFullReset, setConfirmFullReset] = useState(false);
 
   // Subject & Category Management State
   const {
@@ -235,9 +236,7 @@ export default function Settings() {
   };
 
   const handleClearAllStorage = async () => {
-    if (!window.confirm("Are you sure you want to perform a full memory cleanup? This will remove all offline cached tests, test reports, and reset preferences.")) {
-      return;
-    }
+    setConfirmFullReset(false);
     setIsCleaning(true);
     setCleanFeedback(null);
     try {
@@ -631,15 +630,35 @@ export default function Settings() {
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Clean Cached Test Files</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleClearAllStorage}
-                  disabled={isCleaning}
-                  className="flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 transition-colors disabled:opacity-50"
-                >
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Full Memory Reset</span>
-                </button>
+                {confirmFullReset ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800">
+                    <span className="text-xs font-bold text-red-700 dark:text-red-300">Wipe all offline data?</span>
+                    <button
+                      type="button"
+                      onClick={handleClearAllStorage}
+                      className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold"
+                    >
+                      Yes, Wipe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmFullReset(false)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmFullReset(true)}
+                    disabled={isCleaning}
+                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 transition-colors disabled:opacity-50"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Full Memory Reset</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -669,6 +688,54 @@ export default function Settings() {
               </label>
             </div>
 
+          </div>
+        </div>
+
+        {/* Platform Guide & Performance Architecture Reference */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              Platform Help &amp; Engine Capabilities
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Quick reference for the upgraded offline CBT Creation Tool, Document Studio, Recent Projects Hub, and 0ms Instant KaTeX Engine.
+            </p>
+          </div>
+          <div className="p-4 sm:p-6 space-y-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+            <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/50 space-y-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">1. CBT Creation Studio &amp; Adaptive 1-Col / 2-Col Multi-Question Stream</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Side-by-Side Multi-Question Stream:</strong> Edit multiple questions on the left while viewing all rendered preview cards in the same order on the right, or switch to <strong>Edit Only</strong> or <strong>View Only</strong> mode.</li>
+                <li><strong>Container-Responsive 1-Col / 2-Col Grid:</strong> Drag the resizable center divider or view on a wide desktop screen—whenever the Editor pane or Preview pane width reaches &ge; 820px, question cards automatically arrange in a <strong>2-column grid</strong> and reflow to <strong>1-column</strong> when narrowed.</li>
+                <li><strong>Zero-Lag Long Paper Performance (50–200+ Questions):</strong> Strict per-question <code className="font-mono">React.memo</code> comparators and CSS <code className="font-mono">content-visibility: auto</code> ensure typing in one question only updates that single card.</li>
+                <li><strong>Recent Projects &amp; Guides Hub:</strong> Open CBT Maker or click <strong>Projects</strong> in the top bar to resume your active draft in 1 click, save named snapshots to IndexedDB, or load showcase templates.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-900/50 space-y-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">2. Document Studio (2-Tab Word Processor Ribbon &amp; Inline LaTeX)</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Universal Inline LaTeX:</strong> Supports <code className="font-mono">$...$</code>, <code className="font-mono">\(...\)</code>, <code className="font-mono">\ensuremath&#123;...&#125;</code>, and bare LaTeX commands (<code className="font-mono">\frac&#123;a&#125;&#123;b&#125;</code>, <code className="font-mono">\sqrt&#123;x&#125;</code>, Greek letters) inside paragraphs, headings, lists, and tables without underscore corruption.</li>
+                <li><strong>2-Tab Word Processor Ribbon &amp; Click-to-Edit Headers/Footers:</strong> Use the <strong>Home</strong> tab for typography, alignment (Left/Center/Right/Justify), and line spacing, and the <strong>Page Layout</strong> tab for custom Top/Bottom/Left/Right mm margins, columns, running headers, and page numbers—or click directly on any virtual sheet&apos;s top header or bottom footer zone to edit inline.</li>
+                <li><strong>Live Active Block Highlight &amp; Auto-Scroll:</strong> Editing any line in the editor automatically scrolls to and highlights the corresponding rendered block on the virtual page.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 space-y-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">3. Instant 0ms HTML Test Viewer (Online &amp; Offline, LaTeX Font On or Off)</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Zero-Blocking Font &amp; KaTeX Bridge:</strong> Strips unreachable external CDNs, applies <code className="font-mono">font-display: swap</code> with immediate fallback stacks, and bridges in-memory KaTeX and loaded fonts from the parent window so HTML tests appear instantaneously whether online or offline and whether <em>Use LaTeX Fonts</em> is enabled or disabled.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 space-y-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">4. Unified React Architecture &amp; Zero-Black-Screen Route Engine</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Single React Dispatcher:</strong> Eliminated external animation bundle collisions and hook dispatcher isolation by removing extraneous motion wrappers and applying strict Vite deduplication (<code className="font-mono">['react', 'react-dom']</code>).</li>
+                <li><strong>Zero-Overhead Pure CSS Route Transitions:</strong> Fast, flicker-free route switching across all subjects, CBT Viewer, CBT Maker, and Document Studio with complete offline hook safety for <code className="font-mono">useOfflineCache</code>, <code className="font-mono">useCBTData</code>, <code className="font-mono">useSubjectCategories</code>, and <code className="font-mono">useReports</code>.</li>
+              </ul>
+            </div>
           </div>
         </div>
         

@@ -142,19 +142,20 @@ const MemoizedQuestionCard = memo(function MemoizedQuestionCard({
     <div
       id={`preview-question-${idx}`}
       onClick={onSelectQuestion}
-      className={`transition-all duration-200 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border p-5 sm:p-7 w-full scroll-mt-14 ${
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 280px' }}
+      className={`transition-colors bg-white dark:bg-slate-900 rounded-2xl shadow-2xs border p-4 sm:p-5 w-full scroll-mt-14 ${
         isActive
-          ? 'border-blue-500/80 ring-2 ring-blue-500/20 shadow-md dark:border-blue-500/80'
+          ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-sm dark:border-blue-500'
           : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
       }`}
     >
       {/* Question Header */}
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-extrabold text-base sm:text-lg text-slate-800 dark:text-slate-100">
-            Question {idx + 1}
+          <span className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100 font-mono">
+            Q{idx + 1}
           </span>
-          <span className="px-2.5 py-0.5 rounded-md font-bold text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/40">
+          <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/40">
             {typeBadgeLabel}
           </span>
           {isActive && (
@@ -355,18 +356,30 @@ const MemoizedQuestionCard = memo(function MemoizedQuestionCard({
 
       {/* Explanation if any */}
       {processedExp && (
-        <div className="mt-7 pt-5 border-t border-slate-200 dark:border-slate-800 space-y-2">
-          <div className="flex items-center gap-2 font-bold text-sm sm:text-base text-amber-600 dark:text-amber-400">
-            <Lightbulb size={18} />
-            <span>Solution / Explanation</span>
+        <div className="mt-5 pt-3.5 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+          <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-amber-600 dark:text-amber-400">
+            <Lightbulb size={15} />
+            <span>Solution</span>
           </div>
           <div
-            className="cbt-rendered-content text-sm sm:text-base text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line bg-amber-50/60 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50"
+            className="cbt-rendered-content text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line bg-amber-50/60 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-900/50"
             dangerouslySetInnerHTML={{ __html: processedExp }}
           />
         </div>
       )}
     </div>
+  );
+}, (prev, next) => {
+  return (
+    prev.q === next.q &&
+    prev.idx === next.idx &&
+    prev.isActive === next.isActive &&
+    prev.fontName === next.fontName &&
+    prev.mathMode === next.mathMode &&
+    prev.renderEngine === next.renderEngine &&
+    prev.mediaMode === next.mediaMode &&
+    prev.section.marks === next.section.marks &&
+    prev.section.negative === next.section.negative
   );
 });
 
@@ -377,7 +390,7 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   section,
   allSections = [],
   allQuestionsInSection = [],
-  questionViewMode = 'SINGLE',
+  questionViewMode = 'CONTINUOUS',
   onToggleViewMode,
   onSelectQuestionIndex,
   onEditQuestion,
@@ -394,7 +407,28 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [localZoomFactor, setLocalZoomFactor] = useState<number>(1.0);
   const [isSectionMenuOpen, setIsSectionMenuOpen] = useState<boolean>(false);
-  const [mediaMode, setMediaMode] = useState<'on-demand' | 'always'>('on-demand');
+  const [mediaMode, setMediaMode] = useState<'on-demand' | 'always'>('always');
+  const stageContainerRef = useRef<HTMLDivElement>(null);
+  const [stageWidth, setStageWidth] = useState<number>(900);
+
+  useEffect(() => {
+    const el = stageContainerRef.current;
+    if (!el) return;
+    setStageWidth(el.clientWidth);
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setStageWidth(Math.round(entry.contentRect.width));
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const isTwoColumnPreview =
+    viewportMode === 'desktop' &&
+    questionViewMode === 'CONTINUOUS' &&
+    stageWidth >= 820 &&
+    (allQuestionsInSection?.length || 0) > 1;
 
   // Unified font zoom scale: combines base preview font setting and local fine-tuner
   const effectiveZoomPercentage = Math.round(
@@ -403,10 +437,12 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
 
   const viewportWidthClass =
     viewportMode === 'mobile'
-      ? 'w-full max-w-[375px] mx-auto'
+      ? 'w-full max-w-[375px] mx-auto flex flex-col gap-4'
       : viewportMode === 'tablet'
-      ? 'w-full max-w-[640px] mx-auto'
-      : 'w-full max-w-3xl mx-auto';
+      ? 'w-full max-w-[640px] mx-auto flex flex-col gap-4'
+      : isTwoColumnPreview
+      ? 'w-full grid grid-cols-2 gap-4 items-start'
+      : 'w-full max-w-4xl mx-auto flex flex-col gap-4';
 
   // Scroll active question into view when activeQuestionIndex changes in continuous mode
   useEffect(() => {
@@ -502,12 +538,22 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
         {/* Right: Layout Switcher, Zoom Controller, Viewport Switcher */}
         <div className="flex items-center gap-1.5 shrink-0">
           
+          {/* Responsive Column Count Indicator */}
+          {questionViewMode === 'CONTINUOUS' && viewportMode === 'desktop' && (
+            <span
+              className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              title="Preview column count automatically adapts to pane width"
+            >
+              {isTwoColumnPreview ? '2-Col Preview' : '1-Col Preview'}
+            </span>
+          )}
+
           {/* Continuous Stream vs Single Question Toggle Button */}
           {onToggleViewMode && (
             <button
               type="button"
               onClick={onToggleViewMode}
-              title={questionViewMode === 'CONTINUOUS' ? 'Switch to Single Question Focus View' : 'Switch to Continuous Top-to-Bottom Stream View'}
+              title={questionViewMode === 'CONTINUOUS' ? 'Switch to Single Question Focus View' : 'Switch to All-Questions List View'}
               className={`flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-lg border transition-all ${
                 questionViewMode === 'CONTINUOUS'
                   ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
@@ -516,7 +562,7 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
             >
               <ListFilter size={12} />
               <span>
-                {questionViewMode === 'CONTINUOUS' ? 'Stream' : 'Single'}
+                {questionViewMode === 'CONTINUOUS' ? 'All Qs' : 'Single'}
               </span>
             </button>
           )}
@@ -562,7 +608,7 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
             <button
               type="button"
               onClick={() => setViewportMode('desktop')}
-              title="Desktop View (Full Width)"
+              title="Desktop View (Auto 1-Col / 2-Col)"
               className={`p-1 rounded transition-colors touch-manipulation ${
                 viewportMode === 'desktop'
                   ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-xs'
@@ -599,16 +645,17 @@ const QuestionLivePreview = memo(function QuestionLivePreview({
         </div>
       </div>
 
-      {/* CONTINUOUS STREAM MODE: Main scroll container */}
-
       {/* PREVIEW STAGE CONTAINER */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6 flex flex-col items-center justify-start w-full">
+      <div
+        ref={stageContainerRef}
+        className="flex-1 overflow-y-auto p-3 sm:p-5 flex flex-col items-center justify-start w-full"
+      >
         <div
           style={{
             fontFamily: fontName,
             fontSize: `${effectiveZoomPercentage}%`
           }}
-          className={`${viewportWidthClass} transition-all duration-200 w-full flex flex-col gap-6`}
+          className={`${viewportWidthClass} transition-all duration-150`}
         >
           {questionViewMode === 'CONTINUOUS' && allQuestionsInSection && allQuestionsInSection.length > 0 ? (
             /* Continuous Top-to-Bottom Question Stream */

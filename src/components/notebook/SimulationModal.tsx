@@ -158,7 +158,7 @@ export default function SimulationModal({
   );
 
   const handleSelectPreset = (preset: SimulationPreset) => {
-    const markdown = `\n:::iframe {title="${preset.title}" width=100% height=${preset.defaultHeight}}\n${preset.url}\n:::\n`;
+    const markdown = `\n:::simulation\ntitle: ${preset.title}\nurl: ${preset.url}\nheight: ${preset.defaultHeight}\n:::\n`;
     onInsertSimulation(markdown);
     onClose();
   };
@@ -183,7 +183,7 @@ export default function SimulationModal({
     const widthVal = customWidth.trim() || '100%';
     const heightVal = customHeight.trim() || '400px';
 
-    const markdown = `\n:::iframe {title="${extractedTitle}" width=${widthVal} height=${heightVal}}\n${extractedUrl}\n:::\n`;
+    const markdown = `\n:::simulation\ntitle: ${extractedTitle}\nurl: ${extractedUrl}\nwidth: ${widthVal}\nheight: ${heightVal}\n:::\n`;
     onInsertSimulation(markdown);
     onClose();
   };
@@ -205,7 +205,7 @@ export default function SimulationModal({
                 Interactive Simulations & Iframes
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Embed PhET Virtual Labs, Desmos Calculators, GeoGebra or custom HTML simulations
+                Embed STEM Virtual Labs, Desmos Calculators, GeoGebra or custom HTML simulations
               </p>
             </div>
           </div>
