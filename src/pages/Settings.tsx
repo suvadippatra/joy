@@ -1,13 +1,15 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import Header from '../components/Header';
-import { Settings as SettingsIcon, Type, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertTriangle, FolderTree, Plus, X, ChevronDown, ChevronRight, RotateCcw, Layers, Pencil, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Type, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertTriangle, FolderTree, Plus, X, ChevronDown, ChevronRight, RotateCcw, Layers, Pencil, Check, Sliders } from 'lucide-react';
 import localforage from 'localforage';
-import { useSubjectCategories, DEFAULT_SUBJECTS_MAP } from '../hooks/useSubjectCategories';
+import { useSubjectCategories } from '../hooks/useSubjectCategories';
+import { useButtonDisplayMode, ButtonDisplayMode } from '../hooks/useButtonDisplayMode';
 
 export default function Settings() {
   const [settings, setSettings] = useState({
     useLatexFont: false
   });
+  const { mode: buttonDisplayMode, setMode: setButtonDisplayMode } = useButtonDisplayMode();
   
   const [memoryUsage, setMemoryUsage] = useState<string>('Calculating...');
   const [percentUsed, setPercentUsed] = useState<number>(0);
@@ -214,6 +216,7 @@ export default function Settings() {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
     localStorage.setItem('cbtSettings', JSON.stringify(updated));
+    window.dispatchEvent(new Event('cbt_settings_changed'));
   };
 
   const handleClearCachedTests = async () => {
@@ -673,7 +676,7 @@ export default function Settings() {
                 <div>
                   <h3 className="font-medium text-slate-800 dark:text-slate-200">Use LaTeX Fonts</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Applies genuine LaTeX typography (KaTeX Computer Modern Main, KaTeX Math, KaTeX Sans) across all exam questions, options, and interfaces.
+                    Applies genuine LaTeX typography (KaTeX Computer Modern Main, KaTeX Math, KaTeX Sans) with pre-cached offline Base64 WOFF2 font bridging across all sandboxed HTML exam viewers and editors.
                   </p>
                 </div>
               </div>
@@ -688,6 +691,65 @@ export default function Settings() {
               </label>
             </div>
 
+            <hr className="border-slate-100 dark:border-slate-700" />
+
+            {/* Toolbar Button Display Mode */}
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0 h-min">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-slate-800 dark:text-slate-200">Toolbar Button Preview Mode</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Controls how buttons and segmented groups are displayed in Document Studio and CBT Creation Studio. By default (<strong>Smart Active-Label</strong>), toolbars show compact icons only, while the currently selected option in a group expands slightly to display both its icon and text label.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3">
+                    {([
+                      {
+                        id: 'smart' as ButtonDisplayMode,
+                        title: 'Smart Active-Label (Default)',
+                        desc: 'Icons by default; active button in a group shows Icon + Text slightly larger'
+                      },
+                      {
+                        id: 'icon-only' as ButtonDisplayMode,
+                        title: 'Icons Only',
+                        desc: 'Ultra-compact icon-only buttons across all toolbars and question cards'
+                      },
+                      {
+                        id: 'icon-text' as ButtonDisplayMode,
+                        title: 'Icons + Text Always',
+                        desc: 'Shows text labels on all grouped buttons and enables the extra math snippet bar'
+                      }
+                    ]).map(opt => {
+                      const active = buttonDisplayMode === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setButtonDisplayMode(opt.id)}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            active
+                              ? 'bg-blue-50/90 dark:bg-blue-950/50 border-blue-500 ring-2 ring-blue-500/20'
+                              : 'bg-slate-50/60 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="text-xs font-extrabold text-slate-900 dark:text-slate-100 flex items-center justify-between gap-1">
+                            <span>{opt.title}</span>
+                            {active && <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                            {opt.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -699,41 +761,66 @@ export default function Settings() {
               Platform Help &amp; Engine Capabilities
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Quick reference for the upgraded offline CBT Creation Tool, Document Studio, Recent Projects Hub, and 0ms Instant KaTeX Engine.
+              Complete reference for the upgraded offline CBT Creation Tool, Document Studio, Inline Question Expressions, Smart Active-Label Toolbars, and Sandboxed Offline KaTeX Font Bridge.
             </p>
           </div>
           <div className="p-4 sm:p-6 space-y-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
             <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/50 space-y-1.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100">1. CBT Creation Studio &amp; Adaptive 1-Col / 2-Col Multi-Question Stream</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">1. CBT Creation Studio, Clean Homepage &amp; Inline Question Expressions</h3>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Side-by-Side Multi-Question Stream:</strong> Edit multiple questions on the left while viewing all rendered preview cards in the same order on the right, or switch to <strong>Edit Only</strong> or <strong>View Only</strong> mode.</li>
-                <li><strong>Container-Responsive 1-Col / 2-Col Grid:</strong> Drag the resizable center divider or view on a wide desktop screen—whenever the Editor pane or Preview pane width reaches &ge; 820px, question cards automatically arrange in a <strong>2-column grid</strong> and reflow to <strong>1-column</strong> when narrowed.</li>
-                <li><strong>Zero-Lag Long Paper Performance (50–200+ Questions):</strong> Strict per-question <code className="font-mono">React.memo</code> comparators and CSS <code className="font-mono">content-visibility: auto</code> ensure typing in one question only updates that single card.</li>
-                <li><strong>Recent Projects &amp; Guides Hub:</strong> Open CBT Maker or click <strong>Projects</strong> in the top bar to resume your active draft in 1 click, save named snapshots to IndexedDB, or load showcase templates.</li>
+                <li><strong>Clean Zero-State Landing Hub:</strong> Opens with only <strong>Start Blank</strong> and <strong>Load Full Showcase Template</strong> until you save or start a project. Section &amp; question markings (<code className="font-mono">Q1, Q2...</code>) only appear inside the active editor workspace.</li>
+                <li><strong>Inline Expression Commands (No Clutter UI):</strong> Type inline directives directly inside any question statement to configure it without extra toolbar buttons:
+                  <ul className="list-circle pl-5 mt-1 space-y-0.5 font-mono text-[11px] sm:text-xs">
+                    <li><code>@marks(+4,-1)</code> &rarr; Sets Correct Marks (+4) and Penalty (-1)</li>
+                    <li><code>@type(NAT)</code> / <code>@type(MSQ)</code> / <code>@type(SCQ)</code> &rarr; Switches Question Type</li>
+                    <li><code>@ans(B)</code> / <code>@ans(A,C)</code> / <code>@ans(5)</code> &rarr; Sets Correct Option(s) or NAT Key</li>
+                    <li><code>@sol: Step-by-step derivation...</code> &rarr; Populates the Solution / Explanation box on blur</li>
+                    <li><code>| Col A | Col B |</code> &rarr; Converts Markdown pipe lines into a structured HTML Matrix/Table on blur</li>
+                  </ul>
+                </li>
+                <li><strong>Side-by-Side Multi-Question Stream &amp; Adaptive 1-Col / 2-Col Grid:</strong> Drag the center splitter or switch between <code className="font-mono">Split | Edit | View</code>—panes &ge; 820px automatically arrange questions in 2 columns.</li>
               </ul>
             </div>
 
             <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-900/50 space-y-1.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100">2. Document Studio (2-Tab Word Processor Ribbon &amp; Inline LaTeX)</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">2. Document Studio (High-Contrast Print Sheet, Double-Escaped LaTeX &amp; Horizontal Scroll)</h3>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Universal Inline LaTeX:</strong> Supports <code className="font-mono">$...$</code>, <code className="font-mono">\(...\)</code>, <code className="font-mono">\ensuremath&#123;...&#125;</code>, and bare LaTeX commands (<code className="font-mono">\frac&#123;a&#125;&#123;b&#125;</code>, <code className="font-mono">\sqrt&#123;x&#125;</code>, Greek letters) inside paragraphs, headings, lists, and tables without underscore corruption.</li>
-                <li><strong>2-Tab Word Processor Ribbon &amp; Click-to-Edit Headers/Footers:</strong> Use the <strong>Home</strong> tab for typography, alignment (Left/Center/Right/Justify), and line spacing, and the <strong>Page Layout</strong> tab for custom Top/Bottom/Left/Right mm margins, columns, running headers, and page numbers—or click directly on any virtual sheet&apos;s top header or bottom footer zone to edit inline.</li>
-                <li><strong>Live Active Block Highlight &amp; Auto-Scroll:</strong> Editing any line in the editor automatically scrolls to and highlights the corresponding rendered block on the virtual page.</li>
+                <li><strong>High-Contrast Paper Sheet in Light &amp; Dark Mode:</strong> Virtual paper sheets always render with crisp dark ink (<code className="font-mono">#0f172a</code>) on white paper regardless of whether the app UI is in Light or Dark mode.</li>
+                <li><strong>Universal &amp; Double-Escaped Inline LaTeX:</strong> Compiles <code className="font-mono">$...$</code>, <code className="font-mono">\(...\)</code>, double-escaped <code className="font-mono">\\(\Omega\\)</code>, <code className="font-mono">\\[...\\]</code>, and bare LaTeX commands seamlessly inside paragraphs, headings, lists, tables, and <code className="font-mono">\begin&#123;twocolumn&#125;</code> / <code className="font-mono">\begin&#123;wrapfigure&#125;</code> environments.</li>
+                <li><strong>Full Horizontal Scroll Accessibility:</strong> Both the preview sub-header (<code className="font-mono">Sheets | Flow</code>, page jumper, zoom controls) and the zoomed paper canvas scroll horizontally without clipping right-edge or left-edge content.</li>
               </ul>
             </div>
 
             <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 space-y-1.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100">3. Instant 0ms HTML Test Viewer (Online &amp; Offline, LaTeX Font On or Off)</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">3. Sandboxed Offline KaTeX Base64 Font Bridge &amp; Single-Pass HTML Exam Viewer</h3>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Zero-Blocking Font &amp; KaTeX Bridge:</strong> Strips unreachable external CDNs, applies <code className="font-mono">font-display: swap</code> with immediate fallback stacks, and bridges in-memory KaTeX and loaded fonts from the parent window so HTML tests appear instantaneously whether online or offline and whether <em>Use LaTeX Fonts</em> is enabled or disabled.</li>
+                <li><strong>Offline Sandboxed Iframe Font Access:</strong> Pre-caches <code className="font-mono">/libs/fonts/KaTeX_*.woff2</code> into Base64 data URIs in IndexedDB (<code className="font-mono">katexFontBridge.ts</code>) and injects self-contained <code className="font-mono">@font-face</code> rules with <code className="font-mono">font-display: swap</code> directly into the sandboxed <code className="font-mono">srcDoc</code> exam iframe.</li>
+                <li><strong>Instant Single-Pass Loading:</strong> Eliminates duplicate iframe reloads and font-wait invisible text (<code className="font-mono">FOIT</code>) so HTML exams load instantaneously with or without LaTeX fonts, online or 100% offline.</li>
               </ul>
             </div>
 
             <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 space-y-1.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100">4. Unified React Architecture &amp; Zero-Black-Screen Route Engine</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">4. Smart Active-Label Toolbar Mode &amp; Initial Launch Route</h3>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Single React Dispatcher:</strong> Eliminated external animation bundle collisions and hook dispatcher isolation by removing extraneous motion wrappers and applying strict Vite deduplication (<code className="font-mono">['react', 'react-dom']</code>).</li>
-                <li><strong>Zero-Overhead Pure CSS Route Transitions:</strong> Fast, flicker-free route switching across all subjects, CBT Viewer, CBT Maker, and Document Studio with complete offline hook safety for <code className="font-mono">useOfflineCache</code>, <code className="font-mono">useCBTData</code>, <code className="font-mono">useSubjectCategories</code>, and <code className="font-mono">useReports</code>.</li>
+                <li><strong>Main Homepage Launch (<code className="font-mono">/#/</code>):</strong> Cold launches always open the main platform dashboard (<code className="font-mono">/#/</code>) rather than jumping into a specific subject route.</li>
+                <li><strong>Smart Active-Label Buttons:</strong> By default, grouped toolbar buttons show compact icons only and expand the active selection with both Icon + Text. You can switch between <strong>Smart Active-Label</strong>, <strong>Icons Only</strong>, and <strong>Icons + Text Always</strong> above.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/70 dark:border-teal-900/50 space-y-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">5. প্রশ্নপত্র Maker (<code className="font-mono">/#/qp-maker</code>) — Bilingual Bengali &amp; English Question Paper Studio</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Exact Standalone Replica Workspace:</strong> Dedicated workspace accessible from the Homepage featuring QPF v1.1 bulk import, AI Prompt templates, up to 10 customizable sections, <code className="font-mono">অথবা / OR</code> question pairing, sub-questions with <code className="font-mono">(1+3+1)</code> part-mark breakdowns, extra blocks (Image, Table, Freehand Diagram Canvas, Labeled Diagram), Auto-fit scaling, Answer Space lines, custom watermarks, and LibreOffice <code className="font-mono">.odt</code> + native PDF/Print export.</li>
+                <li><strong>Bilingual Bengali &amp; English LaTeX &amp; Fraction Engine:</strong> Supports QPF tags (<code className="font-mono">[EQ:...]</code>, <code className="font-mono">[FRAC:লব/হর]</code>, <code className="font-mono">[CHEM:...]</code>, <code className="font-mono">[SYM:...]</code>, <code className="font-mono">[SUB:...]</code>, <code className="font-mono">[SUP:...]</code>), inline <code className="font-mono">$...$</code> / <code className="font-mono">$$...$$</code> LaTeX, and automatic stacked fraction conversion for Bengali &amp; English fractions (<code className="font-mono">৩/৪</code>, <code className="font-mono">লব/হর</code>, <code className="font-mono">১৫ ÷ ৪</code>) while preserving Bengali conjuncts (যুক্তাক্ষর) inside KaTeX via automatic <code className="font-mono">\text&#123;...&#125;</code> wrapping.</li>
+              </ul>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/30 border border-cyan-200/70 dark:border-cyan-900/50 space-y-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">6. Aakash Weather &amp; Sky (<code className="font-mono">/#/weather</code>) — 60fps Engine, Canvas Map &amp; Trilingual Localization</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Zero-Lag 60fps Responsiveness:</strong> Replaced heavy full-screen CSS blur filters with GPU-accelerated radial gradients and memoized weather state slices for instant tab, layer, and language switching.</li>
+                <li><strong>Astronomical Precision &amp; Day/Night Icons:</strong> Computes dynamic Solar Noon, exact Day Length, and true Lunar Ecliptic Longitude Tithi &amp; Paksha, while automatically switching clear/partly-cloudy sky icons to night-sky variants (<code className="font-mono">🌙</code>) after sunset.</li>
+                <li><strong>Interactive HTML5 Canvas Weather Map &amp; Complete Today Metrics:</strong> Renders live RainViewer radar tiles, thermal heatmaps, cloud density, and 60 animated wind streamline particles, alongside Air Quality (AQI, PM2.5, PM10, O₃, NO₂), Dew Point, Visibility, Wind Gusts, Beaufort Wind Scale, and Everyday Lifestyle Advisory cards localized in <strong>English</strong>, <strong>বাংলা</strong>, and <strong>हिन्दी</strong>.</li>
               </ul>
             </div>
           </div>

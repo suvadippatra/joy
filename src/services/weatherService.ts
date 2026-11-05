@@ -241,11 +241,26 @@ export function computeImdStationData(
 /* ================== BENGALI CALENDAR & PANJIKA ENGINE ================== */
 
 const BN_NUMERALS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+const HI_NUMERALS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+
 export function toBengaliNumerals(n: number | string): string {
   return String(n)
     .split('')
     .map((c) => (c >= '0' && c <= '9' ? BN_NUMERALS[Number(c)] : c))
     .join('');
+}
+
+export function toHindiNumerals(n: number | string): string {
+  return String(n)
+    .split('')
+    .map((c) => (c >= '0' && c <= '9' ? HI_NUMERALS[Number(c)] : c))
+    .join('');
+}
+
+export function formatNumByLang(n: number | string, lang: 'en' | 'bn' | 'hi' = 'en'): string {
+  if (lang === 'bn') return toBengaliNumerals(n);
+  if (lang === 'hi') return toHindiNumerals(n);
+  return String(n);
 }
 
 export interface BengaliDateInfo {
@@ -1205,12 +1220,50 @@ export const TITHI_NAMES = [
   'Ekadashi', 'Dwadashi', 'Trayodashi', 'Chaturdashi', 'Purnima'
 ];
 
-export function computeAstroSnapshot(d: Date, lat: number, lon: number): SunMoonInfo {
+/**
+ * Computes true Lunar & Solar ecliptic longitudes, exact Tithi, Paksha,
+ * and dynamic Solar Noon & Day Length for the given coordinates and date.
+ */
+export function computeAstroSnapshot(
+  d: Date,
+  lat: number,
+  lon: number,
+  sunriseIso?: string,
+  sunsetIso?: string
+): SunMoonInfo {
   const { altitude: sunAlt, azimuth: sunAz } = getSunAltitudeAndAzimuth(d, lat, lon);
   const sPos = getSunPos(d);
   const mInfo = getMoonDetails(d);
 
-  const elongation = norm360((mInfo.age / mInfo.SYN) * 360);
+  // True Ecliptic Longitude calculation for Sun and Moon (Julian Day based)
+  const JD = d.getTime() / 86400000 + 2440587.5;
+  const T = (JD - 2451545.0) / 36525.0;
+
+  // Sun true longitude
+  const L0 = norm360(280.46646 + 36000.76983 * T);
+  const M_sun = norm360(357.52911 + 35999.05029 * T);
+  const C_sun =
+    (1.914602 - 0.004817 * T) * Math.sin(rad(M_sun)) +
+    0.019993 * Math.sin(rad(2 * M_sun));
+  const sunLon = norm360(L0 + C_sun);
+
+  // Moon true longitude (Meeus Chapter 47 principal terms)
+  const L_moon = norm360(218.3164477 + 481267.88123421 * T);
+  const D_moon = norm360(297.8501921 + 445267.1114034 * T);
+  const M_moon = norm360(134.9633964 + 477198.8675055 * T);
+  const F_moon = norm360(93.2720950 + 483202.0175233 * T);
+
+  const moonLon = norm360(
+    L_moon +
+      6.288774 * Math.sin(rad(M_moon)) +
+      1.274027 * Math.sin(rad(2 * D_moon - M_moon)) +
+      0.658314 * Math.sin(rad(2 * D_moon)) +
+      0.213618 * Math.sin(rad(2 * M_moon)) -
+      0.185116 * Math.sin(rad(M_sun)) -
+      0.114332 * Math.sin(rad(2 * F_moon))
+  );
+
+  const elongation = norm360(moonLon - sunLon);
   const rawTithiIdx = Math.floor(elongation / 12);
   const isShukla = rawTithiIdx < 15;
   const tithiNumber = (rawTithiIdx % 15) + 1;
@@ -1223,6 +1276,36 @@ export function computeAstroSnapshot(d: Date, lat: number, lon: number): SunMoon
     tithiName = 'Amavasya';
   } else {
     tithiName = `${TITHI_NAMES[tithiNumber - 1]}`;
+  }
+
+  // Dynamic Solar Noon & Day Length from sunrise/sunset or spherical astronomy
+  let solarNoon = '11:52 AM';
+  let dayLengthHours = 12.0;
+
+  if (sunriseIso && sunsetIso) {
+    const sr = new Date(sunriseIso);
+    const ss = new Date(sunsetIso);
+    if (!isNaN(sr.getTime()) && !isNaN(ss.getTime()) && ss > sr) {
+      const diffMs = ss.getTime() - sr.getTime();
+      dayLengthHours = Number((diffMs / 3600000).toFixed(2));
+      const noonDate = new Date(sr.getTime() + diffMs / 2);
+      solarNoon = noonDate.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+  } else {
+    // Fallback spherical astronomy calculation for IST (UTC+5:30, standard meridian 82.5°E)
+    const cosH0 = Math.max(-1, Math.min(1, -Math.tan(rad(lat)) * Math.tan(sPos.dec)));
+    const H0_deg = deg(Math.acos(cosH0));
+    dayLengthHours = Number(((2 * H0_deg) / 15).toFixed(2));
+    const noonMinutesIST = 12 * 60 + (82.5 - lon) * 4;
+    const nH = Math.floor(noonMinutesIST / 60);
+    const nM = Math.round(noonMinutesIST % 60);
+    const ampm = nH >= 12 ? 'PM' : 'AM';
+    const dispH = nH > 12 ? nH - 12 : nH === 0 ? 12 : nH;
+    solarNoon = `${String(dispH).padStart(2, '0')}:${String(nM).padStart(2, '0')} ${ampm}`;
   }
 
   const half = mInfo.SYN / 2;
@@ -1253,10 +1336,10 @@ export function computeAstroSnapshot(d: Date, lat: number, lon: number): SunMoon
     sunAzimuth: Number(sunAz.toFixed(1)),
     sunDistanceAU: Number(sPos.R.toFixed(4)),
     sunDistanceMkm: Number((sPos.R * 149.59787).toFixed(2)),
-    solarNoon: '11:46 AM',
-    dayLengthHours: 11.8,
+    solarNoon,
+    dayLengthHours,
     moonAge: Number(mInfo.age.toFixed(1)),
-    moonIllumination: Math.round(mInfo.illum * 100),
+    moonIllumination: Math.round((1 - Math.cos(rad(elongation))) * 50),
     moonPhaseKey: mInfo.key,
     moonPhaseName: mInfo.phaseName,
     nextFullMoon: nextFullDate,
@@ -1268,7 +1351,7 @@ export function computeAstroSnapshot(d: Date, lat: number, lon: number): SunMoon
   };
 }
 
-/* ================== HUMIDEX & BEAUFORT ================== */
+/* ================== HUMIDEX, BEAUFORT & LIFESTYLE ================== */
 
 export function calculateHumidex(tempC: number, dewPointC: number): number | null {
   if (tempC == null || dewPointC == null) return null;
@@ -1276,56 +1359,216 @@ export function calculateHumidex(tempC: number, dewPointC: number): number | nul
   return Math.round(tempC + 0.5555 * (e - 10));
 }
 
-export function getHumidexCategory(hx: number | null): { category: string; color: string; bg: string } {
-  if (hx == null) return { category: 'No Data', color: 'text-slate-500', bg: 'bg-slate-100' };
-  if (hx < 30) return { category: 'Comfortable', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40' };
-  if (hx < 35) return { category: 'Some Discomfort', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40' };
-  if (hx < 40) return { category: 'Great Discomfort', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/40' };
-  if (hx < 45) return { category: 'Dangerous (Avoid Exertion)', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40' };
-  return { category: 'Heat Stroke Imminent', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/40' };
+export function getHumidexCategory(
+  hx: number | null,
+  lang: 'en' | 'bn' | 'hi' = 'en'
+): { category: string; color: string; bg: string } {
+  const dict = {
+    none: { en: 'No Data', bn: 'তথ্য নেই', hi: 'कोई डेटा नहीं' },
+    comf: { en: 'Comfortable', bn: 'স্বস্তিদায়ক', hi: 'आरामदायक' },
+    some: { en: 'Mild Discomfort', bn: 'মৃদু অস্বস্তি', hi: 'हल्की उमस' },
+    great: { en: 'High Discomfort', bn: 'তীব্র ভ্যাপসা গরম', hi: 'अधिक उमस (सावधानी)' },
+    danger: { en: 'Dangerous Heat Stress', bn: 'বিপজ্জনক তাপীয় চাপ', hi: 'खतरनाक गर्मी (परिश्रम से बचें)' },
+    stroke: { en: 'Extreme Heat Stroke Risk', bn: 'হিট স্ট্রোকের চরম ঝুঁকি', hi: 'लू लगने का गंभीर जोखिम' }
+  };
+  if (hx == null) return { category: dict.none[lang], color: 'text-slate-500', bg: 'bg-slate-100' };
+  if (hx < 30) return { category: dict.comf[lang], color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40' };
+  if (hx < 35) return { category: dict.some[lang], color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40' };
+  if (hx < 40) return { category: dict.great[lang], color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/40' };
+  if (hx < 45) return { category: dict.danger[lang], color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40' };
+  return { category: dict.stroke[lang], color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/40' };
 }
 
-export function getBeaufortScale(kmh: number): { scale: number; description: string } {
-  if (kmh < 1) return { scale: 0, description: 'Calm' };
-  if (kmh <= 5) return { scale: 1, description: 'Light Air' };
-  if (kmh <= 11) return { scale: 2, description: 'Light Breeze' };
-  if (kmh <= 19) return { scale: 3, description: 'Gentle Breeze' };
-  if (kmh <= 28) return { scale: 4, description: 'Moderate Breeze' };
-  if (kmh <= 38) return { scale: 5, description: 'Fresh Breeze' };
-  if (kmh <= 49) return { scale: 6, description: 'Strong Breeze' };
-  if (kmh <= 61) return { scale: 7, description: 'Near Gale' };
-  if (kmh <= 74) return { scale: 8, description: 'Gale' };
-  if (kmh <= 88) return { scale: 9, description: 'Strong Gale' };
-  if (kmh <= 102) return { scale: 10, description: 'Storm' };
-  if (kmh <= 117) return { scale: 11, description: 'Violent Storm' };
-  return { scale: 12, description: 'Hurricane Force' };
+export function getBeaufortScale(
+  kmh: number,
+  lang: 'en' | 'bn' | 'hi' = 'en'
+): { scale: number; description: string } {
+  const names: Record<number, { en: string; bn: string; hi: string }> = {
+    0: { en: 'Calm', bn: 'শান্ত বাতাস', hi: 'शांत हवा' },
+    1: { en: 'Light Air', bn: 'মৃদু মন্দ বাতাস', hi: 'हल्की हवा' },
+    2: { en: 'Light Breeze', bn: 'হালকা সমীরণ', hi: 'मंद समीर' },
+    3: { en: 'Gentle Breeze', bn: 'মৃদু সমীরণ', hi: 'सुहावनी हवा' },
+    4: { en: 'Moderate Breeze', bn: 'মাঝারি বাতাস', hi: 'मध्यम हवा' },
+    5: { en: 'Fresh Breeze', bn: 'সতেজ বাতাস', hi: 'तेज़ ताज़ी हवा' },
+    6: { en: 'Strong Breeze', bn: 'প্রবল বাতাস', hi: 'प्रबल हवा' },
+    7: { en: 'Near Gale', bn: 'ঝোড়ো হাওয়া', hi: 'आँधी जैसी हवा' },
+    8: { en: 'Gale', bn: 'ঝড় (Gale)', hi: 'तेज़ आँधी' },
+    9: { en: 'Strong Gale', bn: 'প্রবল ঝড়', hi: 'प्रचंड आँधी' },
+    10: { en: 'Storm', bn: 'পূর্ণ ঝড়', hi: 'तूफ़ान' },
+    11: { en: 'Violent Storm', bn: 'প্রচণ্ড ঝড়', hi: 'भीषण तूफ़ान' },
+    12: { en: 'Hurricane / Cyclone Force', bn: 'ঘূর্ণিঝড় (Cyclone)', hi: 'चक्रवाती तूफ़ान' }
+  };
+
+  let s = 12;
+  if (kmh < 1) s = 0;
+  else if (kmh <= 5) s = 1;
+  else if (kmh <= 11) s = 2;
+  else if (kmh <= 19) s = 3;
+  else if (kmh <= 28) s = 4;
+  else if (kmh <= 38) s = 5;
+  else if (kmh <= 49) s = 6;
+  else if (kmh <= 61) s = 7;
+  else if (kmh <= 74) s = 8;
+  else if (kmh <= 88) s = 9;
+  else if (kmh <= 102) s = 10;
+  else if (kmh <= 117) s = 11;
+
+  return { scale: s, description: names[s][lang] };
 }
 
-export function getImdRainCategory(mm: number): { label: string; badgeCls: string } {
-  if (mm <= 0) return { label: 'No Rain', badgeCls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
-  if (mm <= 2.4) return { label: 'Light Rain (0.1–2.4 mm)', badgeCls: 'bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300' };
-  if (mm <= 7.5) return { label: 'Moderate Rain (2.5–7.5 mm)', badgeCls: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300' };
-  if (mm <= 35.5) return { label: 'Rather Heavy Rain (7.6–35.5 mm)', badgeCls: 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' };
-  if (mm <= 64.4) return { label: 'Heavy Rain (35.6–64.4 mm)', badgeCls: 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' };
-  if (mm <= 124.4) return { label: 'Very Heavy Rain (64.5–124.4 mm)', badgeCls: 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' };
-  return { label: 'Extremely Heavy Rain (>124.5 mm)', badgeCls: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300' };
+export function getImdRainCategory(
+  mm: number,
+  lang: 'en' | 'bn' | 'hi' = 'en'
+): { label: string; badgeCls: string } {
+  const num = formatNumByLang(mm.toFixed(1), lang);
+  if (mm <= 0) {
+    const l = { en: 'No Rain (0.0 mm)', bn: 'বৃষ্টি নেই (০.০ মিমি)', hi: 'कोई बारिश नहीं (०.० मिमी)' };
+    return { label: l[lang], badgeCls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
+  }
+  if (mm <= 2.4) {
+    const l = { en: `Very Light Rain (${num} mm)`, bn: `খুব হালকা বৃষ্টি (${num} মিমি)`, hi: `बहुत हल्की बारिश (${num} मिमी)` };
+    return { label: l[lang], badgeCls: 'bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300' };
+  }
+  if (mm <= 15.5) {
+    const l = { en: `Light Rain (${num} mm)`, bn: `হালকা বৃষ্টি (${num} মিমি)`, hi: `हल्की बारिश (${num} मिमी)` };
+    return { label: l[lang], badgeCls: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300' };
+  }
+  if (mm <= 64.4) {
+    const l = { en: `Moderate Rain (${num} mm)`, bn: `মাঝারি বৃষ্টি (${num} মিমি)`, hi: `मध्यम बारिश (${num} मिमी)` };
+    return { label: l[lang], badgeCls: 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' };
+  }
+  if (mm <= 115.5) {
+    const l = { en: `Heavy Rain (${num} mm)`, bn: `ভারী বৃষ্টি (${num} মিমি)`, hi: `भारी बारिश (${num} मिमी)` };
+    return { label: l[lang], badgeCls: 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' };
+  }
+  if (mm <= 204.4) {
+    const l = { en: `Very Heavy Rain (${num} mm)`, bn: `অতি ভারী বৃষ্টি (${num} মিমি)`, hi: `बहुत भारी बारिश (${num} मिमी)` };
+    return { label: l[lang], badgeCls: 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' };
+  }
+  const l = { en: `Extremely Heavy Rain (${num} mm)`, bn: `চরম ভারী বৃষ্টি (${num} মিমি)`, hi: `अत्यधिक भारी बारिश (${num} मिमी)` };
+  return { label: l[lang], badgeCls: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300' };
 }
 
-/* ================== WMO WEATHER CODES ================== */
+export function getLocalizedImdDetails(
+  tempC: number,
+  todayRainMm: number,
+  windKmh: number,
+  lang: 'en' | 'bn' | 'hi'
+): {
+  rainfallCategory: string;
+  heatAlertText: string;
+  monsoonStatus: string;
+  advisory: string;
+} {
+  const rainCat = getImdRainCategory(todayRainMm, lang).label;
+  const month = new Date().getMonth();
 
-export const WMO_MAP: Record<number, { label: string; icon: string; category: string }> = {
-  0: { label: 'Clear Sky', icon: '☀️', category: 'clear' },
-  1: { label: 'Mainly Clear', icon: '🌤️', category: 'clear' },
-  2: { label: 'Partly Cloudy', icon: '⛅', category: 'cloudy' },
-  3: { label: 'Overcast', icon: '☁️', category: 'cloudy' },
+  let heatAlertText =
+    lang === 'bn'
+      ? 'স্বাভাবিক তাপমাত্রা (সতর্কতা নেই)'
+      : lang === 'hi'
+      ? 'सामान्य तापमान (कोई चेतावनी नहीं)'
+      : 'Normal Temperature (No Alert)';
+  if (tempC >= 45) {
+    heatAlertText =
+      lang === 'bn'
+        ? 'রেড অ্যালার্ট: তীব্র তাপপ্রবাহ'
+        : lang === 'hi'
+        ? 'रेड अलर्ट: भीषण लू (तुरंत बचाव करें)'
+        : 'Red Alert: Severe Heatwave';
+  } else if (tempC >= 42) {
+    heatAlertText =
+      lang === 'bn'
+        ? 'অরেঞ্জ অ্যালার্ট: তাপপ্রবাহ সতর্কতা'
+        : lang === 'hi'
+        ? 'ऑरेंज अलर्ट: लू की चेतावनी'
+        : 'Orange Alert: Heatwave Alert';
+  } else if (tempC >= 40) {
+    heatAlertText =
+      lang === 'bn'
+        ? 'ইয়েলো অ্যালার্ট: উষ্ণ আবহাওয়া'
+        : lang === 'hi'
+        ? 'येलो अलर्ट: गर्म मौसम'
+        : 'Yellow Alert: Warm Weather Alert';
+  }
+
+  let monsoonStatus =
+    lang === 'bn'
+      ? 'মৌসুমি বায়ু পরবর্তী পর্যায় (Post-Monsoon)'
+      : lang === 'hi'
+      ? 'मानसूनोत्तर चरण (Post-Monsoon)'
+      : 'Post-Monsoon / Northeast Transition';
+  if (month >= 5 && month <= 8) {
+    monsoonStatus =
+      lang === 'bn'
+        ? 'দক্ষিণ-পশ্চিম মৌসুমি বায়ু (সক্রিয় বর্ষা)'
+        : lang === 'hi'
+        ? 'दक्षिण-पश्चिम मानसून (सक्रिय काल)'
+        : 'Southwest Monsoon (Active Period)';
+  } else if (month >= 2 && month <= 4) {
+    monsoonStatus =
+      lang === 'bn'
+        ? 'প্রাক-বর্ষা ও কালবৈশাখী মরশুম'
+        : lang === 'hi'
+        ? 'प्री-मानसून एवं कालवैशाखी ऋतु'
+        : 'Pre-Monsoon / Norwesters (কালবৈশাখী)';
+  } else if (month >= 11 || month === 0) {
+    monsoonStatus =
+      lang === 'bn'
+        ? 'শীতকালীন আবহাওয়া (পশ্চিমী ঝঞ্ঝা)'
+        : lang === 'hi'
+        ? 'शीतकालीन मौसम (पश्चिमी विक्षोभ)'
+        : 'Winter Pattern (Western Disturbances)';
+  }
+
+  let advisory =
+    lang === 'bn'
+      ? 'জেলায় আবহাওয়া প্রধানত অনুকূল থাকবে। কৃষি ও দৈনন্দিন কাজকর্ম স্বাভাবিকভাবে চালিয়ে যাওয়া যাবে।'
+      : lang === 'hi'
+      ? 'ज़िले में मौसम अनुकूल रहने की संभावना है। कृषि एवं बाहरी कार्य सामान्य रूप से जारी रखे जा सकते हैं।'
+      : 'Fair weather conditions expected over the district. Agricultural operations can continue normally.';
+
+  if (todayRainMm > 64.4) {
+    advisory =
+      lang === 'bn'
+        ? 'আইএমডি সতর্কবার্তা: ভারী বৃষ্টির সম্ভাবনা। নিচু এলাকায় জল জমতে পারে, কৃষকদের জমি থেকে অতিরিক্ত জল নিষ্কাশনের পরামর্শ দেওয়া হচ্ছে।'
+        : lang === 'hi'
+        ? 'आईएमडी चेतावनी: भारी वर्षा की संभावना। निचले इलाकों में जलभराव हो सकता है, किसान खेतों से अतिरिक्त पानी की निकासी करें।'
+        : 'IMD Warning: Heavy precipitation likely. Water logging in low-lying areas; drain excess water from fields.';
+  } else if (tempC >= 40) {
+    advisory =
+      lang === 'bn'
+        ? 'আইএমডি পরামর্শ: দুপুর ১২টা থেকে ৩টে পর্যন্ত কড়া রোদে বেরোনো এড়িয়ে চলুন। পর্যাপ্ত জল ও ওয়ারএস পান করুন।'
+        : lang === 'hi'
+        ? 'आईएमडी सलाह: दोपहर 12 से 3 बजे के बीच तेज़ धूप से बचें। पर्याप्त पानी पिएं और पशुओं को छाया में रखें।'
+        : 'IMD Advisory: Avoid prolonged heat exposure between 12 PM and 3 PM. Ensure ample hydration.';
+  } else if (windKmh > 38) {
+    advisory =
+      lang === 'bn'
+        ? 'আইএমডি সতর্কবার্তা: দমকা ঝোড়ো হাওয়া বইতে পারে। খোলা জায়গায় গাছ বা বিদ্যুতের খুঁটির নিচে দাঁড়াবেন না।'
+        : lang === 'hi'
+        ? 'आईएमडी चेतावनी: तेज़ झोंकेदार हवाएं चलने की संभावना। कच्चे ढांचों और बिजली के खंभों से दूर रहें।'
+        : 'IMD Warning: Squally winds gusting to high speeds. Stay clear of loose structures and poles.';
+  }
+
+  return { rainfallCategory: rainCat, heatAlertText, monsoonStatus, advisory };
+}
+
+/* ================== WMO WEATHER CODES (DAY & NIGHT AWARE) ================== */
+
+export const WMO_MAP: Record<number, { label: string; icon: string; nightIcon?: string; category: string }> = {
+  0: { label: 'Clear Sky', icon: '☀️', nightIcon: '🌙', category: 'clear' },
+  1: { label: 'Mainly Clear', icon: '🌤️', nightIcon: '🌙', category: 'clear' },
+  2: { label: 'Partly Cloudy', icon: '⛅', nightIcon: '☁️', category: 'cloudy' },
+  3: { label: 'Overcast', icon: '☁️', nightIcon: '☁️', category: 'cloudy' },
   45: { label: 'Fog', icon: '🌫️', category: 'fog' },
   48: { label: 'Depositing Rime Fog', icon: '🌫️', category: 'fog' },
-  51: { label: 'Light Drizzle', icon: '🌦️', category: 'rain' },
-  53: { label: 'Moderate Drizzle', icon: '🌦️', category: 'rain' },
+  51: { label: 'Light Drizzle', icon: '🌦️', nightIcon: '🌧️', category: 'rain' },
+  53: { label: 'Moderate Drizzle', icon: '🌦️', nightIcon: '🌧️', category: 'rain' },
   55: { label: 'Dense Drizzle', icon: '🌧️', category: 'rain' },
   56: { label: 'Light Freezing Drizzle', icon: '🌧️', category: 'rain' },
   57: { label: 'Dense Freezing Drizzle', icon: '🌧️', category: 'rain' },
-  61: { label: 'Slight Rain', icon: '🌦️', category: 'rain' },
+  61: { label: 'Slight Rain', icon: '🌦️', nightIcon: '🌧️', category: 'rain' },
   63: { label: 'Moderate Rain', icon: '🌧️', category: 'rain' },
   65: { label: 'Heavy Rain', icon: '🌧️', category: 'rain' },
   66: { label: 'Light Freezing Rain', icon: '🌧️', category: 'rain' },
@@ -1334,7 +1577,7 @@ export const WMO_MAP: Record<number, { label: string; icon: string; category: st
   73: { label: 'Moderate Snow Fall', icon: '🌨️', category: 'snow' },
   75: { label: 'Heavy Snow Fall', icon: '❄️', category: 'snow' },
   77: { label: 'Snow Grains', icon: '❄️', category: 'snow' },
-  80: { label: 'Slight Rain Showers', icon: '🌦️', category: 'rain' },
+  80: { label: 'Slight Rain Showers', icon: '🌦️', nightIcon: '🌧️', category: 'rain' },
   81: { label: 'Moderate Rain Showers', icon: '🌧️', category: 'rain' },
   82: { label: 'Violent Rain Showers', icon: '⛈️', category: 'rain' },
   85: { label: 'Slight Snow Showers', icon: '🌨️', category: 'snow' },
@@ -1344,8 +1587,13 @@ export const WMO_MAP: Record<number, { label: string; icon: string; category: st
   99: { label: 'Thunderstorm with Heavy Hail', icon: '⛈️', category: 'thunder' }
 };
 
-export function getWmoInfo(code: number) {
-  return WMO_MAP[code] || { label: 'Variable Weather', icon: '⛅', category: 'cloudy' };
+export function getWmoInfo(code: number, isDay = 1) {
+  const entry = WMO_MAP[code] || { label: 'Variable Weather', icon: '⛅', nightIcon: '☁️', category: 'cloudy' };
+  return {
+    label: entry.label,
+    icon: isDay === 0 && entry.nightIcon ? entry.nightIcon : entry.icon,
+    category: entry.category
+  };
 }
 
 export function generateSkySentence(
@@ -1354,24 +1602,66 @@ export function generateSkySentence(
   wCode: number,
   rainNext6h: number,
   gusts: number,
-  sunAlt: number
+  sunAlt: number,
+  lang: 'en' | 'bn' | 'hi' = 'en'
 ): string {
-  const w = getWmoInfo(wCode);
-  const timeWord = sunAlt > 0 ? 'Today' : 'Tonight';
+  const w = getWmoInfo(wCode, sunAlt > 0 ? 1 : 0);
+  const tStr = formatNumByLang(Math.round(temp), lang);
+  const appStr = formatNumByLang(Math.round(apparentTemp), lang);
+  const gStr = formatNumByLang(Math.round(gusts), lang);
   const feelsDiff = Math.abs(apparentTemp - temp);
-  const heatNote = feelsDiff >= 4 ? ` (feels like ${Math.round(apparentTemp)}°C due to humidity)` : '';
+
+  if (lang === 'bn') {
+    const timeWord = sunAlt > 0 ? 'আজ দিনের আকাশে' : 'আজ রাতের আকাশে';
+    const heatNote = feelsDiff >= 3 ? ` (আর্দ্রতার কারণে অনুভূত তাপমাত্রা ${appStr}°C)` : '';
+    if (rainNext6h >= 5) {
+      return `${timeWord} বৃষ্টির প্রবল সম্ভাবনা রয়েছে এবং আগামী ৬ ঘণ্টায় মাঝারি থেকে ভারী বর্ষণ হতে পারে। দমকা বাতাসের গতিবেগ ঘণ্টায় ${gStr} কিমি পর্যন্ত হতে পারে।`;
+    }
+    if (rainNext6h > 0) {
+      return `${timeWord} আংশিক মেঘলা ভাব ও বিক্ষিপ্ত হালকা বৃষ্টির সম্ভাবনা রয়েছে। বাতাসের গতিবেগ ঘণ্টায় প্রায় ${gStr} কিমি।`;
+    }
+    if (temp >= 37) {
+      return `তাপমাত্রা ${tStr}°C${heatNote} ছুঁয়েছে, প্রখর রোদ ও ভ্যাপসা গরম অনুভূত হবে। বাইরে বেরোলে পর্যাপ্ত জল পান করুন।`;
+    }
+    if (temp <= 14) {
+      return `${timeWord} মনোরম শীতল আবহাওয়া বজায় থাকবে, তাপমাত্রা প্রায় ${tStr}°C।`;
+    }
+    return `${timeWord} আবহাওয়া মনোরম থাকবে, তাপমাত্রা প্রায় ${tStr}°C${heatNote} এবং হালকা বাতাস বইবে।`;
+  }
+
+  if (lang === 'hi') {
+    const timeWord = sunAlt > 0 ? 'आज दिन में' : 'आज रात में';
+    const heatNote = feelsDiff >= 3 ? ` (नमी के कारण महसूस तापमान ${appStr}°C)` : '';
+    if (rainNext6h >= 5) {
+      return `${timeWord} अगले ६ घंटों में अच्छी बारिश की संभावना है। हवा के झोंके ${gStr} किमी/घंटा तक जा सकते हैं।`;
+    }
+    if (rainNext6h > 0) {
+      return `${timeWord} हल्की फुहारें पड़ने की संभावना है और हवा की गति लगभग ${gStr} किमी/घंटा रहेगी।`;
+    }
+    if (temp >= 37) {
+      return `तीव्र गर्मी के साथ तापमान ${tStr}°C${heatNote} के आसपास है। बाहर निकलते समय पर्याप्त पानी पिएं।`;
+    }
+    if (temp <= 14) {
+      return `${timeWord} गुलाबी ठंड और सुहावना मौसम रहेगा, तापमान लगभग ${tStr}°C है।`;
+    }
+    return `${timeWord} मौसम सुहावना है, तापमान ${tStr}°C${heatNote} और हल्की हवा चल रही है।`;
+  }
+
+  const timeWord = sunAlt > 0 ? 'Today' : 'Tonight';
+  const heatNote = feelsDiff >= 3 ? ` (feels like ${Math.round(apparentTemp)}°C due to humidity)` : '';
 
   if (rainNext6h >= 5) {
     return `${timeWord} brings ${w.label.toLowerCase()} with rain accumulation expected over the next 6 hours. Wind gusts up to ${Math.round(gusts)} km/h.`;
   }
   if (rainNext6h > 0) {
-    return `${timeWord} brings ${w.label.toLowerCase()} with chances of passing light showers. Wind blowing at ${Math.round(gusts)} km/h.`;
+    return `${timeWord} brings ${w.label.toLowerCase()} with chances of passing light showers. Wind blowing up to ${Math.round(gusts)} km/h.`;
   }
-  if (temp >= 38) {
+  if (temp >= 37) {
     return `Intense heat conditions with temperatures reaching ${Math.round(temp)}°C${heatNote} under ${w.label.toLowerCase()}. Stay hydrated outdoors.`;
   }
-  if (temp <= 12) {
+  if (temp <= 14) {
     return `Cool and brisk conditions with temperatures around ${Math.round(temp)}°C under ${w.label.toLowerCase()}.`;
   }
-  return `${timeWord}'s sky is ${w.label.toLowerCase()} with pleasant temperatures around ${Math.round(temp)}°C${heatNote} and calm breezes.`;
+  return `${timeWord}'s sky is ${w.label.toLowerCase()} with pleasant temperatures around ${Math.round(temp)}°C${heatNote} and gentle breezes.`;
 }
+

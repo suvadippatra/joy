@@ -266,13 +266,21 @@ function LaTeXGuideModal({
               {/* Quick Rule Banner */}
               <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-xs sm:text-sm text-blue-900 dark:text-blue-200 leading-relaxed space-y-2">
                 <strong className="text-sm sm:text-base font-bold text-blue-950 dark:text-blue-100 block">
-                  Golden Rules &amp; Upgraded CBT Studio Controls:
+                  Golden Rules, Inline Question Expressions &amp; Upgraded CBT Studio Controls:
                 </strong>
                 <ul className="list-disc pl-5 space-y-1 text-blue-800 dark:text-blue-300">
                   <li>Use <code className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-mono font-bold">$formula$</code> (single dollar) for inline math in sentences (e.g. <code>{'$\\vec{E}$'}</code> or <code>{'$\\ce{H2O}$'}</code>), and <code className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-mono font-bold">$$formula$$</code> for centered display blocks.</li>
-                  <li><strong>Side-by-Side Multi-Question Stream &amp; Adaptive 1-Col / 2-Col Grid:</strong> Edit all questions in the left pane while viewing all live-rendered preview cards in the same order on the right. Drag the center splitter or switch between <code className="font-mono">Split | Edit | View</code>—whenever either pane is wide (&ge; 820px), it automatically arranges questions into a <strong>2-column grid</strong> and reflows to <strong>1-column</strong> when narrowed!</li>
-                  <li><strong>Zero-Lag Memoized Cards (50–200+ Questions):</strong> Strict per-question memoization and CSS <code className="font-mono">content-visibility: auto</code> ensure typing in one question only updates that single card.</li>
-                  <li><strong>Recent Projects Hub &amp; Context-Aware Math Ribbon:</strong> Click <strong>Projects</strong> in the top bar to save or resume exam drafts, and click inside any Statement, Option (A–D), or Solution box to insert symbols directly at your cursor.</li>
+                  <li><strong>Inline Question Expression Commands (Fast Clutter-Free Authoring):</strong> Type these commands directly inside any question statement box—they automatically apply and clean themselves up:
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5 font-mono text-xs">
+                      <li><code>@marks(+4,-1)</code> &rarr; Sets Correct Marks (+4) and Negative Penalty (-1)</li>
+                      <li><code>@type(NAT)</code>, <code>@type(MSQ)</code>, or <code>@type(SCQ)</code> &rarr; Switches Question Type</li>
+                      <li><code>@ans(B)</code>, <code>@ans(A,C)</code>, or <code>@ans(15.5)</code> &rarr; Sets Correct Option(s) or NAT Answer Key</li>
+                      <li><code>@sol: Detailed explanation...</code> &rarr; Extracts text into the Solution box on blur</li>
+                      <li><code>| Col 1 | Col 2 |</code> &rarr; Converts Markdown pipe rows into a structured HTML Table on blur</li>
+                    </ul>
+                  </li>
+                  <li><strong>Smart Active-Label Toolbars &amp; Compact Icons:</strong> By default, grouped buttons (<code className="font-mono">Split | Edit | View</code>, <code className="font-mono">SCQ | MCQ | NAT</code>) show icons only and expand the active choice with Icon + Text. You can customize this in <strong>Settings &rarr; Toolbar Button Preview Mode</strong>.</li>
+                  <li><strong>Side-by-Side Multi-Question Stream &amp; Adaptive 1-Col / 2-Col Grid:</strong> Edit all questions in the left pane while viewing all live-rendered preview cards in the same order on the right. Panes &ge; 820px automatically arrange questions into a <strong>2-column grid</strong>.</li>
                 </ul>
               </div>
 

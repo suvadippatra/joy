@@ -151,12 +151,13 @@ export default function NotebookHelpModal({ isOpen, onClose }: NotebookHelpModal
                 <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                   <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <Sparkles size={14} className="text-amber-500" />
-                    <span>Recent Projects Hub, 2-Tab Ribbon &amp; Active Edit-to-Preview Sync</span>
+                    <span>Zero-State Hub, Smart Active-Label Ribbon, Double-Escaped LaTeX &amp; Full Horizontal Scroll</span>
                   </h4>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 list-disc pl-4 space-y-1">
-                    <li><strong>Recent Projects &amp; Guides Hub:</strong> Click <strong>Projects</strong> in the top bar anytime to save snapshots to browser IndexedDB, resume recent papers in 1 click, or load academic templates.</li>
-                    <li><strong>2-Tab Word Processor Ribbon:</strong> Switch between the <strong>Home</strong> tab (Undo/Redo, Fonts, Alignment Left/Center/Right/Justify, Line Spacing, Callouts, Tables, Figures) and the <strong>Page Layout</strong> tab (Paper Size, Orientation, Custom Top/Bottom/Left/Right mm Margins, Columns, Running Header &amp; Footer Page Numbering).</li>
-                    <li><strong>Live Active Block Highlight &amp; Auto-Scroll:</strong> As you type or click any line in the Markdown/LaTeX editor, the corresponding block on the virtual sheet automatically scrolls into view and highlights with a subtle blue indicator.</li>
+                    <li><strong>Zero-State Landing Hub &amp; Full Showcase Template:</strong> Opens cleanly with <strong>Start Blank</strong> and <strong>Load Full Showcase Template</strong> (featuring abstract, 2-column research layout, inline &amp; double-escaped LaTeX, theorems, wrapped SVG figures, and data tables). Click the Folder icon in the top-left anytime to manage projects.</li>
+                    <li><strong>Smart Active-Label Toolbar Mode:</strong> Grouped buttons (<code className="font-mono">Split | Edit | Preview</code>, <code className="font-mono">Home | Page Layout</code>, <code className="font-mono">Sheets | Flow</code>, <code className="font-mono">Vertical | Horizontal</code>, <code className="font-mono">1-Col | 2-Col | Rail</code>) display compact icons by default and expand the active button with Icon + Text. Configurable in <strong>Settings &rarr; Toolbar Button Preview Mode</strong>.</li>
+                    <li><strong>High-Contrast Paper Sheet &amp; Double-Escaped LaTeX:</strong> Virtual sheets always render in crisp dark ink (<code className="font-mono">#0f172a</code>) on white paper even in Dark Mode, and compile <code className="font-mono">$...$</code>, <code className="font-mono">\(...\)</code>, and double-escaped <code className="font-mono">\\(\Omega\\)</code> / <code className="font-mono">\\[...\\]</code> formulas seamlessly.</li>
+                    <li><strong>Full Horizontal Scroll Accessibility:</strong> Both the preview sub-header and the zoomed paper canvas support smooth horizontal scrolling so right-side controls (<code className="font-mono">1 / N</code>, Zoom <code className="font-mono">%</code>, <code className="font-mono">Fit</code>) and wide sheets are never clipped.</li>
                   </ul>
                 </div>
               </div>

@@ -37,6 +37,7 @@ import {
 import { NotebookDocument, PageSettings, PAPER_DIMENSIONS, DocumentAsset } from '../../types/notebook';
 import { parseDocumentToPages, renderPageContent, normalizeBlockSnippet } from '../../utils/notebookRenderer';
 import PreviewSelectionToolbar, { SelectionCoords } from './PreviewSelectionToolbar';
+import { useButtonDisplayMode } from '../../hooks/useButtonDisplayMode';
 import { 
   applyFormattingToMarkdown, 
   updateMarkdownTextBlock,
@@ -81,6 +82,7 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
   const [scrollDirection, setScrollDirection] = useState<'vertical' | 'horizontal'>('vertical');
   const [paperMode, setPaperMode] = useState<'paginated' | 'continuous'>('paginated');
+  const { shouldShowLabel } = useButtonDisplayMode();
   const [selectionCoords, setSelectionCoords] = useState<SelectionCoords | null>(null);
   const [editingSheetHeader, setEditingSheetHeader] = useState<boolean>(false);
   const [editingSheetFooter, setEditingSheetFooter] = useState<boolean>(false);
@@ -753,35 +755,35 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-150 dark:bg-slate-950 overflow-hidden relative select-none">
-      {/* Word-Processor Top Ribbon */}
-      <div className="h-11 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 flex items-center justify-between z-20 shrink-0 text-xs shadow-2xs gap-2">
-        {/* Left: Document Status & Page Info */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50/80 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold text-[11px] border border-blue-200/50 dark:border-blue-800/50">
-            <span>📄</span>
-            <span>Document Preview</span>
+      {/* Word-Processor Top Ribbon — Horizontally Scrollable so Right Controls are Never Cut Off */}
+      <div className="h-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-2.5 flex items-center justify-between z-20 shrink-0 text-xs shadow-2xs gap-2 overflow-x-auto scrollbar-none">
+        {/* Left: Compact Document Status & Page Info */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50/80 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold text-[11px] border border-blue-200/50 dark:border-blue-800/50 whitespace-nowrap" title="Live Document Preview">
+            <FileText size={12} />
+            <span className="hidden lg:inline">Preview</span>
           </div>
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden md:inline whitespace-nowrap shrink-0">
-            {pages.length}&nbsp;{pages.length === 1 ? 'Page' : 'Pages'} · LaTeX Typography
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden xl:inline whitespace-nowrap shrink-0">
+            {pages.length}&nbsp;{pages.length === 1 ? 'Page' : 'Pages'}
           </span>
         </div>
 
         {/* Right: Paper Mode (Sheets vs Flow), Scroll Direction, Page Navigation & Canvas Zoom */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Paper Mode Switcher: Paginated Sheets vs Continuous Flow */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               onClick={() => setPaperMode('paginated')}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+              className={`rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
                 paperMode === 'paginated'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-0.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
               title="1:1 Paginated Print Sheets View"
             >
               <FileText size={12} />
-              <span>Sheets</span>
+              {shouldShowLabel(paperMode === 'paginated', true) && <span>Sheets</span>}
             </button>
             <button
               type="button"
@@ -789,52 +791,52 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
                 setPaperMode('continuous');
                 setScrollDirection('vertical');
               }}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+              className={`rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
                 paperMode === 'continuous'
-                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-0.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
               title="Continuous Flow View (Seamless single-sheet academic scroll without page splits)"
             >
               <ScrollText size={12} />
-              <span>Flow</span>
+              {shouldShowLabel(paperMode === 'continuous', true) && <span>Flow</span>}
             </button>
           </div>
 
           {/* Scroll Direction Switcher: Vertical (down) vs Horizontal (side-by-side) */}
           {paperMode === 'paginated' && (
-            <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
               <button
                 type="button"
                 onClick={() => setScrollDirection('vertical')}
-                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                className={`rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
                   scrollDirection === 'vertical'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                    : 'px-1.5 py-0.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
                 title="Vertical Page Scrolling (Scroll top-to-bottom through pages)"
               >
                 <ArrowDownUp size={12} />
-                <span className="hidden md:inline">Vertical</span>
+                {shouldShowLabel(scrollDirection === 'vertical', true) && <span>Vertical</span>}
               </button>
               <button
                 type="button"
                 onClick={() => setScrollDirection('horizontal')}
-                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                className={`rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
                   scrollDirection === 'horizontal'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                    : 'px-1.5 py-0.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
                 title="Horizontal Page Scrolling (Side-by-side reading stream)"
               >
                 <ArrowLeftRight size={12} />
-                <span className="hidden md:inline">Horizontal</span>
+                {shouldShowLabel(scrollDirection === 'horizontal', true) && <span>Horizontal</span>}
               </button>
             </div>
           )}
 
           {/* Page-by-page jump controls */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               disabled={activePageIndex <= 0}
@@ -859,7 +861,7 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
           </div>
 
           {/* Canvas Zoom Controls */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               onClick={handleZoomOut}
@@ -1077,7 +1079,7 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
         </div>
       )}
 
-      {/* Sheet Canvas Scroll Area (Stacked vertically or horizontally as per user's choice) */}
+      {/* Sheet Canvas Scroll Area (Uses items-start + mx-auto on wrapper so horizontal scrolling never clips left edge) */}
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -1085,8 +1087,8 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
         onMouseUp={handleSheetMouseUp}
         className={`flex-1 p-4 sm:p-8 relative select-text transition-all ${
           scrollDirection === 'horizontal'
-            ? 'overflow-x-auto overflow-y-hidden flex flex-row items-center justify-start gap-8'
-            : 'overflow-y-auto overflow-x-auto flex flex-col items-center gap-8'
+            ? 'overflow-x-auto overflow-y-auto flex flex-row items-start justify-start gap-8'
+            : 'overflow-y-auto overflow-x-auto flex flex-col items-start gap-8'
         }`}
       >
         {pages.map((pageHtml, idx) => {
@@ -1105,7 +1107,7 @@ const NotebookPreview = forwardRef<NotebookPreviewRef, NotebookPreviewProps>(({
             <div
               key={idx}
               data-page-index={idx}
-              className="page-frame-wrapper shrink-0 relative shadow-lg hover:shadow-2xl dark:shadow-black/60 rounded-xs bg-white border border-slate-300/80 dark:border-slate-700/80 print:border-0 print:shadow-none"
+              className="page-frame-wrapper mx-auto shrink-0 relative shadow-lg hover:shadow-2xl dark:shadow-black/60 rounded-xs bg-white border border-slate-300/80 dark:border-slate-700/80 print:border-0 print:shadow-none"
               style={
                 paperMode === 'continuous'
                   ? {

@@ -17,7 +17,8 @@ import {
   Edit3,
   Columns2,
   Sigma,
-  Layout
+  Layout,
+  Layers
 } from 'lucide-react';
 
 export interface SavedStudioProject<T = any> {
@@ -31,6 +32,7 @@ export interface SavedStudioProject<T = any> {
 
 interface StudioLandingHubProps<T = any> {
   mode: 'doc-studio' | 'cbt-maker';
+  hasActiveDraft?: boolean;
   activeTitle: string;
   activeSubtitle: string;
   activeMetaBadge: string;
@@ -38,6 +40,7 @@ interface StudioLandingHubProps<T = any> {
   activeData: T;
   onResumeActive: () => void;
   onCreateNewBlank: () => void;
+  onLoadShowcaseTemplate: () => void;
   onLoadProjectData: (data: T) => void;
   onSelectTemplate?: (templateId: string) => void;
   onOpenFullGuide: () => void;
@@ -45,6 +48,7 @@ interface StudioLandingHubProps<T = any> {
 
 export default function StudioLandingHub<T = any>({
   mode,
+  hasActiveDraft = false,
   activeTitle,
   activeSubtitle,
   activeMetaBadge,
@@ -52,8 +56,8 @@ export default function StudioLandingHub<T = any>({
   activeData,
   onResumeActive,
   onCreateNewBlank,
+  onLoadShowcaseTemplate,
   onLoadProjectData,
-  onSelectTemplate,
   onOpenFullGuide
 }: StudioLandingHubProps<T>) {
   const storageKey = mode === 'doc-studio' ? 'doc_studio_projects_v1' : 'cbt_maker_projects_v1';
@@ -172,19 +176,19 @@ export default function StudioLandingHub<T = any>({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Top Bar */}
-      <header className="h-13 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 sm:px-6 flex items-center justify-between shrink-0">
+      {/* Standalone Studio Hub Top Bar */}
+      <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 sm:px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <Link
             to="/"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Back to Home"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Back to Home Dashboard"
           >
             <ArrowLeft size={18} />
           </Link>
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${isDoc ? 'bg-blue-600' : 'bg-indigo-600'}`}>
-              {isDoc ? <FileText size={16} /> : <Columns2 size={16} />}
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-xs ${isDoc ? 'bg-blue-600' : 'bg-indigo-600'}`}>
+              {isDoc ? <FileText size={17} /> : <Columns2 size={17} />}
             </div>
             <div>
               <h1 className="text-sm sm:text-base font-bold tracking-tight leading-tight">
@@ -201,190 +205,149 @@ export default function StudioLandingHub<T = any>({
           <button
             type="button"
             onClick={onOpenFullGuide}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <BookOpen size={14} className="text-amber-500" />
             <span>User Guide</span>
           </button>
-          <button
-            type="button"
-            onClick={onResumeActive}
-            className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
-          >
-            <span>Open Workspace</span>
-            <ArrowRight size={14} />
-          </button>
+          {hasActiveDraft && (
+            <button
+              type="button"
+              onClick={onResumeActive}
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            >
+              <span>Resume Workspace</span>
+              <ArrowRight size={14} />
+            </button>
+          )}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* 1-Click Resume Active Draft Banner */}
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
-              <Clock size={13} />
-              <span>ACTIVE WORKSPACE DRAFT</span>
-              <span className="text-slate-300 dark:text-slate-700">•</span>
-              <span className="text-slate-500 dark:text-slate-400 font-normal">{formatTime(activeUpdatedAt)}</span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate">
-              {activeTitle || 'Untitled Project'}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
+        {/* Primary Action Cards: Start Blank vs Load Full Showcase Template */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {hasActiveDraft ? 'Create or Load Template' : 'Get Started — Choose How to Begin'}
             </h2>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              {activeSubtitle && <span>{activeSubtitle}</span>}
-              {activeSubtitle && <span>•</span>}
-              <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{activeMetaBadge}</span>
-            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            <button
-              type="button"
-              onClick={handleSaveCurrentToLibrary}
-              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              title="Save a snapshot of the active workspace to your Recent Projects library"
-            >
-              {savedNotice ? <Check size={14} className="text-emerald-500" /> : <BookmarkPlus size={14} className="text-blue-500" />}
-              <span>{savedNotice ? 'Saved to Projects' : 'Save to Projects'}</span>
-            </button>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Option 1: Start Blank */}
             <button
               type="button"
               onClick={onCreateNewBlank}
-              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              className="group relative bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl p-6 text-left transition-all shadow-2xs hover:shadow-md flex flex-col justify-between gap-4 cursor-pointer"
             >
-              <Plus size={14} />
-              <span>New Blank</span>
+              <div className="space-y-2.5">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/60 dark:border-blue-800/60 group-hover:scale-105 transition-transform">
+                  <Plus size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {isDoc ? 'Start Blank Document' : 'Start Blank Question Set'}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    {isDoc
+                      ? 'Open a clean academic sheet with full control over margins, running headers, page numbering, and inline/block LaTeX math.'
+                      : 'Begin with a clean 1-section question set using smart inline expressions (@marks, @type, @ans, @sol:) and zero UI clutter.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                <span>Start Fresh Blank Workspace</span>
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </div>
             </button>
 
+            {/* Option 2: Load Full Showcase Template */}
             <button
               type="button"
-              onClick={onResumeActive}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+              onClick={onLoadShowcaseTemplate}
+              className="group relative bg-white dark:bg-slate-900 border-2 border-indigo-200/80 dark:border-indigo-900/60 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-6 text-left transition-all shadow-2xs hover:shadow-md flex flex-col justify-between gap-4 cursor-pointer"
             >
-              <span>Resume Draft</span>
-              <ArrowRight size={15} />
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60 group-hover:scale-105 transition-transform">
+                    <Sparkles size={21} />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider border border-indigo-200/60 dark:border-indigo-800/60">
+                    All Features Showcase
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    Load Full Showcase Template
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    {isDoc
+                      ? 'Explore an authentic pre-written research paper demonstrating inline & display LaTeX, theorem callouts, vector SVG figures, wrap-figures, tables, and 2-column formatting.'
+                      : 'Explore an authentic multi-section exam with SCQ, Multiple-Correct (MSQ), Numerical (NAT), LaTeX integrals, SVG diagrams, Matrix-Match tables, and solutions.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                <span>Load Pre-Written Showcase</span>
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </div>
             </button>
           </div>
         </section>
 
-        {/* Quick Starter Templates */}
-        {onSelectTemplate && (
-          <section className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Quick Start Templates
-              </h3>
+        {/* Active Draft Resume Banner (Only shown after user starts or edits a project) */}
+        {hasActiveDraft && (
+          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
+                <Clock size={13} />
+                <span>CURRENT WORKSPACE DRAFT</span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <span className="text-slate-500 dark:text-slate-400 font-normal">{formatTime(activeUpdatedAt)}</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate">
+                {activeTitle || 'Untitled Project'}
+              </h2>
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                {activeSubtitle && <span>{activeSubtitle}</span>}
+                {activeSubtitle && <span>•</span>}
+                <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{activeMetaBadge}</span>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {isDoc ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('exam')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600">
-                      2-Column Research / Exam
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">IEEE two-column paper with headers &amp; math</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('physics')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600">
-                      Physics &amp; Mechanics
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Theorems, inline &amp; display LaTeX derivations</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('textbook_vectors')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600">
-                      Margin Rail Textbook
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Sidenotes, figures &amp; asymmetric rail layout</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('calculus')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600">
-                      Calculus &amp; Proofs
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Aligned equations, matrices &amp; proof callouts</div>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('kattar')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">
-                      Chapterwise Kattar Test
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Single subject (+4 / -1) high-speed template</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('jee')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">
-                      JEE Main 3-Section
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Physics, Chemistry &amp; Maths with MCQ + NAT</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectTemplate('neet')}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">
-                      NEET 4-Subject Mock
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Physics, Chemistry, Botany &amp; Zoology</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onCreateNewBlank}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 text-left transition-all group"
-                  >
-                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">
-                      Blank Custom Exam
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Start fresh with custom sections &amp; marking</div>
-                  </button>
-                </>
-              )}
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={handleSaveCurrentToLibrary}
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Save a snapshot of the active workspace to your Saved Projects library"
+              >
+                {savedNotice ? <Check size={14} className="text-emerald-500" /> : <BookmarkPlus size={14} className="text-blue-500" />}
+                <span>{savedNotice ? 'Saved to Projects' : 'Save Snapshot'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onResumeActive}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <span>Resume Draft</span>
+                <ArrowRight size={15} />
+              </button>
             </div>
           </section>
         )}
 
-        {/* Saved Recent Projects Library */}
-        <section className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-              <FolderOpen size={13} />
-              <span>Saved Recent Projects ({projects.length})</span>
-            </h3>
-          </div>
-
-          {projects.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl p-6 text-center space-y-2">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                No saved projects in your library yet. Click <strong>"Save to Projects"</strong> above to store snapshots of multiple papers or exams.
-              </p>
+        {/* Saved Recent Projects Library (Only shown when user has saved projects) */}
+        {projects.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <FolderOpen size={13} />
+                <span>Saved Projects ({projects.length})</span>
+              </h3>
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {projects.map(proj => (
                 <div
@@ -477,7 +440,7 @@ export default function StudioLandingHub<T = any>({
                     <button
                       type="button"
                       onClick={() => onLoadProjectData(proj.data)}
-                      className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1 transition-colors"
+                      className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       <span>Open</span>
                       <ArrowRight size={12} />
@@ -486,22 +449,22 @@ export default function StudioLandingHub<T = any>({
                 </div>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
-        {/* Concise User Guides Showcase */}
-        <section className="space-y-2.5 pt-2">
+        {/* Concise User Guides & Inline Syntax Reference */}
+        <section className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-              <Sparkles size={13} className="text-amber-500" />
-              <span>Essential User Guides &amp; Shortcuts</span>
+              <Layers size={13} className="text-blue-500" />
+              <span>Quick Syntax &amp; Workflow Guide</span>
             </h3>
             <button
               type="button"
               onClick={onOpenFullGuide}
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
             >
-              Open Complete Reference →
+              Open Full Guide &amp; Reference →
             </button>
           </div>
 
@@ -509,10 +472,10 @@ export default function StudioLandingHub<T = any>({
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
                 <Sigma size={15} className="text-blue-500" />
-                <span>Inline &amp; Block LaTeX Math</span>
+                <span>Offline Inline &amp; Display LaTeX</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Write inline formulas with <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">$E = mc^2$</code>, <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">{'\\(x^2\\)'}</code>, or bare commands like <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">{'\\frac{a}{b}'}</code> and <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">{'\\alpha'}</code>. Use <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">$$...$$</code> for centered equations.
+                Write inline math with <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">$E = mc^2$</code> or <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">{'\\(\\Omega\\)'}</code>, and block equations with <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">$$...$$</code> or <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">{'\\[...\\]'}</code>.
               </p>
             </div>
 
@@ -524,16 +487,16 @@ export default function StudioLandingHub<T = any>({
                     <span>Margins, Headers &amp; Page Numbers</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Switch to the <strong>Page Layout</strong> ribbon tab to adjust Top/Bottom/Left/Right margins in mm, paper size, and 2-column IEEE layout, or click directly on any sheet's header or footer to edit on-page.
+                    Use the <strong>Page Layout</strong> tab to configure margins in mm, paper size, and 2-column IEEE layout, or click directly on any sheet's header or footer to edit on-page.
                   </p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-1.5">
                   <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
                     <FileText size={15} className="text-purple-500" />
-                    <span>Live Edit-to-Page Sync</span>
+                    <span>Smart Toolbar &amp; Horizontal Scroll</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    As you type or click any paragraph in the editor, the preview automatically scrolls to that page and highlights the active block on the virtual sheet.
+                    Grouped toolbar buttons display compact icons by default and expand to show their label when active. Zoomed sheets scroll smoothly both vertically and horizontally.
                   </p>
                 </div>
               </>
@@ -541,20 +504,20 @@ export default function StudioLandingHub<T = any>({
               <>
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-1.5">
                   <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
-                    <Columns2 size={15} className="text-indigo-500" />
-                    <span>Resizable 1-Col ↔ 2-Col Split View</span>
+                    <Sparkles size={15} className="text-indigo-500" />
+                    <span>Smart Inline Question Directives</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Edit all questions on the left while viewing all preview cards in the same order on the right. Drag the center divider—wider panes automatically arrange questions into 2 columns!
+                    Type <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">@marks(+4,-1)</code>, <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">@type(NAT)</code>, <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">@ans(B)</code>, or <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">@sol: ...</code> directly in the question box to auto-configure metadata!
                   </p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-1.5">
                   <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
-                    <Layout size={15} className="text-emerald-500" />
-                    <span>Zero-Lag 200+ Question Engine</span>
+                    <Columns2 size={15} className="text-emerald-500" />
+                    <span>Resizable 1-Col ↔ 2-Col Split View</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Memoized question cards and cached offline KaTeX rendering ensure instant typing with zero lag even on full-length 180–200 question papers.
+                    Edit questions on the left while viewing synchronized preview cards on the right. Drag the center divider to dynamically switch between 1-column and 2-column grids.
                   </p>
                 </div>
               </>

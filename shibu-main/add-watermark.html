@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="bn" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Add Watermark - প্রশ্নপত্র Maker</title>
+<script src="libs/pdf-lib.min.js"></script>
+<script src="libs/fontkit.umd.min.js"></script>
+<style>
+:root {
+  --bg: #080d1a; --bg1: #0d1427; --bg2: #111b34; --bg3: #172040; --bg4: #1c274d;
+  --border: #1a2a48; --border2: #203358; --accent: #5b50f0; --accent2: #7065f3; --accent3: #9d95f7;
+  --t1: #eef2fb; --t2: #8fa3c8; --t3: #4a5d80; --shadow: 0 8px 32px rgba(0,0,0,.65);
+  --shadow2: 0 4px 16px rgba(0,0,0,.45);
+  --r: 9px; --r2: 6px; --r3: 4px; --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-bn: 'Tiro Bangla', 'Kalpurush', serif;
+}
+[data-theme="light"] {
+  --bg: #f0f4fc; --bg1: #ffffff; --bg2: #f4f7fd; --bg3: #e8eef8; --bg4: #dce4f4;
+  --border: #dbe4f2; --border2: #c8d5ec;
+  --accent: #4f46e5; --accent2: #4338ca; --accent3: #3730a3;
+  --t1: #0f172a; --t2: #334155; --t3: #64748b;
+  --shadow: 0 8px 32px rgba(0,0,0,.12);
+  --shadow2: 0 4px 16px rgba(0,0,0,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-ui); background: var(--bg); color: var(--t1); display: flex; flex-direction: column; height: 100vh; overflow-y: auto; transition: background .25s, color .25s;}
+
+#topbar { height: 50px; background: var(--bg1); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 10px; flex-shrink:0; transition: background .25s, border-color .25s; box-shadow: var(--shadow2); z-index: 100;}
+.logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; text-decoration: none; user-select: none; }
+.logo-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;}
+.logo-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.logo-fallback { font-size: 17px; font-family: var(--font-bn); color: #fff; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent3)); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 8px; line-height: 1;}
+
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.icon-btn { background: transparent; border: 1px solid transparent; border-radius: var(--r3); color: var(--t3); cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center; transition: .15s; outline: none; flex-shrink: 0; }
+.icon-btn:hover { background: var(--bg3); color: var(--t1); border-color: var(--border2); }
+
+.container { max-width: 1100px; margin: 30px auto; padding: 25px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); width: 95%; flex-shrink:0; margin-bottom: 50px; transition: background .25s, border-color .25s;}
+
+/* Main Grid Layout */
+.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+@media (max-width: 820px) { .main-grid { grid-template-columns: 1fr; } }
+
+.controls-col { display: flex; flex-direction: column; gap: 15px; }
+
+.drop-zone { border: 2px dashed var(--border2); border-radius: var(--r2); padding: 20px; text-align: center; cursor: pointer; transition: .2s; background: var(--bg1);}
+.drop-zone:hover { border-color: var(--accent2); background: rgba(91,80,240,.06); }
+.btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: var(--r2); font-weight: bold; cursor: pointer; transition: .2s; margin-top: 10px;}
+.btn:hover { background: var(--accent2); }
+.btn:disabled { background: var(--bg3); color: var(--t3); cursor: not-allowed; }
+
+h2 { margin-bottom: 5px; font-size: 18px; }
+p { color: var(--t2); font-size: 12px; margin-bottom: 20px; }
+a.back-link { color: var(--t2); text-decoration: none; font-size: 12px; display: inline-block; margin-bottom: 20px;}
+a.back-link:hover { color: var(--accent3); }
+label { font-size: 11px; color: var(--t3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;}
+
+input[type="text"], select { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--r2); color: var(--t1); padding: 8px 10px; font-size: 13px; outline: none; margin-bottom: 10px; transition: .2s;}
+input[type="text"]:focus, select:focus { border-color: var(--accent); }
+
+/* Custom Sliders */
+.slider-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;}
+.slider-wrap input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; background: var(--border2); border-radius: 2px; outline: none; cursor: pointer; }
+.slider-wrap input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent2); cursor: pointer; box-shadow: 0 0 0 3px rgba(99,102,241,.18); transition: box-shadow .15s; }
+.slider-wrap input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(99,102,241,.28); }
+
+.type-tabs { display: flex; gap: 0; background: var(--bg3); border-radius: var(--r3); overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px; }
+.type-tab { flex: 1; padding: 10px; font-size: 11px; font-weight: 600; color: var(--t3); cursor: pointer; text-align: center; transition: .15s; user-select: none; }
+.type-tab.on { background: var(--accent); color: #fff; }
+.type-tab:not(.on):hover { background: var(--bg4); color: var(--t1); }
+
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 20px; background: var(--bg1); padding: 15px; border-radius: var(--r2); border: 1px solid var(--border); box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);}
+.dynamic-sec { display: none; background: var(--bg1); padding: 15px; border-radius: var(--r2); border: 1px solid var(--border); }
+.dynamic-sec.active { display: block; }
+
+/* CSS Simulation Box */
+.sim-wrapper { background: var(--bg3); padding: 20px; border-radius: var(--r); border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; min-height: 400px; box-shadow: inset 0 4px 16px rgba(0,0,0,0.2); }
+#sim-page { width: 100%; max-width: 320px; aspect-ratio: 1 / 1.414; background: #ffffff; position: relative; overflow: hidden; box-shadow: var(--shadow2); border-radius: 2px; transition: aspect-ratio 0.3s;}
+#sim-wm-container { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; justify-content: center; align-items: center; pointer-events: none; width: max-content; height: max-content;}
+#sim-wm-text { font-family: Helvetica, sans-serif; font-weight: bold; white-space: nowrap; }
+#sim-wm-img { width: 150px; height: auto; object-fit: contain; }
+
+/* Info Panel CSS */
+#info { position: fixed; top: 0; right: 0; width: min(400px, 95vw); height: 100dvh; background: var(--bg1); border-left: 1px solid var(--border); z-index: 901; transform: translateX(100%); transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1), background .25s, border-color .25s; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+#info.show { transform: none; }
+.info-hdr { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.info-body { flex: 1; overflow-y: auto; padding: 16px; font-size: 13px; color: var(--t2); line-height: 1.6; }
+#ov { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 900; opacity: 0; pointer-events: none; transition: .3s; }
+#ov.show { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <a class="logo" href="index.html" style="text-decoration: none;">
+    <div class="logo-icon" style="background: transparent;">
+      <img src="logo.png" alt="Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+      <span class="logo-fallback" style="display:none">প</span>
+    </div>
+  </a>
+  <span style="font-weight: 700; font-size: 14px;">Add Watermark Tool</span>
+  
+  <div class="topbar-right">
+    <button class="icon-btn" id="theme-btn" title="Toggle theme">
+      <svg id="theme-icon-dark" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      <svg id="theme-icon-light" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="icon-btn" id="info-btn" title="How to use">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="container">
+  <a href="index.html" class="back-link">← Back to Editor</a>
+  <h2>Advanced PDF Watermark</h2>
+  <p>Configure your watermark and see a live simulation before applying.</p>
+
+  <div class="main-grid">
+    <!-- LEFT: CONTROLS -->
+    <div class="controls-col">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div style="font-size: 24px; margin-bottom: 5px;" id="file-icon">📄</div>
+        <div id="file-name" style="font-weight: bold; color: var(--t1);">Click to select PDF file</div>
+        <div style="font-size: 11px; color: var(--t3); margin-top: 5px;">Must select PDF to enable apply button</div>
+        <input type="file" id="file-input" accept="application/pdf" hidden>
+      </div>
+
+      <div class="type-tabs">
+        <div class="type-tab on" data-target="sec-text" onclick="switchTab('sec-text')">Text</div>
+        <div class="type-tab" data-target="sec-img" onclick="switchTab('sec-img')">Custom Image</div>
+        <div class="type-tab" data-target="sec-svg" onclick="switchTab('sec-svg')">Default Logo</div>
+      </div>
+
+      <!-- Dynamic Settings -->
+      <div id="sec-text" class="dynamic-sec active">
+        <label>Watermark Text</label>
+        <input type="text" id="wm-text" placeholder="e.g. DO NOT COPY" value="CONFIDENTIAL">
+        <label>Text Color</label>
+        <select id="wm-text-color">
+          <option value="128,128,128">Grey</option>
+          <option value="230,50,50">Red</option>
+          <option value="50,50,230">Blue</option>
+          <option value="0,0,0">Black</option>
+        </select>
+      </div>
+
+      <div id="sec-img" class="dynamic-sec">
+        <label>Upload Custom PNG/JPG</label>
+        <input type="file" id="wm-img-file" accept="image/png, image/jpeg" style="margin-bottom:5px; color:var(--t2); font-size:12px; width:100%;">
+      </div>
+
+      <div id="sec-svg" class="dynamic-sec">
+        <label>SVG Logo Color</label>
+        <select id="wm-svg-color">
+          <option value="#6b7280">Grey</option>
+          <option value="#a855f7">Purple</option>
+          <option value="#3b82f6">Blue</option>
+          <option value="#10b981">Green</option>
+          <option value="#000000">Black</option>
+        </select>
+        <div style="font-size: 10px; color: var(--gold2); margin-top: 8px; line-height:1.4;">Accessing the default logo requires authentication. Ensure 'watermark.svg' exists in your repo.</div>
+      </div>
+
+      <!-- Shared Transform Controls -->
+      <div class="settings-grid">
+        <div>
+          <label>X-Axis <span id="val-x">50%</span></label>
+          <div class="slider-wrap"><input type="range" id="ctrl-x" min="0" max="100" value="50"></div>
+        </div>
+        <div>
+          <label>Y-Axis <span id="val-y">50%</span></label>
+          <div class="slider-wrap"><input type="range" id="ctrl-y" min="0" max="100" value="50"></div>
+        </div>
+        <div>
+          <label>Scale <span id="val-s">1.0</span></label>
+          <div class="slider-wrap"><input type="range" id="ctrl-s" min="0.1" max="5" step="0.1" value="1.0"></div>
+        </div>
+        <div>
+          <label>Rotate <span id="val-r">-45°</span></label>
+          <div class="slider-wrap"><input type="range" id="ctrl-r" min="-180" max="180" value="-45"></div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label>Opacity <span id="val-o">30%</span></label>
+          <div class="slider-wrap"><input type="range" id="ctrl-o" min="5" max="100" value="30"></div>
+        </div>
+      </div>
+
+      <button class="btn" id="apply-btn" disabled onclick="applyWatermark()">Apply & Download PDF</button>
+    </div>
+
+    <!-- RIGHT: LIVE CSS SIMULATION -->
+    <div class="sim-wrapper">
+      <div id="sim-page">
+        <div id="sim-wm-container">
+          <!-- Text or Img will be injected here -->
+          <div id="sim-wm-text" style="color: rgba(128,128,128,0.3); font-size: 30px;">CONFIDENTIAL</div>
+          <img id="sim-wm-img" style="display: none; opacity: 0.3;" src="" alt=""/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINAL CONFIRMATION SECTION -->
+  <div id="preview-section" style="display: none; margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+    <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--t1);">Final Document Generated</h3>
+    <iframe id="pdf-preview" style="width: 100%; height: 500px; border: 1px solid var(--border2); border-radius: var(--r2); background: #fff; margin-bottom: 15px;"></iframe>
+    
+    <div style="display: flex; gap: 10px;">
+      <button class="btn" style="background: transparent; color: var(--accent3); border: 1px solid var(--border2);" id="open-browser-btn">🌐 View PDF Native</button>
+      <button class="btn" style="background: var(--green); color: #fff;" id="download-btn">⬇️ Download PDF</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- OVERLAY AND INFO PANEL -->
+<div id="ov"></div>
+<div id="info">
+  <div class="info-hdr">
+    <span style="font-size:14px; font-weight:700; color:var(--t1)">How to Use</span>
+    <button class="icon-btn" id="info-close">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="info-body">
+    <p><strong>1. Live Simulation:</strong> The box on the right represents the exact shape of your uploaded PDF. As you move the sliders, you will see a buttery-smooth preview of exactly how your watermark will sit.</p>
+    <p><strong>2. Apply:</strong> Click "Apply & Download". The app will use your simulated math (converting center-rotations to baseline-rotations) to permanently bake the watermark into every page of the real PDF.</p>
+    <p><strong>Note on Default Logo:</strong> The default SVG logo requires a password to unlock.</p>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toasts" style="position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 7px; pointer-events: none; max-width: 90vw;"></div>
+
+<script>
+  // -- SHA-256 Hash of "BERA26" --
+  const DEFAULT_WM_HASH = "d89c34cb1d5083183db108522761b3bec45ac9cb159da982121ee4b4e934297c";
+  let hasAuthenticatedSvg = false;
+  let cachedSvgBlobUrl = null;
+
+  async function hashPassword(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function toast(msg, type = 'info', dur = 3200) {
+    const w = document.getElementById('toasts');
+    const t = document.createElement('div');
+    t.style.cssText = `background:var(--bg2); border:1px solid ${type==='error'?'var(--red)':'var(--green)'}; border-radius:var(--r); padding:9px 14px; font-size:12px; color:var(--t1); box-shadow:var(--shadow); display:flex; gap:8px; animation:tIn .25s ease forwards; pointer-events:auto; white-space:nowrap;`;
+    t.innerHTML = `<span>${msg}</span>`;
+    w.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(()=>t.remove(), 300); }, dur);
+  }
+
+  // -- THEME LOGIC --
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    localStorage.setItem('qpm-theme', t);
+    document.getElementById('theme-icon-dark').style.display = t === 'dark' ? '' : 'none';
+    document.getElementById('theme-icon-light').style.display = t === 'light' ? '' : 'none';
+  }
+  setTheme(localStorage.getItem('qpm-theme') || 'dark');
+  document.getElementById('theme-btn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+  // -- INFO PANEL LOGIC --
+  document.getElementById('info-btn').onclick = () => { document.getElementById('info').classList.add('show'); document.getElementById('ov').classList.add('show'); };
+  const closeInfo = () => { document.getElementById('info').classList.remove('show'); document.getElementById('ov').classList.remove('show'); };
+  document.getElementById('info-close').onclick = closeInfo;
+  document.getElementById('ov').onclick = closeInfo;
+
+  // -- SIMULATION LOGIC --
+  let currentMode = 'sec-text';
+  const simContainer = document.getElementById('sim-wm-container');
+  const simText = document.getElementById('sim-wm-text');
+  const simImg = document.getElementById('sim-wm-img');
+  const simPage = document.getElementById('sim-page');
+
+  function updateSimulation() {
+    const x = document.getElementById('ctrl-x').value;
+    const y = document.getElementById('ctrl-y').value;
+    const s = document.getElementById('ctrl-s').value;
+    const r = document.getElementById('ctrl-r').value;
+    const o = document.getElementById('ctrl-o').value;
+
+    // Apply Transforms
+    simContainer.style.left = x + '%';
+    simContainer.style.top = y + '%';
+    simContainer.style.transform = `translate(-50%, -50%) rotate(${r}deg) scale(${s})`;
+    simContainer.style.opacity = o / 100;
+
+    // Relative font scaling so text visually scales correctly with container
+    const baseFontSize = (simPage.clientWidth / 595) * 50; 
+
+    // Apply Content Based on Tab
+    if (currentMode === 'sec-text') {
+        simImg.style.display = 'none';
+        simText.style.display = 'block';
+        simText.textContent = document.getElementById('wm-text').value || " ";
+        simText.style.color = `rgb(${document.getElementById('wm-text-color').value})`;
+        simText.style.fontSize = `${baseFontSize}px`;
+    } else {
+        simText.style.display = 'none';
+        simImg.style.display = 'block';
+    }
+  }
+
+  // Attach listeners to trigger simulation update
+  const inputsToWatch = ['ctrl-x', 'ctrl-y', 'ctrl-s', 'ctrl-r', 'ctrl-o', 'wm-text', 'wm-text-color'];
+  inputsToWatch.forEach(id => document.getElementById(id).addEventListener('input', updateSimulation));
+  window.addEventListener('resize', updateSimulation);
+
+  // Handle Tab Switching & Authentication
+  async function switchTab(tabId) {
+    if (tabId === 'sec-svg' && !hasAuthenticatedSvg) {
+        const pwd = prompt('Enter password to unlock Default Logo:');
+        if (!pwd) return; 
+        const hash = await hashPassword(pwd.trim());
+        if (hash !== DEFAULT_WM_HASH) {
+            toast('Access Denied: Incorrect Password', 'error');
+            return;
+        }
+        hasAuthenticatedSvg = true;
+        toast('Default Logo Unlocked', 'info');
+        await renderSvgForSimulation(); 
+    }
+
+    document.querySelectorAll('.type-tab').forEach(t => t.classList.toggle('on', t.dataset.target === tabId));
+    document.querySelectorAll('.dynamic-sec').forEach(s => s.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    currentMode = tabId;
+
+    if (currentMode === 'sec-svg' && hasAuthenticatedSvg) {
+        simImg.src = cachedSvgBlobUrl;
+    } else if (currentMode === 'sec-img') {
+        const file = document.getElementById('wm-img-file').files[0];
+        simImg.src = file ? URL.createObjectURL(file) : '';
+    }
+
+    updateSimulation();
+  }
+
+  document.getElementById('wm-img-file').addEventListener('change', function(e) {
+      if (e.target.files.length > 0) {
+          simImg.src = URL.createObjectURL(e.target.files[0]);
+          updateSimulation();
+      }
+  });
+
+  document.getElementById('wm-svg-color').addEventListener('change', async () => {
+      if (hasAuthenticatedSvg) await renderSvgForSimulation();
+  });
+
+  const bindSlider = (id, suffix) => {
+    const el = document.getElementById('ctrl-' + id);
+    const val = document.getElementById('val-' + id);
+    el.addEventListener('input', (e) => val.textContent = e.target.value + suffix);
+  };
+  bindSlider('x', '%'); bindSlider('y', '%'); bindSlider('s', 'x'); bindSlider('r', '°'); bindSlider('o', '%');
+
+  // -- PDF PROCESSING LOGIC --
+  let targetPdfFile = null;
+  let finalBlobUrl = null;
+
+  document.getElementById('file-input').addEventListener('change', async function(e) {
+    if(e.target.files.length > 0) {
+        targetPdfFile = e.target.files[0];
+        document.getElementById('file-name').textContent = targetPdfFile.name;
+        document.getElementById('file-icon').textContent = "✅";
+        document.getElementById('apply-btn').disabled = false;
+        document.getElementById('preview-section').style.display = 'none';
+
+        // Synchronize Simulation Box Aspect Ratio with the uploaded PDF
+        try {
+            const arrayBuffer = await readFileAsArrayBuffer(targetPdfFile);
+            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+            const { width, height } = pdfDoc.getPages()[0].getSize();
+            simPage.style.aspectRatio = `${width} / ${height}`;
+            updateSimulation();
+        } catch(err) {
+            console.warn("Could not read PDF dimensions for preview synchronization.", err);
+        }
+    }
+  });
+
+  function readFileAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  async function renderSvgForSimulation() {
+    return new Promise((resolve, reject) => {
+      const color = document.getElementById('wm-svg-color').value;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width || 500;
+        canvas.height = img.height || 500;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.globalCompositeOperation = "source-in";
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob(blob => {
+            if (cachedSvgBlobUrl) URL.revokeObjectURL(cachedSvgBlobUrl);
+            cachedSvgBlobUrl = URL.createObjectURL(blob);
+            simImg.src = cachedSvgBlobUrl;
+            updateSimulation();
+            resolve();
+        }, 'image/png');
+      };
+      img.onerror = () => {
+          toast('Error: watermark not found.', 'error');
+          reject();
+      };
+      img.src = 'watermark.svg'; 
+    });
+  }
+
+  async function applyWatermark() {
+    const btn = document.getElementById('apply-btn');
+    btn.textContent = "Processing... Please wait";
+    btn.disabled = true;
+
+    try {
+      const posX = parseFloat(document.getElementById('ctrl-x').value) / 100;
+      const posY = parseFloat(document.getElementById('ctrl-y').value) / 100;
+      const scaleVal = parseFloat(document.getElementById('ctrl-s').value);
+      const rotVal = parseFloat(document.getElementById('ctrl-r').value);
+      const opacityVal = parseFloat(document.getElementById('ctrl-o').value) / 100;
+
+      const arrayBuffer = await readFileAsArrayBuffer(targetPdfFile);
+      const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+      const pages = pdfDoc.getPages();
+
+      let embedImage = null;
+
+      if (currentMode === 'sec-img') {
+        const imgFile = document.getElementById('wm-img-file').files[0];
+        if(!imgFile) throw new Error("Please upload a custom image in the left panel.");
+        const isJpg = imgFile.type === 'image/jpeg';
+        const imgBuffer = await readFileAsArrayBuffer(imgFile);
+        embedImage = isJpg ? await pdfDoc.embedJpg(imgBuffer) : await pdfDoc.embedPng(imgBuffer);
+      } 
+      else if (currentMode === 'sec-svg') {
+        if(!cachedSvgBlobUrl) throw new Error("SVG Logo not authenticated or loaded.");
+        const response = await fetch(cachedSvgBlobUrl);
+        const svgPngBuffer = await response.arrayBuffer();
+        embedImage = await pdfDoc.embedPng(svgPngBuffer);
+      }
+
+      // Load Standard Font for measurement
+      const font = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+
+      pages.forEach(page => {
+        const { width, height } = page.getSize();
+        
+        // Base center coordinates
+        const cx = width * posX;
+        const cy = height * (1 - posY); // PDF coordinate system is bottom-up
+
+        // Convert UI rotation (degrees, clockwise) to PDF rotation (radians, counter-clockwise)
+        const theta = -rotVal * Math.PI / 180; 
+
+        if (currentMode === 'sec-text') {
+            const text = document.getElementById('wm-text').value || " ";
+            const colorRaw = document.getElementById('wm-text-color').value.split(',').map(Number);
+            const fontSize = 50 * scaleVal;
+            
+            // Exact text measurement
+            const textWidth = font.widthOfTextAtSize(text, fontSize);
+            const textHeight = fontSize * 0.75; // Approx cap height
+
+            // Trigonometric correction: Find where the bottom-left baseline anchor point
+            // goes when the theoretical bounding box is rotated around its true center.
+            const targetX = cx - (textWidth/2)*Math.cos(theta) + (textHeight/2)*Math.sin(theta);
+            const targetY = cy - (textWidth/2)*Math.sin(theta) - (textHeight/2)*Math.cos(theta);
+
+            page.drawText(text, {
+              x: targetX,
+              y: targetY,
+              size: fontSize,
+              font: font,
+              color: PDFLib.rgb(colorRaw[0]/255, colorRaw[1]/255, colorRaw[2]/255),
+              opacity: opacityVal,
+              rotate: PDFLib.degrees(-rotVal),
+            });
+
+        } else if (embedImage) {
+            const scaledDims = embedImage.scale(scaleVal);
+            const imgW = scaledDims.width;
+            const imgH = scaledDims.height;
+            
+            // Trigonometric correction for Image anchor point (bottom-left)
+            const targetX = cx - (imgW/2)*Math.cos(theta) + (imgH/2)*Math.sin(theta);
+            const targetY = cy - (imgW/2)*Math.sin(theta) - (imgH/2)*Math.cos(theta);
+
+            page.drawImage(embedImage, {
+              x: targetX,
+              y: targetY,
+              width: imgW,
+              height: imgH,
+              opacity: opacityVal,
+              rotate: PDFLib.degrees(-rotVal),
+            });
+        }
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      
+      if (finalBlobUrl) URL.revokeObjectURL(finalBlobUrl);
+      finalBlobUrl = URL.createObjectURL(blob);
+
+      // Show Final Confirmation
+      document.getElementById('pdf-preview').src = finalBlobUrl;
+      document.getElementById('preview-section').style.display = 'block';
+
+      // Setup Buttons
+      document.getElementById('open-browser-btn').onclick = () => window.open(finalBlobUrl, '_blank');
+      document.getElementById('download-btn').onclick = () => {
+        const link = document.createElement('a');
+        link.href = finalBlobUrl;
+        link.download = 'Watermarked_' + targetPdfFile.name;
+        link.click();
+      };
+      
+      btn.textContent = "Done! Process Another?";
+      btn.disabled = false;
+
+    } catch (err) {
+      alert("Error: " + err.message);
+      btn.textContent = "Apply & Download PDF";
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

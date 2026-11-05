@@ -51,22 +51,37 @@ import QuestionEditor from '../components/maker/QuestionEditor';
 import QuestionPaletteTray from '../components/maker/QuestionPaletteTray';
 import MobileMoreMenu from '../components/maker/MobileMoreMenu';
 import StudioLandingHub from '../components/StudioLandingHub';
+import { useButtonDisplayMode } from '../hooks/useButtonDisplayMode';
+
+const CBT_DRAFT_KEY = 'cbt_maker_draft';
+const CBT_HAS_USER_DRAFT_KEY = 'cbt_maker_has_user_draft';
 
 export default function CBTMaker() {
   const navigate = useNavigate();
   const [showLandingHub, setShowLandingHub] = useState<boolean>(true);
+  const { buttonDisplayMode, shouldShowLabel } = useButtonDisplayMode();
 
-  // Load draft from localStorage or fallback to default (clean initial state)
+  const [hasActiveDraft, setHasActiveDraft] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(CBT_HAS_USER_DRAFT_KEY) === '1' && Boolean(localStorage.getItem(CBT_DRAFT_KEY));
+    } catch {
+      return false;
+    }
+  });
+
+  // Load draft from localStorage only if user has an active draft; otherwise fallback to clean initial state
   const [appState, setAppState] = useState<AppState>(() => {
     try {
-      const saved = localStorage.getItem('cbt_maker_draft');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.sections && parsed.sections.length > 0) {
-          return {
-            ...parsed,
-            questionViewMode: parsed.questionViewMode || 'CONTINUOUS'
-          };
+      if (localStorage.getItem(CBT_HAS_USER_DRAFT_KEY) === '1') {
+        const saved = localStorage.getItem(CBT_DRAFT_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.sections && parsed.sections.length > 0) {
+            return {
+              ...parsed,
+              questionViewMode: parsed.questionViewMode || 'CONTINUOUS'
+            };
+          }
         }
       }
     } catch (e) {
@@ -153,14 +168,14 @@ export default function CBTMaker() {
 
   // Quick In-Place Title Rename
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tempTitle, setTempTitle] = useState(appState.examTitle || 'New CBT Test');
+  const [tempTitle, setTempTitle] = useState(appState.examTitle || 'Untitled CBT Paper');
 
   useEffect(() => {
-    setTempTitle(appState.examTitle || 'New CBT Test');
+    setTempTitle(appState.examTitle || 'Untitled CBT Paper');
   }, [appState.examTitle]);
 
   const commitTitleRename = () => {
-    const trimmed = tempTitle.trim() || 'New CBT Test';
+    const trimmed = tempTitle.trim() || 'Untitled CBT Paper';
     setAppState(prev => ({ ...prev, examTitle: trimmed }));
     setIsEditingTitle(false);
   };
@@ -183,27 +198,30 @@ export default function CBTMaker() {
     explanation: false
   });
 
-  // Debounced Auto-Save Draft to localStorage (non-blocking idle task to prevent UI lag)
+  // Debounced Auto-Save Draft to localStorage only after user starts a project/draft
   useEffect(() => {
+    if (!hasActiveDraft) return;
     const timer = setTimeout(() => {
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         window.requestIdleCallback(() => {
           try {
-            localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
+            localStorage.setItem(CBT_DRAFT_KEY, JSON.stringify(appState));
+            localStorage.setItem(CBT_HAS_USER_DRAFT_KEY, '1');
           } catch (e) {
             console.warn('LocalStorage save warning', e);
           }
         });
       } else {
         try {
-          localStorage.setItem('cbt_maker_draft', JSON.stringify(appState));
+          localStorage.setItem(CBT_DRAFT_KEY, JSON.stringify(appState));
+          localStorage.setItem(CBT_HAS_USER_DRAFT_KEY, '1');
         } catch (e) {
           console.warn('LocalStorage save warning', e);
         }
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [appState]);
+  }, [appState, hasActiveDraft]);
 
   // Save preferred width percent to localStorage
   useEffect(() => {
@@ -556,23 +574,31 @@ export default function CBTMaker() {
 
   // Reset / Clear Draft to 1 Section & 1 Blank Question (Clean Current Test)
   const executeResetDraft = () => {
+    const freshClean = createCleanAppState();
+    setAppState(freshClean);
+    setHasActiveDraft(true);
     try {
-      localStorage.removeItem('cbt_maker_draft');
+      localStorage.setItem(CBT_HAS_USER_DRAFT_KEY, '1');
+      localStorage.setItem(CBT_DRAFT_KEY, JSON.stringify(freshClean));
     } catch (e) {
       console.error(e);
     }
-    const freshClean = createCleanAppState();
-    setAppState(freshClean);
     setActiveSectionName(freshClean.sections[0].name);
     setActiveQuestionIndex(0);
     setDraftResetCounter(c => c + 1);
     setShowCleanConfirmModal(false);
   };
 
-  // Load Demo CBT Showcase
+  // Load Full Showcase CBT Template
   const executeLoadDemo = () => {
-    setAppState(JSON.parse(JSON.stringify(demoShowcaseAppState)));
-    setActiveSectionName(demoShowcaseAppState.sections[0].name);
+    const demoCopy = JSON.parse(JSON.stringify(demoShowcaseAppState));
+    setAppState(demoCopy);
+    setHasActiveDraft(true);
+    try {
+      localStorage.setItem(CBT_HAS_USER_DRAFT_KEY, '1');
+      localStorage.setItem(CBT_DRAFT_KEY, JSON.stringify(demoCopy));
+    } catch {}
+    setActiveSectionName(demoCopy.sections[0].name);
     setActiveQuestionIndex(0);
     setDraftResetCounter(c => c + 1);
     setShowLoadDemoConfirmModal(false);
@@ -709,6 +735,60 @@ export default function CBTMaker() {
     }
   };
 
+  // Isolate StudioLandingHub so editor header & question marking pills never appear on the homepage
+  if (showLandingHub) {
+    return (
+      <>
+        <StudioLandingHub<AppState>
+          mode="cbt-maker"
+          hasActiveDraft={hasActiveDraft}
+          activeTitle={appState.examTitle || 'Untitled CBT Paper'}
+          activeSubtitle={appState.examSubtitle || appState.agencyName || 'National Testing Agency'}
+          activeMetaBadge={`${appState.sections.length} Sec • ${(Object.values(appState.questionsBySection) as Question[][]).reduce((acc: number, arr: Question[]) => acc + arr.length, 0)} Qs • ${appState.duration} mins`}
+          activeData={appState}
+          onResumeActive={() => {
+            setHasActiveDraft(true);
+            setShowLandingHub(false);
+          }}
+          onCreateNewBlank={() => {
+            executeResetDraft();
+            setShowLandingHub(false);
+          }}
+          onLoadShowcaseTemplate={() => {
+            executeLoadDemo();
+            setShowLandingHub(false);
+          }}
+          onLoadProjectData={(payload) => {
+            if (payload && payload.sections && payload.sections.length > 0) {
+              const nextState: AppState = {
+                ...payload,
+                questionViewMode: payload.questionViewMode || 'CONTINUOUS'
+              };
+              setAppState(nextState);
+              setHasActiveDraft(true);
+              try {
+                localStorage.setItem(CBT_HAS_USER_DRAFT_KEY, '1');
+                localStorage.setItem(CBT_DRAFT_KEY, JSON.stringify(nextState));
+              } catch {}
+              setActiveSectionName(payload.sections[0].name);
+              setActiveQuestionIndex(0);
+              setDraftResetCounter(c => c + 1);
+            }
+            setShowLandingHub(false);
+          }}
+          onOpenFullGuide={() => setIsLaTeXGuideOpen(true)}
+        />
+        {isLaTeXGuideOpen && (
+          <LaTeXGuideModal
+            isOpen={isLaTeXGuideOpen}
+            onClose={() => setIsLaTeXGuideOpen(false)}
+            onInsertSnippet={insertMathSnippet}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden select-none">
       {/* Non-blocking In-App Toast Banner */}
@@ -726,20 +806,29 @@ export default function CBTMaker() {
       )}
       {/* Responsive Single-Row Top Toolbar */}
       <header className="px-3 sm:px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 z-30">
-        {/* Left: Back + Title + Active Section Pill */}
-        <div className="flex items-center gap-2 min-w-0">
+        {/* Left: Back + Studio Hub Icon + Title + Active Section Pill */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <button
             type="button"
             onClick={() => navigate('/')}
-            title="Back to Home"
-            className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Back to Home Dashboard"
+            className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={17} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowLandingHub(true)}
+            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition-colors shrink-0 cursor-pointer"
+            title="Studio Hub (Start Blank, Load Showcase Template & Saved Projects)"
+          >
+            <FolderOpen size={15} />
           </button>
 
           {/* Title Editor */}
           {isEditingTitle ? (
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 ml-1">
               <input
                 type="text"
                 value={tempTitle}
@@ -747,7 +836,7 @@ export default function CBTMaker() {
                 onKeyDown={e => {
                   if (e.key === 'Enter') commitTitleRename();
                   if (e.key === 'Escape') {
-                    setTempTitle(appState.examTitle || 'New CBT Test');
+                    setTempTitle(appState.examTitle || 'Untitled CBT Paper');
                     setIsEditingTitle(false);
                   }
                 }}
@@ -766,12 +855,12 @@ export default function CBTMaker() {
             </div>
           ) : (
             <div
-              className="flex items-center gap-1 group cursor-pointer shrink-0 min-w-0"
+              className="flex items-center gap-1 group cursor-pointer shrink-0 min-w-0 ml-1"
               onClick={() => setIsEditingTitle(true)}
-              title="Click to rename"
+              title="Click to rename exam title"
             >
-              <h1 className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-[90px] sm:max-w-[180px] group-hover:text-blue-600 transition-colors">
-                {appState.examTitle || 'CBT Maker'}
+              <h1 className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-[110px] sm:max-w-[200px] group-hover:text-blue-600 transition-colors">
+                {appState.examTitle || 'Untitled CBT Paper'}
               </h1>
               <Edit2 size={11} className="text-slate-400 shrink-0" />
             </div>
@@ -781,7 +870,7 @@ export default function CBTMaker() {
           <button
             type="button"
             onClick={() => setIsQuestionTrayOpen(true)}
-            className="hidden xs:flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-bold hover:bg-blue-100 transition-colors shrink-0"
+            className="hidden xs:flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-bold hover:bg-blue-100 transition-colors shrink-0 cursor-pointer"
             title="Open Question Palette & Sections"
           >
             <Layers size={12} />
@@ -794,26 +883,11 @@ export default function CBTMaker() {
 
         {/* Right: Controls & Main Action Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Recent Projects & Guides Hub Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowLandingHub(prev => !prev)}
-            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-              showLandingHub
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
-            }`}
-            title="Recent Projects & User Guides Hub"
-          >
-            <FolderOpen size={14} />
-            <span className="hidden sm:inline">Projects</span>
-          </button>
-
           {/* Question Palette / Tray Toggle Button */}
           <button
             type="button"
             onClick={() => setIsQuestionTrayOpen(prev => !prev)}
-            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               isQuestionTrayOpen
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
@@ -821,48 +895,51 @@ export default function CBTMaker() {
             title="Open CBT Question Matrix & Section Palette"
           >
             <LayoutGrid size={14} />
-            <span className="hidden sm:inline">Palette</span>
+            {shouldShowLabel(isQuestionTrayOpen, true) && <span className="hidden sm:inline">Palette</span>}
           </button>
 
-          {/* Desktop & Tablet Secondary Action Buttons (Visible on screens >= 480px including iPad mini) */}
+          {/* Desktop & Tablet Secondary Action Buttons (Visible on screens >= 480px) */}
           <div className="hidden min-[480px]:flex items-center gap-1 sm:gap-1.5">
-            {/* View Mode Segmented Controls: Split | Edit | View */}
-            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+            {/* View Mode Segmented Controls: Split | Edit | View (Smart Active-Label Default) */}
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs gap-0.5">
               <button
                 type="button"
                 onClick={() => setLayoutMode('split')}
-                title="Split View"
-                className={`px-1.5 sm:px-2 py-0.5 rounded-md font-bold transition-all ${
+                title="Split View (Editor + Live Preview)"
+                className={`flex items-center gap-1 rounded-md font-bold transition-all cursor-pointer ${
                   layoutMode === 'split'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400'
+                    ? 'px-2.5 py-1 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                    : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                Split
+                <Columns2 size={13} />
+                {shouldShowLabel(layoutMode === 'split', true) && <span>Split</span>}
               </button>
               <button
                 type="button"
                 onClick={() => setLayoutMode('editor')}
                 title="Editor Only"
-                className={`px-1.5 sm:px-2 py-0.5 rounded-md font-bold transition-all ${
+                className={`flex items-center gap-1 rounded-md font-bold transition-all cursor-pointer ${
                   layoutMode === 'editor'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400'
+                    ? 'px-2.5 py-1 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                    : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                Edit
+                <Edit2 size={13} />
+                {shouldShowLabel(layoutMode === 'editor', true) && <span>Edit</span>}
               </button>
               <button
                 type="button"
                 onClick={() => setLayoutMode('preview')}
-                title="Live Preview"
-                className={`px-1.5 sm:px-2 py-0.5 rounded-md font-bold transition-all ${
+                title="Live Preview Only"
+                className={`flex items-center gap-1 rounded-md font-bold transition-all cursor-pointer ${
                   layoutMode === 'preview'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400'
+                    ? 'px-2.5 py-1 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                    : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                View
+                <Eye size={13} />
+                {shouldShowLabel(layoutMode === 'preview', true) && <span>Preview</span>}
               </button>
             </div>
 
@@ -870,7 +947,7 @@ export default function CBTMaker() {
               type="button"
               onClick={() => setIsAIPromptOpen(true)}
               title="AI Prompt Generator"
-              className="p-1.5 rounded-lg text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 transition-colors"
+              className="p-1.5 rounded-lg text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 transition-colors cursor-pointer"
             >
               <Sparkles size={14} />
             </button>
@@ -879,7 +956,7 @@ export default function CBTMaker() {
               type="button"
               onClick={() => setIsPasteImportOpen(true)}
               title="Bulk Paste Import"
-              className="p-1.5 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
+              className="p-1.5 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <FileText size={14} />
             </button>
@@ -887,8 +964,8 @@ export default function CBTMaker() {
             <button
               type="button"
               onClick={() => setIsLaTeXGuideOpen(true)}
-              title="LaTeX & Math Guide"
-              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 transition-colors"
+              title="LaTeX & Inline Expression Guide"
+              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 transition-colors cursor-pointer"
             >
               <BookOpen size={14} />
             </button>
@@ -897,7 +974,7 @@ export default function CBTMaker() {
               type="button"
               onClick={() => setIsExamSettingsOpen(true)}
               title="Exam Settings"
-              className="p-1.5 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
+              className="p-1.5 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <Settings size={14} />
             </button>
@@ -921,10 +998,10 @@ export default function CBTMaker() {
             type="button"
             onClick={handleCompileAndExport}
             disabled={isCompiling}
-            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all disabled:opacity-50 touch-manipulation"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all disabled:opacity-50 touch-manipulation cursor-pointer"
           >
             <Download size={13} />
-            <span>{isCompiling ? 'Saving...' : 'Compile'}</span>
+            {buttonDisplayMode !== 'icon-only' && <span>{isCompiling ? 'Saving...' : 'Compile'}</span>}
           </button>
         </div>
       </header>
@@ -964,7 +1041,7 @@ export default function CBTMaker() {
             type="button"
             onClick={handleAddSection}
             title="Add New Section"
-            className="flex items-center gap-0.5 px-2 py-1 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-dashed border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors shrink-0"
+            className="flex items-center gap-0.5 px-2 py-1 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-dashed border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
           >
             <Plus size={12} />
             <span className="hidden sm:inline">Sec</span>
@@ -1035,7 +1112,7 @@ export default function CBTMaker() {
               }))
             }
             title="Toggle between LaTeX ($...$) and Pure HTML math mode"
-            className="px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-blue-400 transition-colors"
+            className="px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-blue-400 transition-colors cursor-pointer"
           >
             {appState.mathMode === 'LATEX' ? 'LaTeX • Offline' : 'HTML Mode'}
           </button>
@@ -1048,7 +1125,7 @@ export default function CBTMaker() {
               }))
             }
             title="Switch between Multi-Question Stream View and Single Question Focus"
-            className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-colors ${
+            className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
               (appState.questionViewMode || 'CONTINUOUS') === 'CONTINUOUS'
                 ? 'bg-purple-600 text-white border-purple-600'
                 : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
@@ -1059,46 +1136,7 @@ export default function CBTMaker() {
         </div>
       </div>
 
-      {/* Main Workspace Split Body or Recent Projects & Guides Hub */}
-      {showLandingHub ? (
-        <StudioLandingHub<AppState>
-          mode="cbt-maker"
-          activeTitle={appState.examTitle || 'New CBT Test'}
-          activeSubtitle={appState.examSubtitle || appState.agencyName || 'National Testing Agency'}
-          activeMetaBadge={`${appState.sections.length} Sec • ${(Object.values(appState.questionsBySection) as Question[][]).reduce((acc: number, arr: Question[]) => acc + arr.length, 0)} Qs • ${appState.duration} mins`}
-          activeData={appState}
-          onResumeActive={() => setShowLandingHub(false)}
-          onCreateNewBlank={() => {
-            const freshClean = createCleanAppState();
-            setAppState(freshClean);
-            setActiveSectionName(freshClean.sections[0].name);
-            setActiveQuestionIndex(0);
-            setDraftResetCounter(c => c + 1);
-            setShowLandingHub(false);
-          }}
-          onLoadProjectData={(payload) => {
-            if (payload && payload.sections && payload.sections.length > 0) {
-              setAppState({
-                ...payload,
-                questionViewMode: payload.questionViewMode || 'CONTINUOUS'
-              });
-              setActiveSectionName(payload.sections[0].name);
-              setActiveQuestionIndex(0);
-              setDraftResetCounter(c => c + 1);
-            }
-            setShowLandingHub(false);
-          }}
-          onSelectTemplate={() => {
-            const demoCopy = JSON.parse(JSON.stringify(demoShowcaseAppState));
-            setAppState(demoCopy);
-            setActiveSectionName(demoCopy.sections[0].name);
-            setActiveQuestionIndex(0);
-            setDraftResetCounter(c => c + 1);
-            setShowLandingHub(false);
-          }}
-          onOpenFullGuide={() => setIsLaTeXGuideOpen(true)}
-        />
-      ) : (
+      {/* Main Workspace Split Body */}
       <div className="flex-1 flex overflow-hidden w-full relative">
         {/* Left / Editor Container */}
         <div
@@ -1302,7 +1340,6 @@ export default function CBTMaker() {
           />
         </div>
       </div>
-      )}
 
       {/* Fullscreen overlay while dragging divider */}
       {isDraggingSplitter && (

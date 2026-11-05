@@ -1,19 +1,27 @@
 /**
- * CBT HTML Corrector & KaTeX Math Rendering Engine
+ * CBT HTML Corrector & Offline KaTeX Math Rendering Engine
  * Transforms any imported or generated CBT test HTML instantly to guarantee:
- * 1. KaTeX path & font face correction using absolute origin URLs
- * 2. Ultra-precise LaTeX math rendering ($$, \[, $, \() for fractions, sub/superscripts, braces & limits
- * 3. Prevention of line breaks inside inline math via .katex { white-space: nowrap !important; }
- * 4. Zero-lag, single-pass math rendering via requestAnimationFrame & DOM dataset guards
- * 5. Preservation of plain text instructions and original formatting
- * 6. Replace legacy logo "PW" with "CBT"
+ * 1. Offline-safe KaTeX @font-face declarations with embedded Base64 data URIs & `font-display: swap` (zero FOIT / invisible text in sandboxed srcDoc iframes)
+ * 2. Stripping of blocking @font-face rules from bundled katex.min.css that lack font-display: swap
+ * 3. Ultra-precise LaTeX math rendering ($$, \[, $, \() for fractions, sub/superscripts, braces & limits
+ * 4. Prevention of line breaks inside inline math via .katex { white-space: nowrap !important; }
+ * 5. Zero-lag, single-pass math rendering via requestAnimationFrame & DOM dataset guards
+ * 6. Preservation of plain text instructions and original formatting
+ * 7. Replace legacy logo "PW" with "CBT"
  */
+
+import katexCssText from 'katex/dist/katex.min.css?inline';
+import { getOfflineKatexFontCss } from './katexFontBridge';
 
 export interface CbtCorrectorOptions {
   useLatexFont?: boolean;
 }
 
-import katexCssText from 'katex/dist/katex.min.css?inline';
+// Strip all @font-face rules from katex.min.css once at module load time!
+// Why: katex.min.css contains 20 @font-face rules WITHOUT `font-display: swap` and with Vite-rewritten paths
+// that fail inside sandboxed `about:srcdoc` iframes or offline mode, causing Flash of Invisible Text (FOIT)
+// where all exam text using KaTeX_Main disappears. We replace them with our non-blocking `font-display: swap` rules.
+const strippedKatexCoreCss = katexCssText.replace(/@font-face\s*\{[\s\S]*?\}/g, '');
 
 export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrectorOptions): string {
   if (!rawHtml || typeof rawHtml !== 'string') return '';
@@ -24,7 +32,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
   let html = rawHtml;
 
-  // 1. Inject <base> tag at top of <head> so all relative resources in Blob URL resolve to origin
+  // 1. Inject <base> tag at top of <head> so all relative resources in srcDoc resolve to origin
   if (html.includes('<head>')) {
     html = html.replace('<head>', `<head>\n    <base href="${assetBase}">`);
   } else {
@@ -34,9 +42,15 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
   // 2. Logo Replacement: PW -> CBT
   html = html.replace(/<div class="logo-circle">\s*PW\s*<\/div>/gi, '<div class="logo-circle">CBT</div>');
 
-  // 3. Clean any remote CDN links/scripts (jsdelivr, cloudflare, unpkg, googleapis, gstatic) to guarantee 0ms offline execution
-  html = html.replace(/<link[^>]*href=["']https?:\/\/[^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com|fonts\.googleapis|fonts\.gstatic)[^"']*["'][^>]*>/gi, '');
-  html = html.replace(/<script[^>]*src=["']https?:\/\/[^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com)[^"']*["'][^>]*>\s*<\/script>/gi, '');
+  // 3. Clean any remote CDN links/scripts (jsdelivr, cloudflare, unpkg, googleapis, gstatic) and local duplicate katex.min.css links to guarantee 0ms offline execution
+  html = html.replace(
+    /<link[^>]*href=["'](?:https?:\/\/[^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com|fonts\.googleapis|fonts\.gstatic)[^"']*|(?:https?:\/\/[^"']*|\.?\/)?libs\/katex\.min\.css)["'][^>]*>/gi,
+    ''
+  );
+  html = html.replace(
+    /<script[^>]*src=["']https?:\/\/[^"']*(?:cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com)[^"']*["'][^>]*>\s*<\/script>/gi,
+    ''
+  );
 
   // 4. Rewrite relative asset paths (./libs/ -> ${assetBase}libs/, ./fonts/ -> ${assetBase}fonts/)
   html = html.replace(/(href|src)=["'](?:\.\/)?libs\//gi, `$1="${assetBase}libs/`);
@@ -49,101 +63,35 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
 
   // 6. Font Preference Setting (Immediate fallback stack prevents FOIT whether useLatexFont is true or false)
   const useLatexFont = options?.useLatexFont ?? true;
-  const defaultBodyFont = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-  const latexBodyFont = "'KaTeX_Main', Georgia, 'Times New Roman', serif";
+  const defaultBodyFont =
+    "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  const latexBodyFont = "'KaTeX_Main', Georgia, 'Times New Roman', Times, serif";
   const fontStr = useLatexFont ? latexBodyFont : defaultBodyFont;
-  html = html.replace(/(?:const|let|var)\s+Q_FONT_FAMILY\s*=\s*["'][^"']*["'];/g, `const Q_FONT_FAMILY = "${fontStr}";`);
+  html = html.replace(
+    /(?:const|let|var)\s+Q_FONT_FAMILY\s*=\s*["'][^"']*["'];/g,
+    `const Q_FONT_FAMILY = "${fontStr}";`
+  );
 
-  // 7. Inject Absolute @font-face Definitions with font-display: swap & Critical KaTeX Styling
+  // 7. Inject Offline Base64 + Absolute @font-face Definitions with `font-display: swap` & Critical KaTeX Styling
+  const offlineFontFaces = getOfflineKatexFontCss(assetBase);
+
   const fontCssInject = `
     <style id="cbt-katex-font-engine">
-      /* --- KaTeX Absolute Font Face Registrations (font-display: swap ensures 0ms instant text visibility) --- */
-      @font-face {
-        font-family: 'KaTeX_Main';
-        src: url('${assetBase}libs/fonts/KaTeX_Main-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Main';
-        src: url('${assetBase}libs/fonts/KaTeX_Main-Bold.woff2') format('woff2');
-        font-weight: bold; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Main';
-        src: url('${assetBase}libs/fonts/KaTeX_Main-Italic.woff2') format('woff2');
-        font-weight: normal; font-style: italic; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Math';
-        src: url('${assetBase}libs/fonts/KaTeX_Math-Italic.woff2') format('woff2');
-        font-weight: normal; font-style: italic; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Math';
-        src: url('${assetBase}libs/fonts/KaTeX_Math-BoldItalic.woff2') format('woff2');
-        font-weight: bold; font-style: italic; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_AMS';
-        src: url('${assetBase}libs/fonts/KaTeX_AMS-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Size1';
-        src: url('${assetBase}libs/fonts/KaTeX_Size1-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Size2';
-        src: url('${assetBase}libs/fonts/KaTeX_Size2-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Size3';
-        src: url('${assetBase}libs/fonts/KaTeX_Size3-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Size4';
-        src: url('${assetBase}libs/fonts/KaTeX_Size4-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Typewriter';
-        src: url('${assetBase}libs/fonts/KaTeX_Typewriter-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_SansSerif';
-        src: url('${assetBase}libs/fonts/KaTeX_SansSerif-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Caligraphic';
-        src: url('${assetBase}libs/fonts/KaTeX_Caligraphic-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Fraktur';
-        src: url('${assetBase}libs/fonts/KaTeX_Fraktur-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
-      @font-face {
-        font-family: 'KaTeX_Script';
-        src: url('${assetBase}libs/fonts/KaTeX_Script-Regular.woff2') format('woff2');
-        font-weight: normal; font-style: normal; font-display: swap;
-      }
+      /* --- Offline-Ready KaTeX Font Faces (font-display: swap guarantees 0ms instant text visibility) --- */
+      ${offlineFontFaces}
 
       /* --- Question Body & Math Precision Styling --- */
       :root {
         --q-font: ${fontStr} !important;
         --q-font-family: ${fontStr} !important;
       }
-      
-      html, body, div, span, p, label, button, input, textarea, select, table, tr, td, th, .question-content, .q-text, .opt-text, .question-container, .option-item, .q-num-inline, .nat-container, .q-block-item, .nat-input {
+
+      html, body, div, span, p, li, ul, ol, h1, h2, h3, h4, label, button, input, textarea, select, table, tr, td, th,
+      .question-content, .q-text, .opt-text, .question-container, .option-item, .q-num-inline, .nat-container, .q-block-item, .nat-input, .inst-container, .inst-section {
         font-family: ${fontStr} !important;
         font-variant-numeric: lining-nums tabular-nums !important;
         font-feature-settings: "lnum" 1, "tnum" 1 !important;
+        visibility: visible !important;
       }
 
       /* Preserve Assertion-Reason & multiline question formatting */
@@ -158,8 +106,8 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
       }
 
       .katex {
-        font-family: 'KaTeX_Main', 'KaTeX_Math', 'KaTeX_AMS', Georgia, serif !important;
-        font-size: 1.08em;
+        font-family: 'KaTeX_Main', 'KaTeX_Math', 'KaTeX_AMS', Georgia, 'Times New Roman', serif !important;
+        font-size: 1.06em;
         text-indent: 0;
         font-variant-numeric: lining-nums tabular-nums !important;
         font-feature-settings: "lnum" 1, "tnum" 1 !important;
@@ -179,7 +127,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
         overflow-x: auto;
         overflow-y: hidden;
       }
-      
+
       .katex .base {
         white-space: nowrap !important;
       }
@@ -192,24 +140,18 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
     </style>
   `;
 
-  // 8. Inlined Core KaTeX CSS with Absolute Font Paths (100% Offline Guaranteed)
-  const processedKatexCss = katexCssText.replace(
-    /url\(["']?fonts\/([^"')]+)["']?\)/g,
-    `url("${assetBase}libs/fonts/$1")`
-  );
-
-  // 9. Blazing Fast, Zero-Blocking Math Render Engine with Instant Parent Window Inheritance
+  // 8. Blazing Fast, Zero-Blocking Math Render Engine with Instant Parent Window Inheritance
   const katexHeadScripts = `
-    <!-- Inlined KaTeX Core CSS (Never requires network or service worker) -->
+    <!-- Inlined KaTeX Core CSS without blocking @font-face rules -->
     <style id="cbt-katex-bundled-css">
-      ${processedKatexCss}
+      ${strippedKatexCoreCss}
     </style>
 
     ${fontCssInject}
 
     <script id="cbt-katex-auto-render">
     (function() {
-      // Direct 0ms offline bridge: inherit KaTeX & renderMathInElement + fonts from parent window synchronously
+      // Direct 0ms offline bridge: inherit KaTeX & renderMathInElement from parent window synchronously
       function ensureMathEngine() {
         try {
           if (typeof window.katex === 'undefined' && window.parent && window.parent.katex) {
@@ -217,12 +159,6 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
           }
           if (typeof window.renderMathInElement === 'undefined' && window.parent && window.parent.renderMathInElement) {
             window.renderMathInElement = window.parent.renderMathInElement;
-          }
-          if (window.parent && window.parent.document && window.parent.document.fonts && document.fonts && !window._fontsBridged) {
-            window._fontsBridged = true;
-            window.parent.document.fonts.forEach(function(f) {
-              try { document.fonts.add(f); } catch(_) {}
-            });
           }
         } catch (_) {}
       }
@@ -249,9 +185,9 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
         var renderFn = window.renderMathInElement || (window.parent && window.parent.renderMathInElement);
         if (typeof renderFn !== 'function') {
           if (!window._katexRetryCount) window._katexRetryCount = 0;
-          if (window._katexRetryCount < 60) {
+          if (window._katexRetryCount < 40) {
             window._katexRetryCount++;
-            setTimeout(function() { safelyRenderMathInContainer(container); }, 75);
+            setTimeout(function() { safelyRenderMathInContainer(container); }, 60);
           }
           return;
         }
@@ -303,7 +239,7 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
           window._origLoadQuestion = window.loadQuestion;
           window.loadQuestion = function(idx) {
             var res = window._origLoadQuestion.apply(this, arguments);
-            setTimeout(function() { window.triggerMathRender(null, true); }, 10);
+            setTimeout(function() { window.triggerMathRender(null, true); }, 5);
             return res;
           };
         }
@@ -320,19 +256,6 @@ export function prepareTestHtmlForViewer(rawHtml: string, options?: CbtCorrector
         initMath();
       }
       window.addEventListener('load', initMath);
-
-      // Periodic check to ensure late-initialized scripts or question renderers are hooked and rendered
-      var checkAttempts = 0;
-      var pollInterval = setInterval(function() {
-        checkAttempts++;
-        hookQuestionNavigation();
-        if (window.loadQuestion) {
-          window.triggerMathRender(null, false);
-        }
-        if (checkAttempts > 25) {
-          clearInterval(pollInterval);
-        }
-      }, 200);
     })();
     </script>
   `;

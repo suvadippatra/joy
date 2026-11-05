@@ -8,9 +8,11 @@ import { useReports } from '../hooks/useReports';
 import { AlertTriangle, CheckCircle, BarChart2 } from 'lucide-react';
 import { staticCbtTests } from '../data/cbtData';
 import { prepareTestHtmlForViewer } from '../utils/cbtHtmlCorrector';
+import { warmUpKatexFontCache } from '../utils/katexFontBridge';
 
-// In-memory cache for test HTMLs to provide instantaneous 0ms page loads
+// In-memory cache for raw and processed test HTMLs to provide instantaneous 0ms page loads
 const htmlMemoryCache = new Map<string, string>();
+const processedHtmlCache = new Map<string, string>();
 
 export default function CBTViewer() {
   const { id } = useParams<{ id: string }>();
@@ -19,14 +21,23 @@ export default function CBTViewer() {
   const { addReport } = useReports();
   const initialTest = staticCbtTests.find(t => t.id === id);
   const test = tests.find(t => t.id === id) || initialTest;
+  const testFilename = test?.filename || initialTest?.filename || '';
+  const testTitle = test?.title || initialTest?.title || 'Selected Test';
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const [iframeSrc, setIframeSrc] = useState<string>('');
   const [iframeSrcDoc, setIframeSrcDoc] = useState<string>(() => {
-    if (id && htmlMemoryCache.has(id)) {
-      const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
-      const useLatexFont = settings.useLatexFont ?? true;
-      return prepareTestHtmlForViewer(htmlMemoryCache.get(id)!, { useLatexFont });
+    if (!id) return '';
+    const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
+    const useLatexFont = settings.useLatexFont ?? true;
+    const cacheKey = `${id}_${useLatexFont ? 'latex' : 'sys'}`;
+    if (processedHtmlCache.has(cacheKey)) {
+      return processedHtmlCache.get(cacheKey)!;
+    }
+    if (htmlMemoryCache.has(id)) {
+      const processed = prepareTestHtmlForViewer(htmlMemoryCache.get(id)!, { useLatexFont });
+      processedHtmlCache.set(cacheKey, processed);
+      return processed;
     }
     return '';
   });
@@ -85,7 +96,7 @@ export default function CBTViewer() {
   useEffect(() => {
     if (!id) return;
 
-    // Reset saved state on test load
+    let cancelled = false;
     hasSavedReportRef.current = false;
     setIsExamSaved(false);
 
@@ -99,9 +110,24 @@ export default function CBTViewer() {
 
     const loadTestContent = async () => {
       try {
+        const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
+        const useLatexFont = settings.useLatexFont ?? true;
+        const cacheKey = `${id}_${useLatexFont ? 'latex' : 'sys'}`;
+
+        // 0. If already processed in memory cache, render in 0ms without re-parsing
+        if (processedHtmlCache.has(cacheKey)) {
+          if (!cancelled) {
+            setIframeSrcDoc(prev => (prev === processedHtmlCache.get(cacheKey)! ? prev : processedHtmlCache.get(cacheKey)!));
+          }
+          return;
+        }
+
+        // Ensure offline KaTeX font data URIs are ready before building the iframe srcDoc
+        await warmUpKatexFontCache().catch(() => {});
+
         let html = '';
 
-        // 1. Check memory cache first (0ms synchronous hit)
+        // 1. Check raw HTML memory cache first
         if (htmlMemoryCache.has(id)) {
           html = htmlMemoryCache.get(id)!;
         }
@@ -114,12 +140,11 @@ export default function CBTViewer() {
           }
         }
 
-        // 3. Fallback to static bundled demo files if not in localforage
-        const filename = test?.filename || initialTest?.filename;
-        if (!html && filename) {
+        // 3. Fallback to static bundled exam files if not in localforage
+        if (!html && testFilename) {
           try {
             const basePath = import.meta.env.BASE_URL;
-            const normalizedPath = filename.startsWith('/') ? filename.slice(1) : filename;
+            const normalizedPath = testFilename.startsWith('/') ? testFilename.slice(1) : testFilename;
             const res = await fetch(basePath + normalizedPath);
             if (res.ok) {
               html = await res.text();
@@ -129,8 +154,8 @@ export default function CBTViewer() {
           }
         }
 
-        // If still loading test metadata from IndexedDB and no HTML yet, wait for `test` to resolve
-        if ((!html || !html.trim()) && loading && !test) {
+        // If still loading test metadata from IndexedDB and no HTML yet, wait for `testFilename` to resolve
+        if ((!html || !html.trim()) && loading && !testFilename) {
           return;
         }
 
@@ -155,7 +180,7 @@ export default function CBTViewer() {
             <div class="card">
               <div class="icon">📄</div>
               <h2>Test File Content Unavailable</h2>
-              <p>The stored HTML content for "<strong>${test?.title || 'Selected Test'}</strong>" could not be retrieved from local storage or network.</p>
+              <p>The stored HTML content for "<strong>${testTitle}</strong>" could not be retrieved from local storage or network.</p>
               <button onclick="window.parent.location.hash='#/'">Return to Dashboard</button>
             </div>
           </body>
@@ -164,22 +189,25 @@ export default function CBTViewer() {
           htmlMemoryCache.set(id, html);
         }
 
-        const settings = JSON.parse(localStorage.getItem('cbtSettings') || '{}');
-        const useLatexFont = settings.useLatexFont ?? true;
-
-        // Process HTML using instant corrector engine
+        // Process HTML using instant offline corrector engine
         const processedHtml = prepareTestHtmlForViewer(html, {
           useLatexFont: useLatexFont
         });
-        
-        setIframeSrcDoc(processedHtml);
+
+        processedHtmlCache.set(cacheKey, processedHtml);
+        if (!cancelled) {
+          setIframeSrcDoc(prev => (prev === processedHtml ? prev : processedHtml));
+        }
       } catch (error) {
         console.error("Failed to load test HTML", error);
       }
     };
 
     loadTestContent();
-  }, [id, test, initialTest, loading]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, testFilename, testTitle, loading]);
 
   // Revoke Blob URLs on unmount
   useEffect(() => {
@@ -292,16 +320,7 @@ export default function CBTViewer() {
         cw.renderMathInElement = (window as any).renderMathInElement;
       }
 
-      // 2. Share all loaded fonts from parent React app into iframe document (zero network needed!)
-      if (document.fonts && cd && cd.fonts) {
-        document.fonts.forEach((font) => {
-          try {
-            cd.fonts.add(font);
-          } catch (_) {}
-        });
-      }
-
-      // 3. Trigger immediate math render
+      // 2. Trigger immediate math render
       if (typeof cw.triggerMathRender === 'function') {
         cw.triggerMathRender(null, true);
       } else if (typeof cw.renderMathInElement === 'function' && cd) {

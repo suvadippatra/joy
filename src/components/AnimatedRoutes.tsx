@@ -7,6 +7,7 @@ const SubjectView = lazy(() => import('../pages/SubjectView'));
 const CBTViewer = lazy(() => import('../pages/CBTViewer'));
 const CBTMaker = lazy(() => import('../pages/CBTMaker'));
 const DocStudio = lazy(() => import('../pages/DocStudio'));
+const QPMaker = lazy(() => import('../pages/QPMaker'));
 const WeatherPage = lazy(() => import('../pages/WeatherPage'));
 const Settings = lazy(() => import('../pages/Settings'));
 const ReportsView = lazy(() => import('../pages/ReportsView'));
@@ -37,6 +38,7 @@ export function AnimatedRoutes() {
         <Route path="/test/:id" element={<PageTransition key={location.pathname}><CBTViewer /></PageTransition>} />
         <Route path="/maker" element={<PageTransition key="maker"><CBTMaker /></PageTransition>} />
         <Route path="/create" element={<PageTransition key="create"><CBTMaker /></PageTransition>} />
+        <Route path="/qp-maker" element={<QPMaker />} />
         <Route path="/doc-studio" element={<DocStudio />} />
         <Route path="/notebook" element={<DocStudio />} />
         <Route path="/weather" element={<WeatherPage />} />

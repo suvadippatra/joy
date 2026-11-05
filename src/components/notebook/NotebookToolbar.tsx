@@ -36,11 +36,13 @@ import {
   AlignRight,
   AlignJustify,
   FileText,
-  Hash
+  Hash,
+  Home
 } from 'lucide-react';
 import ColorPickerPopover from './ColorPickerPopover';
 import { LOCAL_FONTS } from '../../utils/fontManager';
 import { PageSettings, PaperSize } from '../../types/notebook';
+import { useButtonDisplayMode } from '../../hooks/useButtonDisplayMode';
 
 interface NotebookToolbarProps {
   viewMode: 'split' | 'edit' | 'preview';
@@ -105,6 +107,7 @@ export default function NotebookToolbar({
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const { shouldShowLabel } = useButtonDisplayMode();
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -195,73 +198,76 @@ export default function NotebookToolbar({
       <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none py-0.5 w-full">
         {/* Left: View Switcher + 2-Tab Ribbon Switcher + Active Ribbon Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* View Mode Segmented Control */}
+          {/* View Mode Segmented Control (Smart Active-Label by default) */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               onClick={() => onChangeViewMode('split')}
-              className={`px-2 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
+              className={`text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
                 viewMode === 'split'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'px-2.5 py-1 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Split View"
             >
               <Columns size={13} />
-              <span className="hidden sm:inline">Split</span>
+              {shouldShowLabel(viewMode === 'split', true) && <span>Split</span>}
             </button>
             <button
               type="button"
               onClick={() => onChangeViewMode('edit')}
-              className={`px-2 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
+              className={`text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
                 viewMode === 'edit'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'px-2.5 py-1 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Editor Only"
             >
               <Edit3 size={13} />
-              <span className="hidden sm:inline">Edit</span>
+              {shouldShowLabel(viewMode === 'edit', true) && <span>Edit</span>}
             </button>
             <button
               type="button"
               onClick={() => onChangeViewMode('preview')}
-              className={`px-2 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
+              className={`text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
                 viewMode === 'preview'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'px-2.5 py-1 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Page Preview Only"
             >
               <Eye size={13} />
-              <span className="hidden sm:inline">Preview</span>
+              {shouldShowLabel(viewMode === 'preview', true) && <span>Preview</span>}
             </button>
           </div>
 
-          {/* 2-Tab Ribbon Switcher: Home Formatting vs Page Layout */}
+          {/* 2-Tab Ribbon Switcher: Home Formatting vs Page Layout (Smart Active-Label by default) */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('home')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+              className={`text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
                 activeTab === 'home'
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'px-2.5 py-1 bg-blue-600 text-white shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
+              title="Home Formatting Ribbon"
             >
-              Home
+              <Home size={13} />
+              {shouldShowLabel(activeTab === 'home', true) && <span>Home</span>}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('layout')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
+              className={`text-xs font-bold rounded-md transition-all flex items-center gap-1 ${
                 activeTab === 'layout'
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'px-2.5 py-1 bg-blue-600 text-white shadow-2xs scale-[1.02]'
+                  : 'px-1.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Page Margins, Size, Columns, Running Header, Footer & Page Numbers"
             >
-              <span>Page Layout</span>
+              <Sliders size={13} />
+              {shouldShowLabel(activeTab === 'layout', true) && <span>Page Layout</span>}
             </button>
           </div>
 
@@ -916,7 +922,7 @@ export default function NotebookToolbar({
                 </div>
               </div>
 
-              {/* Columns Selector */}
+              {/* Columns Selector (Smart Active-Label by default) */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
                 <button
                   type="button"
@@ -927,15 +933,15 @@ export default function NotebookToolbar({
                       columns: 1
                     })
                   }
-                  className={`px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 ${
+                  className={`text-[11px] font-bold rounded-md flex items-center gap-1 transition-all ${
                     (!pageSettings.layoutMode || pageSettings.layoutMode === 'single') && pageSettings.columns !== 2
-                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400'
+                      ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs scale-[1.02]'
+                      : 'px-1.5 py-0.5 text-slate-600 dark:text-slate-400'
                   }`}
                   title="Single Column"
                 >
                   <Layout size={12} />
-                  <span>1-Col</span>
+                  {shouldShowLabel((!pageSettings.layoutMode || pageSettings.layoutMode === 'single') && pageSettings.columns !== 2, true) && <span>1-Col</span>}
                 </button>
                 <button
                   type="button"
@@ -946,15 +952,15 @@ export default function NotebookToolbar({
                       columns: 2
                     })
                   }
-                  className={`px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 ${
+                  className={`text-[11px] font-bold rounded-md flex items-center gap-1 transition-all ${
                     pageSettings.layoutMode === 'two-column' || pageSettings.columns === 2
-                      ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400'
+                      ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-2xs scale-[1.02]'
+                      : 'px-1.5 py-0.5 text-slate-600 dark:text-slate-400'
                   }`}
                   title="Two-Column Research Paper Layout"
                 >
                   <Columns2 size={12} />
-                  <span>2-Col</span>
+                  {shouldShowLabel(pageSettings.layoutMode === 'two-column' || pageSettings.columns === 2, true) && <span>2-Col</span>}
                 </button>
                 <button
                   type="button"
@@ -965,15 +971,15 @@ export default function NotebookToolbar({
                       columns: 1
                     })
                   }
-                  className={`px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 ${
+                  className={`text-[11px] font-bold rounded-md flex items-center gap-1 transition-all ${
                     pageSettings.layoutMode === 'margin-rail'
-                      ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400'
+                      ? 'px-2.5 py-0.5 bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-2xs scale-[1.02]'
+                      : 'px-1.5 py-0.5 text-slate-600 dark:text-slate-400'
                   }`}
                   title="Textbook Margin Rail"
                 >
                   <PanelLeft size={12} />
-                  <span>Rail</span>
+                  {shouldShowLabel(pageSettings.layoutMode === 'margin-rail', true) && <span>Rail</span>}
                 </button>
               </div>
 
@@ -1201,8 +1207,18 @@ export default function NotebookToolbar({
             {activeDropdown === 'templates' && (
               <div
                 style={dropdownPos ? { top: dropdownPos.top, left: dropdownPos.left } : undefined}
-                className={`${dropdownPos ? 'fixed' : 'absolute right-0 top-full mt-1'} w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-1.5 z-50 text-xs space-y-0.5`}
+                className={`${dropdownPos ? 'fixed' : 'absolute right-0 top-full mt-1'} w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-1.5 z-50 text-xs space-y-0.5`}
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLoadTemplate('showcase');
+                    setActiveDropdown('none');
+                  }}
+                  className="w-full text-left px-3 py-1.5 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-extrabold border border-indigo-200/60 dark:border-indigo-800/60 mb-1"
+                >
+                  ✨ Full Showcase Template
+                </button>
                 <button
                   type="button"
                   onClick={() => {

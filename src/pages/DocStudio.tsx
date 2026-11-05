@@ -17,44 +17,58 @@ import TableBuilderModal from '../components/notebook/TableBuilderModal';
 import SimulationModal from '../components/notebook/SimulationModal';
 import FlipbookModal from '../components/notebook/FlipbookModal';
 import StudioLandingHub from '../components/StudioLandingHub';
+import { useButtonDisplayMode } from '../hooks/useButtonDisplayMode';
 
 const STORAGE_KEY = 'doc_studio_draft_v1';
+const HAS_USER_DRAFT_KEY = 'doc_studio_has_user_draft';
 const SPLIT_KEY = 'doc_studio_split_ratio';
+
+function createBlankNotebookDoc(): NotebookDocument {
+  return {
+    id: `doc-${Date.now()}`,
+    title: 'Untitled Academic Note',
+    author: 'Student',
+    subject: '',
+    content: '# Untitled Note\n\nStart typing here...\n',
+    pageSettings: {
+      ...DEFAULT_PAGE_SETTINGS,
+      fontFamily: "'KaTeX_Main', serif"
+    },
+    customFonts: [],
+    assets: {},
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
 
 export default function DocStudio() {
   const editorRef = useRef<NotebookEditorHandle>(null);
   const previewRef = useRef<NotebookPreviewRef>(null);
   const containerRef = useRef<HTMLElement>(null);
+  const { buttonDisplayMode } = useButtonDisplayMode();
 
-  // Initialize document state from localStorage or default physics template
+  const [hasActiveDraft, setHasActiveDraft] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(HAS_USER_DRAFT_KEY) === '1' && Boolean(localStorage.getItem(STORAGE_KEY));
+    } catch {
+      return false;
+    }
+  });
+
+  // Initialize document state from localStorage only if user has an active draft; otherwise start with clean blank state
   const [doc, setDoc] = useState<NotebookDocument>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return migrateAndSanitizeCachedDoc(parsed);
+      if (localStorage.getItem(HAS_USER_DRAFT_KEY) === '1') {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return migrateAndSanitizeCachedDoc(parsed);
+        }
       }
     } catch (e) {
       console.error('Error loading saved notebook:', e);
     }
-
-    // Default starting document
-    const initialTemplate = NOTEBOOK_TEMPLATES.physics;
-    return {
-      id: 'doc-initial',
-      title: initialTemplate.title,
-      author: 'Student',
-      subject: initialTemplate.subject,
-      content: initialTemplate.content,
-      pageSettings: { 
-        ...DEFAULT_PAGE_SETTINGS,
-        fontFamily: "'KaTeX_Main', serif"
-      },
-      customFonts: [],
-      assets: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    return createBlankNotebookDoc();
   });
 
   const [viewMode, setViewMode] = useState<'split' | 'edit' | 'preview'>('split');
@@ -114,19 +128,21 @@ export default function DocStudio() {
     preloadDocumentFonts(doc.customFonts);
   }, [doc.customFonts]);
 
-  // Autosave to localStorage on changes
+  // Autosave to localStorage on changes only when user has started a draft
   useEffect(() => {
+    if (!hasActiveDraft) return;
     setSavedStatus('saving');
     const timer = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+        localStorage.setItem(HAS_USER_DRAFT_KEY, '1');
         setSavedStatus('saved');
       } catch (err) {
         console.error('Failed to autosave notebook:', err);
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [doc]);
+  }, [doc, hasActiveDraft]);
 
   // Draggable Split divider pointer move & up handlers (supports both horizontal and vertical)
   useEffect(() => {
@@ -359,8 +375,12 @@ export default function DocStudio() {
 
   // Load Template
   const handleLoadTemplate = (key: string) => {
-    const tmpl = NOTEBOOK_TEMPLATES[key];
+    const tmpl = NOTEBOOK_TEMPLATES[key] || NOTEBOOK_TEMPLATES.showcase || NOTEBOOK_TEMPLATES.textbook_compton;
     if (!tmpl) return;
+    setHasActiveDraft(true);
+    try {
+      localStorage.setItem(HAS_USER_DRAFT_KEY, '1');
+    } catch {}
     setDoc(prev => {
       let layoutMode = prev.pageSettings?.layoutMode || 'single';
       let columns = prev.pageSettings?.columns || 1;
@@ -371,7 +391,7 @@ export default function DocStudio() {
       } else if (key === 'exam') {
         layoutMode = 'two-column';
         columns = 2;
-      } else if (key === 'textbook_compton' || key === 'physics' || key === 'calculus' || key === 'biology') {
+      } else {
         layoutMode = 'single';
         columns = 1;
       }
@@ -397,22 +417,19 @@ export default function DocStudio() {
   };
 
   const executeNewDoc = () => {
-    setDoc({
-      id: `doc-${Date.now()}`,
-      title: 'Untitled Academic Note',
-      author: 'Student',
-      subject: '',
-      content: '# Untitled Note\n\nStart typing here...\n',
-      pageSettings: { 
-        ...DEFAULT_PAGE_SETTINGS,
-        fontFamily: "'KaTeX_Main', serif"
-      },
-      customFonts: [],
-      assets: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    const freshDoc = createBlankNotebookDoc();
+    setDoc(freshDoc);
+    setHasActiveDraft(true);
+    try {
+      localStorage.setItem(HAS_USER_DRAFT_KEY, '1');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(freshDoc));
+    } catch {}
     setIsNewDocConfirmOpen(false);
+    setShowLandingHub(false);
+  };
+
+  const handleLoadShowcaseTemplate = () => {
+    handleLoadTemplate('showcase');
     setShowLandingHub(false);
   };
 
@@ -422,15 +439,26 @@ export default function DocStudio() {
       <>
         <StudioLandingHub
           mode="doc-studio"
+          hasActiveDraft={hasActiveDraft}
           activeTitle={doc.title}
           activeSubtitle={doc.subject || 'Academic Document'}
           activeMetaBadge={`${wordCount} words`}
           activeUpdatedAt={doc.updatedAt}
           activeData={doc}
-          onResumeActive={() => setShowLandingHub(false)}
+          onResumeActive={() => {
+            setHasActiveDraft(true);
+            setShowLandingHub(false);
+          }}
           onCreateNewBlank={executeNewDoc}
+          onLoadShowcaseTemplate={handleLoadShowcaseTemplate}
           onLoadProjectData={loadedDoc => {
-            setDoc(migrateAndSanitizeCachedDoc(loadedDoc));
+            const migrated = migrateAndSanitizeCachedDoc(loadedDoc);
+            setDoc(migrated);
+            setHasActiveDraft(true);
+            try {
+              localStorage.setItem(HAS_USER_DRAFT_KEY, '1');
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+            } catch {}
             setShowLandingHub(false);
           }}
           onSelectTemplate={templateId => {
@@ -451,24 +479,23 @@ export default function DocStudio() {
     <div className="flex flex-col h-[100dvh] max-h-[100dvh] w-full bg-slate-100 dark:bg-slate-950 overflow-hidden print:bg-white print:overflow-visible print:h-auto">
       {/* Top Application Navbar */}
       <header className="h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-5 flex items-center justify-between shrink-0 z-40 select-none print:hidden shadow-2xs">
-        {/* Left: Back Link, Projects Hub & Document Title */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+        {/* Left: Back Link, Projects Hub Icon & Document Title */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <Link
             to="/"
-            className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-            title="Return to Home"
+            className="flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Return to Home Dashboard"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={16} />
           </Link>
 
           <button
             type="button"
             onClick={() => setShowLandingHub(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors shrink-0"
-            title="Open Recent Projects & Templates Hub"
+            className="flex items-center justify-center p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors shrink-0 cursor-pointer"
+            title="Studio Hub (Start Blank, Load Showcase Template & Saved Projects)"
           >
-            <FolderOpen size={13} className="text-blue-600 dark:text-blue-400" />
-            <span className="hidden sm:inline">Projects</span>
+            <FolderOpen size={14} className="text-blue-600 dark:text-blue-400" />
           </button>
 
           {/* Editable Document Title */}
@@ -484,35 +511,35 @@ export default function DocStudio() {
         </div>
 
         {/* Right: Settings, User Guide, Print, Autosave Status */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shrink-0 border border-slate-200/80 dark:border-slate-700/80"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shrink-0 border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
             title="Page Setup & Margins"
           >
-            <Settings size={13} className="shrink-0 text-slate-500 dark:text-slate-400" />
-            <span className="hidden sm:inline">Page Setup</span>
+            <Settings size={14} className="shrink-0 text-slate-500 dark:text-slate-400" />
+            {buttonDisplayMode === 'icon-text' && <span className="hidden sm:inline">Page Setup</span>}
           </button>
 
           <button
             type="button"
             onClick={() => setIsHelpModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shrink-0"
-            title="User Guide"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
+            title="User Guide & LaTeX Reference"
           >
-            <BookOpen size={13} className="shrink-0" />
-            <span className="hidden sm:inline">Guide</span>
+            <BookOpen size={14} className="shrink-0" />
+            {buttonDisplayMode === 'icon-text' && <span className="hidden sm:inline">Guide</span>}
           </button>
 
           <button
             type="button"
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
             title="Print or Save as PDF"
           >
-            <Printer size={13} className="shrink-0" />
-            <span>Print</span>
+            <Printer size={14} className="shrink-0" />
+            {buttonDisplayMode !== 'icon-only' && <span className="hidden sm:inline">Print</span>}
           </button>
 
           <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">

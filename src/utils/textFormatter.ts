@@ -85,6 +85,10 @@ export function sanitizeCachedFonts(raw: string): string {
   // 4. Unwrap bare <span> tags that have no attributes remaining e.g. <span>text</span>
   sanitized = sanitized.replace(/<span\s*>([\s\S]*?)<\/span>/gi, '$1');
 
+  // 5. Normalize double-escaped inline/block LaTeX delimiters \\( ... \\) and \\[ ... \\]
+  sanitized = sanitized.replace(/\\\\\(/g, '\\(').replace(/\\\\\)/g, '\\)');
+  sanitized = sanitized.replace(/\\\\\[/g, '\\[').replace(/\\\\\]/g, '\\]');
+
   return sanitized;
 }
 

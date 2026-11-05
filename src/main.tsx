@@ -31,9 +31,22 @@ try {
       window.history.replaceState(null, '', base + window.location.search + window.location.hash);
     }
   }
+
+  // Ensure initial cold launch opens the main dashboard (#/) instead of a stale subject route like #/subject/Botany
+  if (!sessionStorage.getItem('cbt_session_booted')) {
+    sessionStorage.setItem('cbt_session_booted', '1');
+    if (window.location.hash.startsWith('#/subject/')) {
+      window.location.hash = '#/';
+    }
+  }
 } catch (e) {
   // Ignore URL rewrite errors
 }
+
+// Pre-warm offline KaTeX font data URIs so HTML exam iframes render math & text in 0ms
+import('./utils/katexFontBridge').then(({ warmUpKatexFontCache }) => {
+  warmUpKatexFontCache().catch(() => {});
+});
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

@@ -5,7 +5,7 @@ import { CBTTest } from '../data/cbtData';
 import { useCBTData } from '../hooks/useCBTData';
 import { useSubjectCategories } from '../hooks/useSubjectCategories';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight, Edit3, Check, Sparkles, Database, Calculator, BookOpen, GraduationCap, Layers } from 'lucide-react';
+import { Upload, X, Leaf, Dna, Activity, FlaskConical, Microscope, Clock, Percent, Target, ArrowRight, Edit3, Check, Sparkles, Database, Calculator, BookOpen, GraduationCap, Layers, FileText, Printer } from 'lucide-react';
 import Footer from '../components/Footer';
 import { useReports } from '../hooks/useReports';
 import { StartExamModal } from '../components/StartExamModal';
@@ -236,6 +236,57 @@ export default function Home() {
               </div>
             </Link>
           ))}
+        </div>
+
+        {/* Dedicated প্রশ্নপত্র Maker & Studio Tools Card */}
+        <div className="mt-1 sm:mt-2 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-5">
+          <Link
+            to="/qp-maker"
+            className="md:col-span-2 relative overflow-hidden rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-gradient-to-r from-indigo-600 via-blue-600 to-violet-600 text-white shadow-lg shadow-indigo-500/15 hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between gap-4 group"
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:18px_18px] opacity-20" />
+            <div className="relative z-10 flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-white/20 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider">
+                  QPF v1.1 · বাংলা ও English LaTeX
+                </span>
+              </div>
+              <h3 className="text-base sm:text-xl font-black tracking-tight flex items-center gap-2 mt-0.5">
+                <span>প্রশ্নপত্র Maker (Question Paper Studio)</span>
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </h3>
+              <p className="text-xs sm:text-sm text-blue-100 font-medium max-w-xl">
+                Create printable A4 school &amp; board question papers with Bengali/English fractions ($\frac&#123;লব&#125;&#123;হর&#125;$, [EQ:\frac&#123;৩&#125;&#123;৪&#125;]), diagrams, OR linking, Auto-fit, .odt &amp; PDF export.
+              </p>
+            </div>
+            <div className="relative z-10 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white shrink-0 group-hover:scale-105 transition-transform">
+              <Printer size={26} />
+            </div>
+          </Link>
+
+          <div className="grid grid-cols-2 md:grid-cols-1 gap-2.5 sm:gap-3">
+            <Link
+              to="/maker"
+              className="rounded-2xl p-3.5 sm:p-4 bg-white dark:bg-slate-800/85 border border-purple-200/80 dark:border-purple-800/50 hover:border-purple-400 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-2 group"
+            >
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">Online Exam</span>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100">CBT Exam Maker</span>
+              </div>
+              <Sparkles size={18} className="text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform shrink-0" />
+            </Link>
+
+            <Link
+              to="/doc-studio"
+              className="rounded-2xl p-3.5 sm:p-4 bg-white dark:bg-slate-800/85 border border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-400 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-2 group"
+            >
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Research &amp; Notes</span>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100">Document Studio</span>
+              </div>
+              <FileText size={18} className="text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+            </Link>
+          </div>
         </div>
 
         {/* Recent Tests */}

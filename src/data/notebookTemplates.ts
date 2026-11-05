@@ -1,4 +1,107 @@
+const SVG_VECTOR_ADD = `data:image/svg+xml;utf8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220" width="360" height="220" style="background:#f8fafc;border-radius:10px;border:1px solid #cbd5e1;font-family:serif">
+    <defs>
+      <marker id="arrB" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2563eb"/></marker>
+      <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#059669"/></marker>
+      <marker id="arrR" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#dc2626"/></marker>
+    </defs>
+    <line x1="40" y1="180" x2="320" y2="180" stroke="#94a3b8" stroke-width="1.5"/>
+    <line x1="40" y1="180" x2="40" y2="25" stroke="#94a3b8" stroke-width="1.5"/>
+    <line x1="40" y1="180" x2="200" y2="140" stroke="#2563eb" stroke-width="3" marker-end="url(#arrB)"/>
+    <line x1="200" y1="140" x2="280" y2="45" stroke="#059669" stroke-width="3" marker-end="url(#arrG)"/>
+    <line x1="40" y1="180" x2="280" y2="45" stroke="#dc2626" stroke-width="3" stroke-dasharray="5,3" marker-end="url(#arrR)"/>
+    <text x="125" y="172" font-size="15" font-weight="bold" fill="#1d4ed8">Vector A</text>
+    <text x="250" y="102" font-size="15" font-weight="bold" fill="#047857">Vector B</text>
+    <text x="135" y="95" font-size="16" font-weight="bold" fill="#b91c1c">R = A + B</text>
+  </svg>`
+)}`;
+
+const SVG_COMPTON = `data:image/svg+xml;utf8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 240" width="420" height="240" style="background:#f8fafc;border-radius:10px;border:1px solid #cbd5e1;font-family:serif">
+    <defs>
+      <marker id="arP" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#7c3aed"/></marker>
+      <marker id="arE" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0284c7"/></marker>
+    </defs>
+    <line x1="20" y1="120" x2="390" y2="120" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5,5"/>
+    <path d="M 25 120 Q 40 105, 55 120 T 85 120 T 115 120 T 145 120 T 175 120" fill="none" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arP)"/>
+    <circle cx="190" cy="120" r="12" fill="#0284c7" stroke="#0369a1" stroke-width="2"/>
+    <text x="184" y="125" font-size="13" font-weight="bold" fill="#ffffff">e⁻</text>
+    <path d="M 190 120 Q 210 95, 225 100 T 260 75 T 295 50 T 330 30" fill="none" stroke="#db2777" stroke-width="2.5" marker-end="url(#arP)"/>
+    <line x1="190" y1="120" x2="335" y2="195" stroke="#0284c7" stroke-width="2.8" marker-end="url(#arE)"/>
+    <path d="M 240 120 A 50 50 0 0 0 232 93" fill="none" stroke="#475569" stroke-width="1.5"/>
+    <path d="M 235 120 A 45 45 0 0 1 230 140" fill="none" stroke="#475569" stroke-width="1.5"/>
+    <text x="248" y="108" font-size="14" font-style="italic" fill="#0f172a">θ</text>
+    <text x="245" y="142" font-size="14" font-style="italic" fill="#0f172a">φ</text>
+    <text x="35" y="96" font-size="13" font-weight="bold" fill="#6d28d9">Incident Photon (λ₀)</text>
+    <text x="245" y="26" font-size="13" font-weight="bold" fill="#be185d">Scattered Photon (λ' &gt; λ₀)</text>
+    <text x="245" y="216" font-size="13" font-weight="bold" fill="#0369a1">Recoil Electron (KE)</text>
+  </svg>`
+)}`;
+
 export const NOTEBOOK_TEMPLATES: Record<string, { title: string; subject: string; content: string }> = {
+  showcase: {
+    title: "Statistical Mechanics, Compton Scattering & Relativistic Collisions",
+    subject: "Full Showcase Template · Research & Textbook Layout",
+    content: `# Statistical Foundations & Relativistic Photon Scattering
+
+\\begin{abstract}
+This showcase paper demonstrates all capabilities of **Academic Document Studio**: inline LaTeX ($\\Omega$, $E = h\\nu$), double-escaped notation \\\\(N \\sim 10^{23}\\\\), numbered theorems, wrapped vector SVG figures, two-column research sections, and interactive data tables.
+\\end{abstract}
+
+## 1. Microstates, Macrostates & Statistical Equilibrium
+
+Imagine flipping a coin twenty times; while getting twenty heads in a row is physically possible, getting approximately ten heads and ten tails is overwhelmingly more likely simply because there are far more combinations of individual flips that produce a half-and-half split. In thermal physics, the **primary foundational idea** needed to start the entire subject is the distinction between a **microstate** and a **macrostate**, unified by the **Postulate of Equal A Priori Probabilities**.
+
+Because macrostates corresponding to uniform, randomized distributions contain an exponentially higher number of constituent microstates (multiplicity $\\Omega$) than ordered ones, an isolated macroscopic system with $N \\sim 10^{23}$ particles spends virtually all its time in the most probable macrostate:
+
+$$
+S = k_B \\ln \\Omega \\quad \\text{where} \\quad P_i = \\frac{1}{\\Omega}
+$$
+
+> [!THEOREM]
+> **Boltzmann Entropy & Canonical Ensemble Distribution**
+> For a system in thermal contact with a heat bath at temperature $T$, the probability of occupying a discrete energy eigenstate $E_r$ is given by the Gibbs canonical factor:
+> $$P(E_r) = \\frac{e^{-E_r / (k_B T)}}{Z}, \\qquad Z = \\sum_{r} e^{-E_r / (k_B T)}$$
+
+### Comparison of Statistical Ensembles
+
+| Ensemble Name | Fixed Macroscopic Variables | Characteristic Potential | Partition Function |
+| :--- | :---: | :---: | :--- |
+| **Microcanonical** | Particle number $N$, Volume $V$, Energy $E$ | Entropy $S(E,V,N) = k_B \\ln \\Omega$ | $\\Omega(E, V, N)$ |
+| **Canonical** | Particle number $N$, Volume $V$, Temp $T$ | Helmholtz Free Energy $F = -k_B T \\ln Z$ | $Z = \\sum e^{-\\beta E_r}$ |
+| **Grand Canonical** | Chemical Potential $\\mu$, Volume $V$, Temp $T$ | Grand Potential $\\Phi_G = -k_B T \\ln \\mathcal{Z}$ | $\\mathcal{Z} = \\sum e^{-\\beta(E_r - \\mu N_r)}$ |
+
+---
+
+## 2. The Compton Effect & Relativistic Photon Collisions
+
+\\begin{wrapfigure}{r}{0.45\\textwidth}
+![Compton Scattering](${SVG_COMPTON}){width=100% align=float-right}
+\\caption{Fig. 1.1: Relativistic Compton scattering geometry showing incident wavelength $\\lambda_0$, scattered photon $\\lambda'$, and recoil electron at angle $\\phi$.}
+\\end{wrapfigure}
+
+In 1923, Arthur H. Compton observed that monochromatic X-rays scattered from a graphite target exhibit a wavelength shift $\\Delta \\lambda = \\lambda' - \\lambda_0$ that depends strictly on the scattering angle $\\theta$. Treating the interaction as a relativistic two-body collision between a photon of momentum $p = h/\\lambda_0$ and a stationary electron of rest energy $m_e c^2$:
+
+$$
+\\Delta \\lambda = \\lambda' - \\lambda_0 = \\frac{h}{m_e c}(1 - \\cos\\theta) = \\lambda_C (1 - \\cos\\theta)
+$$
+
+where the electron **Compton Wavelength** is $\\lambda_C = \\frac{h}{m_e c} = 2.426 \\times 10^{-12}\\,\\text{m} = 0.02426\\,\\text{\\AA}$.
+
+\\begin{twocolumn}
+### Key Experimental Regimes
+1. **Forward Scattering ($\\theta = 0^\\circ$):** $\\cos 0^\\circ = 1 \\implies \\Delta \\lambda = 0$. No kinetic energy is transferred.
+2. **Orthogonal Scattering ($\\theta = 90^\\circ$):** $\\cos 90^\\circ = 0 \\implies \\Delta \\lambda = \\lambda_C = 0.0243\\,\\text{\\AA}$.
+3. **Backscattering ($\\theta = 180^\\circ$):** $\\cos 180^\\circ = -1 \\implies \\Delta \\lambda_{\\max} = 2\\lambda_C = 0.0485\\,\\text{\\AA}$.
+
+### Recoil Electron Kinetic Energy
+By conservation of total relativistic energy $h\\nu_0 + m_e c^2 = h\\nu' + m_e c^2 + K_e$, the kinetic energy imparted to the recoil electron is:
+$$
+K_e = h\\nu_0 \\left[ \\frac{\\frac{h\\nu_0}{m_e c^2}(1 - \\cos\\theta)}{1 + \\frac{h\\nu_0}{m_e c^2}(1 - \\cos\\theta)} \\right]
+$$
+\\end{twocolumn}
+`
+  },
   physics: {
     title: "Classical Mechanics & Rotational Dynamics",
     subject: "Physics Advanced Notes",
@@ -214,13 +317,8 @@ $$
 \\begin{marginlayout}
 \\begin{margincol}
 \\begin{figure}[c]
-![Fig 1.11](https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=400&q=80){width=95% align=center}
-\\caption{Figure 1.11 Graphical representation of vector $\\vec{A}$ directed at angle $\\theta$ with magnitude $A$.}
-\\end{figure}
-
-\\begin{figure}[c]
-![Fig 1.12](https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=400&q=80){width=95% align=center}
-\\caption{Figure 1.12 Triangle method of addition: head-to-tail placement yields $\\vec{R} = \\vec{A} + \\vec{B}$.}
+![Fig 1.11](${SVG_VECTOR_ADD}){width=95% align=center}
+\\caption{Figure 1.11 Graphical triangle method of vector addition yielding $\\vec{R} = \\vec{A} + \\vec{B}$.}
 \\end{figure}
 
 \\begin{caution}
@@ -269,7 +367,7 @@ $$
 In 1923, Arthur H. Compton recorded the scattering of monochromatic X-rays directed at a graphite target and observed that the scattered radiation contained components of shifted, longer wavelengths.
 
 \\begin{wrapfigure}{r}{0.42\\textwidth}
-![Compton Scattering](https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80){width=100% align=float-right}
+![Compton Scattering](${SVG_COMPTON}){width=100% align=float-right}
 \\caption{Fig. 28.15: Compton scattering geometry. An incident photon collides with a stationary electron and scatters at angle $\\theta$.}
 \\end{wrapfigure}
 
@@ -291,3 +389,4 @@ $$
 `
   }
 };
+

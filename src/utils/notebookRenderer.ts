@@ -31,6 +31,9 @@ export function sanitizeLatex(latex: string): string {
   if (!latex) return '';
   let cleaned = latex.trim();
 
+  // Strip accidental trailing lone backslashes left by double-escaped delimiters e.g. \\(\Omega\\)
+  cleaned = cleaned.replace(/\\+$/, '').trim();
+
   // Normalize multiple backslashes before LaTeX commands (e.g. \\frac -> \frac, \\Omega -> \Omega, \\text -> \text)
   cleaned = cleaned.replace(/\\+([a-zA-Z]+)/g, '\\$1');
 
@@ -146,7 +149,7 @@ function renderKaTeXFormula(latex: string, displayMode: boolean): string {
   const katexOptions: katex.KatexOptions = {
     displayMode,
     throwOnError: true,
-    errorColor: '#ef4444',
+    errorColor: '#dc2626',
     output: 'htmlAndMathml',
     strict: false,
     trust: true,
@@ -159,8 +162,8 @@ function renderKaTeXFormula(latex: string, displayMode: boolean): string {
   try {
     const rendered = katex.renderToString(sanitized, katexOptions);
     finalHtml = displayMode
-      ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center w-full max-w-full overflow-x-auto select-all" style="width: 100%; max-width: 100%;">${rendered}</div>`
-      : `<span class="katex-inline-wrapper px-0.5 inline-block align-baseline select-all">${rendered}</span>`;
+      ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center text-slate-900 w-full max-w-full overflow-x-auto select-all" style="width: 100%; max-width: 100%; color: #0f172a;">${rendered}</div>`
+      : `<span class="katex-inline-wrapper px-0.5 inline-block align-baseline text-slate-900 select-all" style="color: #0f172a;">${rendered}</span>`;
   } catch (err1) {
     // Attempt 2: Try auto-fixing common syntax issues (unmatched \left/\right, raw &, unbalanced braces)
     try {
@@ -190,19 +193,19 @@ function renderKaTeXFormula(latex: string, displayMode: boolean): string {
 
       const rendered = katex.renderToString(recovered, katexOptions);
       finalHtml = displayMode
-        ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center w-full max-w-full overflow-x-auto select-all" style="width: 100%; max-width: 100%;">${rendered}</div>`
-        : `<span class="katex-inline-wrapper px-0.5 inline-block align-baseline select-all">${rendered}</span>`;
+        ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center text-slate-900 w-full max-w-full overflow-x-auto select-all" style="width: 100%; max-width: 100%; color: #0f172a;">${rendered}</div>`
+        : `<span class="katex-inline-wrapper px-0.5 inline-block align-baseline text-slate-900 select-all" style="color: #0f172a;">${rendered}</span>`;
     } catch (err2) {
       // Attempt 3: Render in non-throwing mode
       try {
         const softRendered = katex.renderToString(sanitized, { ...katexOptions, throwOnError: false });
         finalHtml = displayMode
-          ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center w-full max-w-full overflow-x-auto select-all" style="width: 100%; max-width: 100%;">${softRendered}</div>`
-          : `<span class="katex-inline-wrapper px-0.5 inline-block align-baseline select-all">${softRendered}</span>`;
+          ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center text-slate-900 w-full max-w-full overflow-x-auto select-all" style="width: 100%; max-width: 100%; color: #0f172a;">${softRendered}</div>`
+          : `<span class="katex-inline-wrapper px-0.5 inline-block align-baseline text-slate-900 select-all" style="color: #0f172a;">${softRendered}</span>`;
       } catch {
         finalHtml = displayMode
-          ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center font-serif italic text-slate-800 dark:text-slate-200 select-all">${escapeHtmlEntities(sanitized)}</div>`
-          : `<span class="katex-inline-wrapper font-serif italic text-slate-800 dark:text-slate-200">${escapeHtmlEntities(sanitized)}</span>`;
+          ? `<div class="katex-display-wrapper my-1.5 py-0.5 text-center font-serif italic text-slate-900 select-all">${escapeHtmlEntities(sanitized)}</div>`
+          : `<span class="katex-inline-wrapper font-serif italic text-slate-900">${escapeHtmlEntities(sanitized)}</span>`;
       }
     }
   }
@@ -236,7 +239,7 @@ export function parseInlineMarkdown(text: string): string {
   // 2. LaTeX Highlight: \colorbox{color}{text} and \highlight{color}{text}
   res = res.replace(/\\(?:colorbox|highlight)\{([^}]+)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, bg, inner) => {
     const cssBg = resolveCssColor(bg);
-    return `<mark style="background-color: ${cssBg}; padding: 0.1em 0.3em; border-radius: 3px;">${parseInlineMarkdown(inner)}</mark>`;
+    return `<mark style="background-color: ${cssBg}; color: #0f172a; padding: 0.1em 0.3em; border-radius: 3px;">${parseInlineMarkdown(inner)}</mark>`;
   });
 
   // 3. LaTeX Font Size Commands
@@ -284,7 +287,7 @@ export function parseInlineMarkdown(text: string): string {
   res = res.replace(/\\underline\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<u class="underline underline-offset-2">${parseInlineMarkdown(inner)}</u>`);
   res = res.replace(/\\(?:sout|st)\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<del class="line-through text-slate-500">${parseInlineMarkdown(inner)}</del>`);
   res = res.replace(/\\textsc\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<span style="font-variant: small-caps;">${parseInlineMarkdown(inner)}</span>`);
-  res = res.replace(/\\texttt\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-pink-600 dark:text-pink-400 font-mono text-[0.88em] border border-slate-200 dark:border-slate-700 break-words">${parseInlineMarkdown(inner)}</code>`);
+  res = res.replace(/\\texttt\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<code class="px-1.5 py-0.5 rounded bg-slate-100 text-pink-700 font-mono text-[0.88em] border border-slate-200 break-words">${parseInlineMarkdown(inner)}</code>`);
 
   // 5. LaTeX Alignment Helpers (\centerline, \leftline, \rightline, \aligncenter, \alignleft, \alignright, \alignjustify)
   res = res.replace(/\\(?:centerline|aligncenter)\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<span class="block text-center w-full my-1" style="text-align: center;">${parseInlineMarkdown(inner)}</span>`);
@@ -292,9 +295,9 @@ export function parseInlineMarkdown(text: string): string {
   res = res.replace(/\\(?:rightline|alignright)\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<span class="block text-right w-full my-1" style="text-align: right;">${parseInlineMarkdown(inner)}</span>`);
   res = res.replace(/\\alignjustify\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, inner) => `<span class="block text-justify w-full my-1" style="text-align: justify;">${parseInlineMarkdown(inner)}</span>`);
 
-  // 5b. Direct Inline Math Fallback (when parseInlineMarkdown is called directly on captions, tables, or nested macros)
-  res = res.replace(/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g, (_, p1, p2) => renderKaTeXFormula((p1 || p2 || '').trim(), true));
-  res = res.replace(/\\\(([\s\S]+?)\\\)|\\ensuremath\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, p1, p2) => renderKaTeXFormula((p1 || p2 || '').trim(), false));
+  // 5b. Direct Inline Math Fallback (supports both single and double-escaped delimiters \(...\), \\(...\\), \[...\], \\[...\\])
+  res = res.replace(/\$\$([\s\S]+?)\$\$|\\+\[([\s\S]+?)\\+\]/g, (_, p1, p2) => renderKaTeXFormula((p1 || p2 || '').trim(), true));
+  res = res.replace(/\\+\(([\s\S]+?)\\+\)|\\ensuremath\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, p1, p2) => renderKaTeXFormula((p1 || p2 || '').trim(), false));
   res = res.replace(/(^|[^\\$])\$([^$\n]+?)(?<!\\)\$/g, (m, prefix, p1) => {
     const f = p1.trim();
     return f ? `${prefix}${renderKaTeXFormula(f, false)}` : m;
@@ -307,7 +310,7 @@ export function parseInlineMarkdown(text: string): string {
   res = res.replace(/\\(?:alpha|beta|gamma|delta|epsilon|varepsilon|zeta|eta|theta|vartheta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|varphi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|infty|partial|nabla|pm|mp|times|div|cdot|approx|neq|leq|geq|ll|gg|propto|equiv|sim|simeq|rightarrow|leftarrow|Rightarrow|Leftarrow|leftrightarrow|Leftrightarrow|to|mapsto|forall|exists|in|notin|subset|subseteq|cup|cap|emptyset|degree|circ)(?:_\{[^{}]+\}|\^\{[^{}]+\}|_[a-zA-Z0-9]|\^[a-zA-Z0-9])*\b/g, (m) => renderKaTeXFormula(m, false));
 
   // 6. Inline code: `code`
-  res = res.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-pink-600 dark:text-pink-400 font-mono text-[0.88em] border border-slate-200 dark:border-slate-700 break-words">$1</code>');
+  res = res.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 text-pink-700 font-mono text-[0.88em] border border-slate-200 break-words">$1</code>');
 
   // 7. Bold & Italic: ***text*** or ___text___
   res = res.replace(/\*\*\*([\s\S]+?)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -360,21 +363,21 @@ function formatFigureCaption(captionText: string, subLabel?: string): string {
 
   let html = '';
   if (subLabel) {
-    html += `<span class="font-bold text-sky-600 dark:text-sky-400 mr-1.5">${escapeHtmlEntities(subLabel)}</span>`;
+    html += `<span class="font-bold text-sky-700 mr-1.5">${escapeHtmlEntities(subLabel)}</span>`;
   }
 
   if (captionText) {
     const figPrefixMatch = captionText.match(/^((?:Figure|Fig\.|Table)\s*[\d.]+[a-z]?)([\s:\.\-]?)(.*)$/i);
     if (figPrefixMatch) {
       const [_, figNum, sep, rest] = figPrefixMatch;
-      html += `<strong class="font-bold text-emerald-800 dark:text-emerald-400 font-serif mr-1">${escapeHtmlEntities(figNum)}${sep || ':'}</strong>`;
+      html += `<strong class="font-bold text-emerald-800 font-serif mr-1">${escapeHtmlEntities(figNum)}${sep || ':'}</strong>`;
       html += `<span>${parseInlineMarkdown(rest.trim())}</span>`;
     } else {
       html += `<span>${parseInlineMarkdown(captionText)}</span>`;
     }
   }
 
-  return `<figcaption class="text-[9pt] leading-snug text-slate-700 dark:text-slate-300 mt-1.5 font-serif text-left max-w-full break-words">${html}</figcaption>`;
+  return `<figcaption class="text-[9pt] leading-snug text-slate-700 mt-1.5 font-serif text-left max-w-full break-words">${html}</figcaption>`;
 }
 
 /**
@@ -404,7 +407,7 @@ function buildFigureHtml(
     wrapperClass = 'notebook-figure float-right ml-5 mb-3 my-1.5 max-w-[55%] clear-right text-left';
     inlineStyle = `float: right; margin-left: 1.25rem; margin-bottom: 0.75rem; width: ${normWidth}; max-width: 55%; clear: right;`;
   } else if (normalizedAlign === 'margin' || normalizedAlign === 'margin-rail' || normalizedAlign === 'marginfigure') {
-    wrapperClass = 'notebook-figure float-left mr-5 mb-4 my-2 w-[32%] max-w-[36%] clear-left text-left border-r border-slate-200/80 dark:border-slate-800 pr-3.5';
+    wrapperClass = 'notebook-figure float-left mr-5 mb-4 my-2 w-[32%] max-w-[36%] clear-left text-left border-r border-slate-200/80 pr-3.5';
     inlineStyle = `float: left; margin-right: 1.25rem; margin-bottom: 1rem; width: ${normWidth === '100%' ? '32%' : normWidth}; max-width: 38%; clear: left;`;
   } else if (normalizedAlign === 'span-full' || normalizedAlign === 'span' || normalizedAlign === 'full-width' || normalizedAlign === 'figure*') {
     wrapperClass = 'notebook-figure my-5 clear-both w-full max-w-full flex flex-col items-center justify-center';
@@ -443,7 +446,7 @@ function buildFigureHtml(
           data-asset-src="${rawSrc || src}" 
           alt="${alt || 'Figure'}" 
           style="${imgStyle}" 
-          class="notebook-preview-img block shadow-2xs border border-slate-200/80 dark:border-slate-700/80 transition-all cursor-pointer hover:shadow-md hover:ring-2 hover:ring-blue-400/50 select-none" 
+          class="notebook-preview-img block shadow-2xs border border-slate-200/80 transition-all cursor-pointer hover:shadow-md hover:ring-2 hover:ring-blue-400/50 select-none" 
         />
         <!-- In-preview interactive corner resize handle (visible on hover & drag) -->
         <div 
@@ -608,6 +611,13 @@ function parseCustomImages(text: string, assets?: Record<string, DocumentAsset>)
       return buildFigureHtml(resolvedSrc, src, caption || opts.caption, opts.width, 'block-left', customFilter, 'latex', sublabel || opts.sublabel);
     }
 
+    let mdMatch = inner.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+    if (mdMatch) {
+      const [__, mdAlt, mdSrc] = mdMatch;
+      const { resolvedSrc, customFilter } = resolveSrc(mdSrc);
+      return buildFigureHtml(resolvedSrc, mdSrc, caption || mdAlt, '100%', 'block-left', customFilter, 'latex', sublabel);
+    }
+
     return `<div class="my-2">${inner}</div>`;
   });
 
@@ -629,6 +639,14 @@ function parseCustomImages(text: string, assets?: Record<string, DocumentAsset>)
       const opts = parseImageOptions(optStr || '');
       const { resolvedSrc, customFilter } = resolveSrc(src);
       return buildFigureHtml(resolvedSrc, src, caption || opts.caption, opts.width, opts.align !== 'center' ? opts.align : align, customFilter, 'latex');
+    }
+
+    let mdMatch = inner.match(/!\[([^\]]*)\]\(([^)]+)\)(?:\{([^}]+)\})?/);
+    if (mdMatch) {
+      const [__, mdAlt, mdSrc, mdParams] = mdMatch;
+      const opts = parseImageOptions(mdParams || '');
+      const { resolvedSrc, customFilter } = resolveSrc(mdSrc);
+      return buildFigureHtml(resolvedSrc, mdSrc, caption || opts.caption || mdAlt, opts.width !== '100%' ? opts.width : '75%', opts.align !== 'center' ? opts.align : align, customFilter, 'latex');
     }
 
     return `<div class="my-4 clear-both">${inner}</div>`;
@@ -707,7 +725,7 @@ function renderSimulationBlock(info: { title: string; url: string; width: string
   return `
     <div class="notebook-simulation-wrapper my-4 clear-both w-full max-w-full relative group/sim" data-simulation-idx="${info.idx}" data-simulation-url="${escUrl}" style="column-span: all; -webkit-column-span: all; width: ${info.width}; max-width: 100%;">
       <!-- Live Screen Container -->
-      <div class="simulation-live-container border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-900 shadow-sm print:hidden">
+      <div class="simulation-live-container border border-slate-300 rounded-xl overflow-hidden bg-slate-900 shadow-sm print:hidden">
         <!-- Header bar -->
         <div class="flex items-center justify-between px-3.5 py-2 bg-slate-850 text-slate-200 border-b border-slate-700 text-xs select-none">
           <div class="flex items-center gap-2 font-medium truncate max-w-[70%]">
@@ -767,7 +785,7 @@ function renderSimulationBlock(info: { title: string; url: string; width: string
 /**
  * Parses LaTeX environments: \\begin{center}, \\begin{flushleft}, \\begin{theorem}, etc.
  */
-function parseLatexEnvironments(content: string): string {
+function parseLatexEnvironments(content: string, assets?: Record<string, DocumentAsset>): string {
   let res = content;
 
   // \begin{center} ... \end{center}
@@ -820,16 +838,16 @@ function parseLatexEnvironments(content: string): string {
   // \begin{caution} ... \end{caution} (Sears & Zemansky style Caution Callout)
   res = res.replace(/\\begin\{caution\}([\s\S]*?)\\end\{caution\}/g, (_, inner) => {
     return `
-      <div class="my-3.5 p-3 rounded-md bg-amber-50/80 dark:bg-amber-950/40 border-l-4 border-amber-500 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-serif clear-both">
+      <div class="my-3.5 p-3 rounded-md bg-amber-50 border-l-4 border-amber-500 text-slate-900 text-xs sm:text-sm font-serif clear-both">
         <span class="inline-block bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider mr-2 font-sans select-none">Caution</span>
-        <span>${inner.trim()}</span>
+        <span>${parseInlineMarkdown(inner.trim())}</span>
       </div>
     `;
   });
 
   // \marginnote{...} or \sidenote{...}
   res = res.replace(/\\(?:marginnote|sidenote)\{([^}]+)\}/g, (_, note) => {
-    return `<span class="float-left mr-4 mb-2 p-2 rounded bg-slate-100 dark:bg-slate-800 text-[8.5pt] text-slate-600 dark:text-slate-300 w-[30%] border-l-2 border-slate-400 clear-left italic font-serif">${note}</span>`;
+    return `<span class="float-left mr-4 mb-2 p-2 rounded bg-slate-100 text-[8.5pt] text-slate-700 w-[30%] border-l-2 border-slate-400 clear-left italic font-serif">${parseInlineMarkdown(note)}</span>`;
   });
 
   // \begin{marginlayout} ... \end{marginlayout} (Textbook Margin Rail Asymmetric Layout)
@@ -838,33 +856,35 @@ function parseLatexEnvironments(content: string): string {
     const mainMatch = inner.match(/\\begin\{maincol\}([\s\S]*?)\\end\{maincol\}/);
 
     if (marginMatch && mainMatch) {
+      const renderedMargin = renderPageContent(marginMatch[1].trim(), assets);
+      const renderedMain = renderPageContent(mainMatch[1].trim(), assets);
       return `
-        <div class="textbook-margin-grid grid grid-cols-12 gap-5 my-4 w-full clear-both" style="column-span: all; -webkit-column-span: all; width: 100%;">
-          <div class="col-span-4 border-r border-slate-200/90 dark:border-slate-800 pr-3.5 space-y-3 text-left">
-            ${marginMatch[1].trim()}
+        <div class="textbook-margin-grid grid grid-cols-12 gap-5 my-4 w-full clear-both text-slate-900" style="column-span: all; -webkit-column-span: all; width: 100%;">
+          <div class="col-span-4 border-r border-slate-200 pr-3.5 space-y-3 text-left">
+            ${renderedMargin}
           </div>
           <div class="col-span-8 pl-1">
-            ${mainMatch[1].trim()}
+            ${renderedMain}
           </div>
         </div>
       `;
     }
-    return `<div class="textbook-margin-grid w-full my-3" style="column-span: all; -webkit-column-span: all;">${inner.trim()}</div>`;
+    return `<div class="textbook-margin-grid w-full my-3 text-slate-900" style="column-span: all; -webkit-column-span: all;">${renderPageContent(inner.trim(), assets)}</div>`;
   });
 
   // \begin{twocolumn} ... \end{twocolumn} or :::layout twocolumn
   res = res.replace(/(?:\\begin\{twocolumn\}|:::layout\s+twocolumn)\s*\n?([\s\S]*?)\n?(?:\\end\{twocolumn\}|:::)/g, (_, inner) => {
-    return `<div class="scientific-twocolumn my-4" style="column-count: 2; column-gap: 1.5rem; column-rule: 1px solid #e2e8f0; width: 100%; text-align: justify;">\n${inner.trim()}\n</div>`;
+    return `<div class="scientific-twocolumn my-4 text-slate-900" style="column-count: 2; column-gap: 1.5rem; column-rule: 1px solid #e2e8f0; width: 100%; text-align: justify;">\n${renderPageContent(inner.trim(), assets)}\n</div>`;
   });
 
   // \begin{onecolumn} ... \end{onecolumn} or :::layout single
   res = res.replace(/(?:\\begin\{onecolumn\}|:::layout\s+(?:single|onecolumn))\s*\n?([\s\S]*?)\n?(?:\\end\{onecolumn\}|:::)/g, (_, inner) => {
-    return `<div class="scientific-onecolumn my-4" style="column-count: 1; column-span: all; -webkit-column-span: all; width: 100%;">\n${inner.trim()}\n</div>`;
+    return `<div class="scientific-onecolumn my-4 text-slate-900" style="column-count: 1; column-span: all; -webkit-column-span: all; width: 100%;">\n${renderPageContent(inner.trim(), assets)}\n</div>`;
   });
 
   // :::layout marginrail
   res = res.replace(/:::layout\s+marginrail\s*\n?([\s\S]*?)\n?:::/g, (_, inner) => {
-    return `<div class="textbook-margin-grid w-full my-3" style="column-span: all; -webkit-column-span: all;">${inner.trim()}</div>`;
+    return `<div class="textbook-margin-grid w-full my-3 text-slate-900" style="column-span: all; -webkit-column-span: all;">${renderPageContent(inner.trim(), assets)}</div>`;
   });
 
   return res;
@@ -1010,24 +1030,24 @@ function parseContentToBlocks(
     return `\n${token}\n`;
   });
 
-  // 2. Extract Display Math: $$ ... $$ or \[ ... \]
-  content = content.replace(/\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g, (_, p1, p2) => {
+  // 2. Extract Display Math: $$ ... $$ or \[ ... \] (including double-escaped \\[ ... \\])
+  content = content.replace(/\$\$([\s\S]*?)\$\$|\\+\[([\s\S]*?)\\+\]/g, (_, p1, p2) => {
     const formula = (p1 || p2 || '').trim();
     const token = `\u0002MATHDISP${tokens.mathDisplayTokens.length}\u0003`;
     tokens.mathDisplayTokens.push(formula);
     return `\n${token}\n`;
   });
 
-  // 3. Extract Inline Math: \( ... \), \begin{math}...\end{math}, \ensuremath{...}
-  content = content.replace(/\\\(([\s\S]*?)\\\)|\\begin\{math\}([\s\S]*?)\\end\{math\}|\\ensuremath\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, p1, p2, p3) => {
+  // 3. Extract Inline Math: \( ... \) (including double-escaped \\( ... \\)), \begin{math}...\end{math}, \ensuremath{...}
+  content = content.replace(/\\+\(([\s\S]*?)\\+\)|\\begin\{math\}([\s\S]*?)\\end\{math\}|\\ensuremath\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, p1, p2, p3) => {
     const formula = (p1 || p2 || p3 || '').trim();
     const token = `\u0002MATHINL${tokens.mathInlineTokens.length}\u0003`;
     tokens.mathInlineTokens.push(formula);
     return token;
   });
 
-  // 4. Extract Inline Math: $ ... $ (supports multiple inline math expressions on the same line or inside macros)
-  content = content.replace(/(^|[^\\$])\$([^$]+?)(?<!\\)\$/g, (match, prefix, p1) => {
+  // 4. Extract Inline Math: $ ... $ (single-line only to avoid cross-paragraph greedy matches)
+  content = content.replace(/(^|[^\\$])\$([^$\n]+?)(?<!\\)\$/g, (match, prefix, p1) => {
     const formula = p1.trim();
     if (!formula) return match;
     const token = `\u0002MATHINL${tokens.mathInlineTokens.length}\u0003`;
@@ -1036,7 +1056,7 @@ function parseContentToBlocks(
   });
 
   // 5. Parse LaTeX environments (theorems, definitions, layout grids, columns)
-  content = parseLatexEnvironments(content);
+  content = parseLatexEnvironments(content, assets);
 
   // 6. Pre-process images (\includegraphics, ![alt](src), <figure>)
   content = parseCustomImages(content, assets);
@@ -1125,7 +1145,7 @@ function parseContentToBlocks(
   // 11. Extract raw HTML tables
   content = content.replace(/<table\b([\s\S]*?)<\/table>/gi, (match) => {
     const token = `\u0002RAWHTML${tokens.rawHtmlTokens.length}\u0003`;
-    const wrapped = `<div class="my-3 overflow-x-auto w-full max-w-full rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">${match.replace(/<table\b([^>]*)>/i, '<table class="notebook-table w-full border-collapse break-words max-w-full"$1>')}</div>`;
+    const wrapped = `<div class="my-3 overflow-x-auto w-full max-w-full rounded-xl border border-slate-300 shadow-2xs">${match.replace(/<table\b([^>]*)>/i, '<table class="notebook-table w-full border-collapse break-words max-w-full text-slate-900"$1>')}</div>`;
     tokens.rawHtmlTokens.push(wrapped);
     return `\n${token}\n`;
   });
@@ -1191,7 +1211,7 @@ function parseContentToBlocks(
       const pBlock: ContentBlock = {
         type: 'p',
         rawText: pContent,
-        html: `<p data-source-snippet="${snippet}" class="my-2 leading-relaxed text-slate-800 dark:text-slate-200 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${parsed}</p>`,
+        html: `<p data-source-snippet="${snippet}" class="my-2 leading-relaxed text-slate-900 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${parsed}</p>`,
         estimatedHeight: 0
       };
       pBlock.estimatedHeight = estimateBlockHeight(pBlock, settings);
@@ -1203,10 +1223,10 @@ function parseContentToBlocks(
 
   const flushList = () => {
     if (inList && listItems.length > 0) {
-      const itemsHtml = listItems.map(item => `<li data-source-snippet="${normalizeBlockSnippet(item)}" class="break-words w-full max-w-full">${parseInlineMarkdown(item)}</li>`).join('');
+      const itemsHtml = listItems.map(item => `<li data-source-snippet="${normalizeBlockSnippet(item)}" class="break-words w-full max-w-full text-slate-900">${parseInlineMarkdown(item)}</li>`).join('');
       const tag = listType;
       const listClass = listType === 'ol' ? 'list-decimal' : 'list-disc';
-      const listHtml = `<${tag} data-source-snippet="${normalizeBlockSnippet(listItems[0] || '')}" class="${listClass} list-outside pl-6 my-2 space-y-1 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${itemsHtml}</${tag}>`;
+      const listHtml = `<${tag} data-source-snippet="${normalizeBlockSnippet(listItems[0] || '')}" class="${listClass} list-outside pl-6 my-2 space-y-1 text-slate-900 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${itemsHtml}</${tag}>`;
 
       const lBlock: ContentBlock = {
         type: 'list',
@@ -1224,32 +1244,32 @@ function parseContentToBlocks(
   const flushBlockquote = () => {
     if (inBlockquote) {
       const inner = blockquoteBuffer.map(l => parseInlineMarkdown(l)).join('<br/>');
-      let borderClass = 'border-l-4 border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-slate-800 dark:text-slate-200';
+      let borderClass = 'border-l-4 border-blue-500 bg-blue-50/80 text-slate-900';
       let defaultBadge = '';
 
       if (blockquoteType === 'THEOREM') {
-        borderClass = 'border-l-4 border-amber-500 bg-amber-50/60 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100';
+        borderClass = 'border-l-4 border-amber-500 bg-amber-50/85 text-amber-950';
         defaultBadge = 'Theorem';
       } else if (blockquoteType === 'DEFINITION') {
-        borderClass = 'border-l-4 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100';
+        borderClass = 'border-l-4 border-emerald-500 bg-emerald-50/85 text-emerald-950';
         defaultBadge = 'Definition';
       } else if (blockquoteType === 'LEMMA') {
-        borderClass = 'border-l-4 border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30 text-indigo-950 dark:text-indigo-100';
+        borderClass = 'border-l-4 border-indigo-500 bg-indigo-50/85 text-indigo-950';
         defaultBadge = 'Lemma';
       } else if (blockquoteType === 'PROOF') {
-        borderClass = 'border-l-4 border-slate-400 bg-slate-50/70 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 italic';
+        borderClass = 'border-l-4 border-slate-400 bg-slate-50/90 text-slate-900 italic';
         defaultBadge = 'Proof';
       } else if (blockquoteType === 'EXAM_QUESTION') {
-        borderClass = 'border-l-4 border-rose-500 bg-rose-50/60 dark:bg-rose-950/30 text-rose-950 dark:text-rose-100';
+        borderClass = 'border-l-4 border-rose-500 bg-rose-50/85 text-rose-950';
         defaultBadge = 'Examination Question';
       } else if (blockquoteType === 'NOTE') {
-        borderClass = 'border-l-4 border-sky-500 bg-sky-50/60 dark:bg-sky-950/30 text-sky-950 dark:text-sky-100';
+        borderClass = 'border-l-4 border-sky-500 bg-sky-50/85 text-sky-950';
         defaultBadge = 'Note';
       } else if (blockquoteType === 'FORMULA' || blockquoteType === 'KEY') {
-        borderClass = 'border-l-4 border-purple-500 bg-purple-50/60 dark:bg-purple-950/30 text-purple-950 dark:text-purple-100';
+        borderClass = 'border-l-4 border-purple-500 bg-purple-50/85 text-purple-950';
         defaultBadge = 'Important Formula';
       } else if (blockquoteType === 'BOX' || blockquoteType === 'CALLOUT' || blockquoteType === 'IMPORTANT' || blockquoteType === 'CUSTOM') {
-        borderClass = 'border-l-4 border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-blue-950 dark:text-blue-100';
+        borderClass = 'border-l-4 border-blue-500 bg-blue-50/85 text-blue-950';
         defaultBadge = 'Important Note';
       }
 
@@ -1415,7 +1435,7 @@ function parseContentToBlocks(
       flushBlockquote();
       blocks.push({
         type: 'hr',
-        html: '<hr class="my-5 border-t border-slate-200 dark:border-slate-800" />',
+        html: '<hr class="my-5 border-t border-slate-300" />',
         estimatedHeight: 30
       });
       continue;
@@ -1462,7 +1482,7 @@ function parseContentToBlocks(
         blocks.push({
           type: 'h1',
           rawText: raw,
-          html: `<h1 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-6 mb-3 text-slate-900 dark:text-slate-50 border-b border-slate-200/80 dark:border-slate-800 pb-1.5 break-words w-full max-w-full" style="column-span: all; -webkit-column-span: all; width: 100%; max-width: 100%;">${text}</h1>`,
+          html: `<h1 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-6 mb-3 text-slate-950 border-b border-slate-300 pb-1.5 break-words w-full max-w-full" style="column-span: all; -webkit-column-span: all; width: 100%; max-width: 100%;">${text}</h1>`,
           estimatedHeight: 68
         });
       } else if (trimmed.startsWith('## ')) {
@@ -1471,7 +1491,7 @@ function parseContentToBlocks(
         blocks.push({
           type: 'h2',
           rawText: raw,
-          html: `<h2 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-xl sm:text-2xl font-bold tracking-tight mt-5 mb-2.5 text-slate-800 dark:text-slate-100 break-words w-full max-w-full" style="column-span: all; -webkit-column-span: all; width: 100%; max-width: 100%;">${text}</h2>`,
+          html: `<h2 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-xl sm:text-2xl font-bold tracking-tight mt-5 mb-2.5 text-slate-900 break-words w-full max-w-full" style="column-span: all; -webkit-column-span: all; width: 100%; max-width: 100%;">${text}</h2>`,
           estimatedHeight: 52
         });
       } else if (trimmed.startsWith('### ')) {
@@ -1480,7 +1500,7 @@ function parseContentToBlocks(
         blocks.push({
           type: 'h3',
           rawText: raw,
-          html: `<h3 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-lg sm:text-xl font-bold mt-4 mb-2 text-slate-800 dark:text-slate-200 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${text}</h3>`,
+          html: `<h3 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-lg sm:text-xl font-bold mt-4 mb-2 text-slate-900 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${text}</h3>`,
           estimatedHeight: 42
         });
       } else if (trimmed.startsWith('#### ')) {
@@ -1489,7 +1509,7 @@ function parseContentToBlocks(
         blocks.push({
           type: 'h4',
           rawText: raw,
-          html: `<h4 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-base sm:text-lg font-semibold mt-3 mb-1.5 text-slate-700 dark:text-slate-300 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${text}</h4>`,
+          html: `<h4 data-source-snippet="${normalizeBlockSnippet(raw)}" class="text-base sm:text-lg font-semibold mt-3 mb-1.5 text-slate-800 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${text}</h4>`,
           estimatedHeight: 36
         });
       }
@@ -1690,7 +1710,7 @@ export function parseDocumentToPages(
 
           if (testHeight > pageCapacityPx && chunkText) {
             const parsed = parseInlineMarkdown(chunkText);
-            finalPages.push(restoreTokens(`<p class="my-2 leading-relaxed text-slate-800 dark:text-slate-200 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${parsed}</p>`, tokens));
+            finalPages.push(restoreTokens(`<p class="my-2 leading-relaxed text-slate-900 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${parsed}</p>`, tokens));
             chunkText = sentence;
           } else {
             chunkText = testText;
@@ -1700,7 +1720,7 @@ export function parseDocumentToPages(
         if (chunkText) {
           const parsed = parseInlineMarkdown(chunkText);
           const remainingHeight = estimateBlockHeight({ type: 'p', rawText: chunkText, html: '', estimatedHeight: 0 }, settings);
-          currentPageBlocks = [`<p class="my-2 leading-relaxed text-slate-800 dark:text-slate-200 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${parsed}</p>`];
+          currentPageBlocks = [`<p class="my-2 leading-relaxed text-slate-900 break-words w-full max-w-full" style="width: 100%; max-width: 100%;">${parsed}</p>`];
           currentPageHeight = remainingHeight;
         }
         continue;
@@ -1793,7 +1813,7 @@ export function renderMarkdownTable(lines: string[], tableIndex: number = 0): st
 
   const thead = `
     <thead>
-      <tr class="bg-slate-100 dark:bg-slate-800/80 font-bold border-b border-slate-300 dark:border-slate-700">
+      <tr class="bg-slate-100 font-bold border-b border-slate-300 text-slate-900">
         ${headerRow.map((h, colIdx) => `
           <th 
             contenteditable="true" 
@@ -1802,7 +1822,7 @@ export function renderMarkdownTable(lines: string[], tableIndex: number = 0): st
             data-row-idx="0" 
             data-col-idx="${colIdx}" 
             style="text-align: ${alignments[colIdx] || 'left'}; position: relative;"
-            class="notebook-table-cell px-3 py-2 border border-slate-300 dark:border-slate-700 text-xs sm:text-sm font-semibold break-words transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-950/30 focus:outline-none focus:bg-blue-50/80 dark:focus:bg-blue-900/40 focus:ring-1 focus:ring-blue-500"
+            class="notebook-table-cell px-3 py-2 border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 break-words transition-colors hover:bg-blue-50/70 focus:outline-none focus:bg-blue-50/90 focus:ring-1 focus:ring-blue-500"
           >
             ${parseInlineMarkdown(h)}
             <div class="table-col-resizer print:hidden absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-500/70 active:bg-blue-600 transition-colors z-10" data-col-resizer="${colIdx}"></div>
@@ -1814,7 +1834,7 @@ export function renderMarkdownTable(lines: string[], tableIndex: number = 0): st
   const tbody = `
     <tbody>
       ${bodyRows.map((row, rowIdx) => `
-        <tr class="${rowIdx % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/50 dark:bg-slate-800/40'} border-b border-slate-200 dark:border-slate-800">
+        <tr class="${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} border-b border-slate-200 text-slate-900">
           ${row.map((cell, colIdx) => `
             <td 
               contenteditable="true" 
@@ -1823,7 +1843,7 @@ export function renderMarkdownTable(lines: string[], tableIndex: number = 0): st
               data-row-idx="${rowIdx + 1}" 
               data-col-idx="${colIdx}" 
               style="text-align: ${alignments[colIdx] || 'left'};"
-              class="notebook-table-cell px-3 py-2 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm break-words transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-950/30 focus:outline-none focus:bg-blue-50/80 dark:focus:bg-blue-900/40 focus:ring-1 focus:ring-blue-500"
+              class="notebook-table-cell px-3 py-2 border border-slate-200 text-xs sm:text-sm text-slate-900 break-words transition-colors hover:bg-blue-50/70 focus:outline-none focus:bg-blue-50/90 focus:ring-1 focus:ring-blue-500"
             >
               ${parseInlineMarkdown(cell)}
             </td>
@@ -1834,16 +1854,16 @@ export function renderMarkdownTable(lines: string[], tableIndex: number = 0): st
   `;
 
   const actionToolbar = `
-    <div class="print:hidden opacity-0 group-hover/table:opacity-100 transition-opacity flex items-center justify-end gap-1 px-2 py-1 bg-slate-100/90 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 text-[10px] font-bold select-none">
+    <div class="print:hidden opacity-0 group-hover/table:opacity-100 transition-opacity flex items-center justify-end gap-1 px-2 py-1 bg-slate-100/95 border-t border-slate-200 text-[10px] font-bold select-none">
       <button type="button" data-table-action="add-row" data-table-idx="${tableIndex}" class="px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition-colors">+ Row</button>
       <button type="button" data-table-action="add-col" data-table-idx="${tableIndex}" class="px-2 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer transition-colors">+ Col</button>
-      <button type="button" data-table-action="remove-row" data-table-idx="${tableIndex}" class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-rose-100 hover:text-rose-600 cursor-pointer transition-colors">- Row</button>
+      <button type="button" data-table-action="remove-row" data-table-idx="${tableIndex}" class="px-2 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-rose-100 hover:text-rose-600 cursor-pointer transition-colors">- Row</button>
     </div>
   `;
 
   return `
-    <div class="notebook-table-wrapper my-4 overflow-x-auto w-full max-w-full rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs relative group/table" data-table-wrapper="${tableIndex}" style="column-span: all; -webkit-column-span: all; width: 100%; max-width: 100%;">
-      <table class="notebook-table w-full border-collapse break-words max-w-full" data-table-idx="${tableIndex}" style="width: 100%; max-width: 100%;">
+    <div class="notebook-table-wrapper my-4 overflow-x-auto w-full max-w-full rounded-xl border border-slate-300 shadow-2xs relative group/table" data-table-wrapper="${tableIndex}" style="column-span: all; -webkit-column-span: all; width: 100%; max-width: 100%;">
+      <table class="notebook-table w-full border-collapse break-words max-w-full text-slate-900" data-table-idx="${tableIndex}" style="width: 100%; max-width: 100%;">
         ${thead}
         ${tbody}
       </table>

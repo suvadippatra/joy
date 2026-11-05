@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="bn" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>PDF Colour Invert - প্রশ্নপত্র Maker</title>
+<style>
+:root {
+  --bg: #080d1a; --bg1: #0d1427; --bg2: #111b34; --bg3: #172040; --bg4: #1c274d;
+  --border: #1a2a48; --border2: #203358; --accent: #5b50f0; --accent2: #7065f3; --accent3: #9d95f7;
+  --t1: #eef2fb; --t2: #8fa3c8; --t3: #4a5d80; --shadow: 0 8px 32px rgba(0,0,0,.65);
+  --r: 9px; --r2: 6px; --r3: 4px; --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-bn: 'Tiro Bangla', 'Kalpurush', serif;
+}
+[data-theme="light"] {
+  --bg: #f0f4fc; --bg1: #ffffff; --bg2: #f4f7fd; --bg3: #e8eef8; --bg4: #dce4f4;
+  --border: #dbe4f2; --border2: #c8d5ec; --border3: #a8bce0;
+  --accent: #4f46e5; --accent2: #4338ca; --accent3: #3730a3;
+  --t1: #0f172a; --t2: #334155; --t3: #64748b; --t4: #94a3b8;
+  --shadow: 0 8px 32px rgba(0,0,0,.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-ui); background: var(--bg); color: var(--t1); display: flex; flex-direction: column; height: 100vh; overflow-y: auto; transition: background .25s, color .25s;}
+
+#topbar { height: 50px; background: var(--bg1); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 10px; flex-shrink: 0; transition: background .25s, border-color .25s;}
+.logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; text-decoration: none; user-select: none; }
+.logo-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;}
+.logo-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.logo-fallback { font-size: 17px; font-family: var(--font-bn); color: #fff; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent3)); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 8px; line-height: 1;}
+
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.icon-btn { background: transparent; border: 1px solid transparent; border-radius: var(--r3); color: var(--t3); cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center; transition: .15s; outline: none; flex-shrink: 0; }
+.icon-btn:hover { background: var(--bg3); color: var(--t1); border-color: var(--border2); }
+
+.container { max-width: 600px; margin: 30px auto; padding: 25px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); width: 95%; margin-bottom: 50px; transition: background .25s, border-color .25s;}
+.drop-zone { border: 2px dashed var(--border2); border-radius: var(--r2); padding: 40px 20px; text-align: center; cursor: pointer; transition: .2s; margin-bottom: 20px; background: var(--bg1);}
+.drop-zone:hover { border-color: var(--accent2); background: rgba(91,80,240,.06); }
+.btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: var(--r2); font-weight: bold; cursor: pointer; transition: .2s; }
+.btn:hover { background: var(--accent2); }
+.btn:disabled { background: var(--bg3); color: var(--t3); cursor: not-allowed; }
+
+h2 { margin-bottom: 5px; font-size: 18px; }
+p { color: var(--t2); font-size: 12px; margin-bottom: 20px; }
+a.back-link { color: var(--t2); text-decoration: none; font-size: 12px; display: inline-block; margin-bottom: 20px;}
+a.back-link:hover { color: var(--accent3); }
+.warning { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px; border-radius: var(--r2); color: var(--gold2); font-size: 11px; margin-bottom: 20px; line-height: 1.5; }
+
+/* The magic CSS to invert PDF colors */
+.inverted-pdf { filter: invert(1) hue-rotate(180deg); }
+
+/* Info Panel CSS */
+#info { position: fixed; top: 0; right: 0; width: min(400px, 95vw); height: 100dvh; background: var(--bg1); border-left: 1px solid var(--border); z-index: 901; transform: translateX(100%); transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1), background .25s, border-color .25s; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+#info.show { transform: none; }
+.info-hdr { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.info-body { flex: 1; overflow-y: auto; padding: 16px; font-size: 13px; color: var(--t2); line-height: 1.6; }
+#ov { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 900; opacity: 0; pointer-events: none; transition: .3s; }
+#ov.show { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <a class="logo" href="index.html" style="text-decoration: none;">
+    <div class="logo-icon" style="background: transparent;">
+      <img src="logo.png" alt="Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+      <span class="logo-fallback" style="display:none">প</span>
+    </div>
+  </a>
+  <span style="font-weight: 700; font-size: 14px;">PDF Color Inverter</span>
+  
+  <div class="topbar-right">
+    <button class="icon-btn" id="theme-btn" title="Toggle theme">
+      <svg id="theme-icon-dark" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      <svg id="theme-icon-light" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="icon-btn" id="info-btn" title="How to use">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="container">
+  <a href="index.html" class="back-link">← Back to Editor</a>
+  <h2>Invert PDF Colors (Dark Mode Reader)</h2>
+  <p>Upload a PDF to view it in an inverted, dark-mode color scheme.</p>
+  
+  <div class="warning">
+    <strong>Developer Note:</strong> True vector-level color inversion cannot be downloaded without heavy server-side processing. Use this tool to instantly read any bright PDF in an eye-friendly Dark Mode natively in your browser!
+  </div>
+
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div style="font-size: 24px; margin-bottom: 10px;" id="file-icon">🌗</div>
+    <div id="file-name" style="font-weight: bold; color: var(--t1);">Click to select PDF file</div>
+    <input type="file" id="file-input" accept="application/pdf" hidden>
+  </div>
+
+  <button class="btn" id="invert-btn" disabled>Generate Dark Mode Preview</button>
+
+  <!-- PREVIEW SECTION -->
+  <div id="preview-section" style="display: none; margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="font-size: 14px; color: var(--t1);">Inverted Document</h3>
+      <label style="font-size: 12px; color: var(--t3); display: flex; align-items: center; gap: 5px;">
+        <input type="checkbox" id="toggle-invert" checked> Dark Mode Active
+      </label>
+    </div>
+    
+    <iframe id="pdf-preview" class="inverted-pdf" style="width: 100%; height: 500px; border: 1px solid var(--border2); border-radius: var(--r2); background: #fff;"></iframe>
+  </div>
+</div>
+
+<!-- OVERLAY AND INFO PANEL -->
+<div id="ov"></div>
+<div id="info">
+  <div class="info-hdr">
+    <span style="font-size:14px; font-weight:700; color:var(--t1)">How to Use</span>
+    <button class="icon-btn" id="info-close">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="info-body">
+    <p><strong>1. Select File:</strong> Upload a highly bright or stark-white PDF document.</p>
+    <p><strong>2. Generate:</strong> Click the button to load the document into the preview frame.</p>
+    <p><strong>3. Dark Mode CSS:</strong> The app applies a mathematical hue-rotation and inversion to the frame. The white paper becomes dark gray, black text becomes white, but colored images try to remain visually accurate.</p>
+    <p><strong>Use Case:</strong> Perfect for reading long, blinding documents at night without straining your eyes.</p>
+  </div>
+</div>
+
+<script>
+  // -- THEME LOGIC --
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    localStorage.setItem('qpm-theme', t);
+    document.getElementById('theme-icon-dark').style.display = t === 'dark' ? '' : 'none';
+    document.getElementById('theme-icon-light').style.display = t === 'light' ? '' : 'none';
+  }
+  const savedTheme = localStorage.getItem('qpm-theme') || 'dark';
+  setTheme(savedTheme);
+  document.getElementById('theme-btn').onclick = () => {
+    setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  };
+
+  // -- INFO PANEL LOGIC --
+  document.getElementById('info-btn').onclick = () => { document.getElementById('info').classList.add('show'); document.getElementById('ov').classList.add('show'); };
+  const closeInfo = () => { document.getElementById('info').classList.remove('show'); document.getElementById('ov').classList.remove('show'); };
+  document.getElementById('info-close').onclick = closeInfo;
+  document.getElementById('ov').onclick = closeInfo;
+
+  // -- LOGIC --
+  let targetFile = null;
+  let currentBlobUrl = null;
+
+  document.getElementById('file-input').addEventListener('change', function(e) {
+    if(e.target.files.length > 0) {
+        targetFile = e.target.files[0];
+        document.getElementById('file-name').textContent = targetFile.name;
+        document.getElementById('file-icon').textContent = "✅";
+        document.getElementById('invert-btn').disabled = false;
+        document.getElementById('preview-section').style.display = 'none';
+    }
+  });
+
+  document.getElementById('invert-btn').addEventListener('click', () => {
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = URL.createObjectURL(targetFile);
+
+      const iframe = document.getElementById('pdf-preview');
+      iframe.src = currentBlobUrl;
+      document.getElementById('preview-section').style.display = 'block';
+  });
+
+  document.getElementById('toggle-invert').addEventListener('change', (e) => {
+      const iframe = document.getElementById('pdf-preview');
+      if (e.target.checked) {
+          iframe.classList.add('inverted-pdf');
+      } else {
+          iframe.classList.remove('inverted-pdf');
+      }
+  });
+</script>
+</body>
+</html>

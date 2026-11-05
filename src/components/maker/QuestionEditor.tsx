@@ -4,19 +4,23 @@ import {
   Trash2,
   Image as ImageIcon,
   RotateCcw,
-  Code,
-  Info,
+  Table as TableIcon,
+  HelpCircle,
   ChevronLeft,
   ChevronRight,
   Copy,
   ArrowUp,
   ArrowDown,
-  Lightbulb
+  Lightbulb,
+  CheckCircle2,
+  ListChecks,
+  Hash
 } from 'lucide-react';
 import { Question, QuestionType, Section } from '../../types/cbtMaker';
 import AutoExpandingTextarea from './AutoExpandingTextarea';
 import Base64ImageGuard from './Base64ImageGuard';
 import VisualTableEditor from './VisualTableEditor';
+import { useButtonDisplayMode } from '../../hooks/useButtonDisplayMode';
 
 // Helper to parse option strings that embed base64 image data
 function parseOptionData(optStr: string): { text: string; image: string } {
@@ -46,6 +50,30 @@ function parseFractionOrNumber(val: string): number | undefined {
   }
   const num = parseFloat(trimmed);
   return isNaN(num) ? undefined : num;
+}
+
+// Convert inline Markdown pipe table lines into a clean CBT HTML table
+function convertPipeTableToHtml(tableLines: string[]): string {
+  const rows = tableLines
+    .map(l => l.trim())
+    .filter(l => l.startsWith('|') && l.endsWith('|'))
+    .map(l => l.slice(1, -1).split('|').map(c => c.trim()));
+  if (rows.length < 2) return '';
+  const isSep = (r: string[]) => r.every(c => /^:?[-=]+:?$/.test(c));
+  const header = rows[0];
+  const body = rows.slice(1).filter(r => !isSep(r));
+  const thHtml = header
+    .map(h => `<th style="border:1px solid #cbd5e1;padding:6px 10px;background:#f8fafc;text-align:left;">${h}</th>`)
+    .join('');
+  const tbHtml = body
+    .map(
+      r =>
+        `<tr>${r
+          .map(c => `<td style="border:1px solid #cbd5e1;padding:6px 10px;">${c}</td>`)
+          .join('')}</tr>`
+    )
+    .join('');
+  return `<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:0.92em;"><thead><tr>${thHtml}</tr></thead><tbody>${tbHtml}</tbody></table>`;
 }
 
 interface QuestionEditorProps {
@@ -103,6 +131,7 @@ const QuestionEditor = memo(function QuestionEditor({
 }: QuestionEditorProps) {
   const [openTable, setOpenTable] = useState<boolean>(false);
   const [openExplanation, setOpenExplanation] = useState<boolean>(() => Boolean(question?.explanation));
+  const { mode: buttonDisplayMode, shouldShowLabel } = useButtonDisplayMode();
 
   // Track which field was last focused so math toolbar buttons insert into the active input
   const [focusedField, setFocusedField] = useState<FocusedFieldTarget>('text');
@@ -176,13 +205,113 @@ const QuestionEditor = memo(function QuestionEditor({
     }
   }, [question?.id, question?.text, JSON.stringify(question?.options), question?.correctNat, question?.explanation, questionIndex]);
 
+  // Inline Expression Parser: evaluates @marks(+4,-1), @type(NAT|MSQ|SCQ), @ans(B|A,C|5), @sol: ..., and Markdown pipe tables
+  const evaluateInlineExpressions = (rawInput: string, isBlur: boolean = false): boolean => {
+    if (!question || !rawInput) return false;
+    let working = rawInput;
+    const updates: Partial<Question> = {};
+    let mutated = false;
+
+    // 1. @marks(+4,-1) or @marks(4, 1)
+    const marksMatch = working.match(/@marks\(\s*\+?([0-9./]+)\s*(?:,\s*-?([0-9./]+))?\s*\)/i);
+    if (marksMatch) {
+      const mCorrect = parseFractionOrNumber(marksMatch[1]);
+      const mWrong = marksMatch[2] !== undefined ? parseFractionOrNumber(marksMatch[2]) : undefined;
+      if (mCorrect !== undefined) updates.marksCorrect = mCorrect;
+      if (mWrong !== undefined) updates.marksWrong = mWrong;
+      working = working.replace(marksMatch[0], '').trim();
+      mutated = true;
+    }
+
+    // 2. @type(NAT | MSQ | MCQ | SCQ)
+    const typeMatch = working.match(/@type\(\s*(SCQ|MCQ|MSQ|NAT)\s*\)/i);
+    if (typeMatch) {
+      const rawT = typeMatch[1].toUpperCase();
+      const targetType: QuestionType = rawT === 'NAT' ? 'NAT' : rawT === 'MSQ' ? 'MSQ' : 'MCQ';
+      updates.type = targetType;
+      if (targetType === 'NAT') {
+        updates.options = [];
+      } else if (!question.options || question.options.length === 0) {
+        updates.options = ['', '', '', ''];
+        setLocalOptions(['', '', '', '']);
+      }
+      working = working.replace(typeMatch[0], '').trim();
+      mutated = true;
+    }
+
+    // 3. @ans(B) or @ans(A,C) or @ans(15.5)
+    const ansMatch = working.match(/@ans\(\s*([^)]+?)\s*\)/i);
+    if (ansMatch) {
+      const ansVal = ansMatch[1].trim();
+      const effectiveType = updates.type || question.type;
+      if (effectiveType === 'NAT' || (/^-?\d+(\.\d+)?$/.test(ansVal) && !/^[A-Da-d]$/.test(ansVal))) {
+        updates.correctNat = ansVal;
+        setLocalCorrectNat(ansVal);
+      } else if (effectiveType === 'MSQ' || ansVal.includes(',')) {
+        const indices = ansVal
+          .split(',')
+          .map(s => s.trim().toUpperCase().charCodeAt(0) - 65)
+          .filter(n => n >= 0 && n < 10);
+        if (indices.length > 0) {
+          updates.type = 'MSQ';
+          updates.correct = indices;
+        }
+      } else {
+        const idx = ansVal.toUpperCase().charCodeAt(0) - 65;
+        if (idx >= 0 && idx < 10) {
+          updates.correct = idx;
+        }
+      }
+      working = working.replace(ansMatch[0], '').trim();
+      mutated = true;
+    }
+
+    // 4. On blur, extract @sol: ... and standalone Markdown pipe tables | A | B |
+    if (isBlur) {
+      const solMatch = working.match(/(?:^|\n)@sol:\s*([\s\S]+)$/i);
+      if (solMatch) {
+        const extractedSol = solMatch[1].trim();
+        if (extractedSol) {
+          updates.explanation = extractedSol;
+          setLocalExplanation(extractedSol);
+          lastPropExpRef.current = extractedSol;
+          setOpenExplanation(true);
+        }
+        working = working.replace(solMatch[0], '').trim();
+        mutated = true;
+      }
+
+      // Check for Markdown pipe table lines
+      const lines = working.split('\n');
+      const tableLines = lines.filter(l => l.trim().startsWith('|') && l.trim().endsWith('|'));
+      if (tableLines.length >= 2) {
+        const htmlTable = convertPipeTableToHtml(tableLines);
+        if (htmlTable) {
+          updates.table = htmlTable;
+          working = lines.filter(l => !(l.trim().startsWith('|') && l.trim().endsWith('|'))).join('\n').trim();
+          mutated = true;
+        }
+      }
+    }
+
+    if (mutated) {
+      setLocalText(working);
+      lastPropTextRef.current = working;
+      onUpdateQuestion({ ...updates, text: working });
+      return true;
+    }
+    return false;
+  };
+
   // Rapid 50ms debounce sync localText -> parent onUpdateQuestion for instant KaTeX live preview
   useEffect(() => {
     if (!question) return;
     const timer = setTimeout(() => {
       if (question.id === activeQIdRef.current && localText !== question.text) {
-        lastPropTextRef.current = localText;
-        onUpdateQuestion({ text: localText });
+        if (!evaluateInlineExpressions(localText, false)) {
+          lastPropTextRef.current = localText;
+          onUpdateQuestion({ text: localText });
+        }
       }
     }, 50);
     return () => clearTimeout(timer);
@@ -283,22 +412,24 @@ const QuestionEditor = memo(function QuestionEditor({
       ? 'Solution'
       : `Option ${String.fromCharCode(65 + focusedField.optionIndex)}`;
 
+  const showAllTextLabels = buttonDisplayMode === 'icon-text';
+
   return (
     <div
       id={`editor-question-${questionIndex}`}
       onClick={onFocusQuestion}
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 320px' }}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 280px' }}
       className={`w-full bg-white dark:bg-slate-900 rounded-2xl border p-3 sm:p-3.5 space-y-2.5 scroll-mt-16 transition-colors ${
         isActive
           ? 'border-blue-500 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
           : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
       }`}
     >
-      {/* Compact Header Row: Badge + Type Switcher + Marks + Quick Actions */}
+      {/* Compact Header Row: Badge + Smart Active-Label Type Switcher + Marks + Compact Tool Icons */}
       <div className="flex items-center justify-between gap-1.5 flex-wrap">
         {/* Left: S1Q1 Badge & Direct Question Type Segmented Switcher */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-xl border border-blue-200 dark:border-blue-900/50 shrink-0 font-mono">
+          <span className="text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-1 rounded-xl border border-blue-200 dark:border-blue-900/50 shrink-0 font-mono">
             {sLabel}
           </span>
 
@@ -306,6 +437,7 @@ const QuestionEditor = memo(function QuestionEditor({
             {(['MCQ', 'MSQ', 'NAT'] as QuestionType[]).map(t => {
               const label = t === 'MCQ' ? 'SCQ' : t === 'MSQ' ? 'MCQ' : 'NAT';
               const active = question.type === t;
+              const TypeIcon = t === 'MCQ' ? CheckCircle2 : t === 'MSQ' ? ListChecks : Hash;
               return (
                 <button
                   key={t}
@@ -316,28 +448,29 @@ const QuestionEditor = memo(function QuestionEditor({
                   }}
                   title={
                     t === 'MCQ'
-                      ? 'Single Choice Question (SCQ)'
+                      ? 'Single Choice Question (SCQ) — or type @type(SCQ)'
                       : t === 'MSQ'
-                      ? 'Multiple Correct Question (MSQ)'
-                      : 'Numerical Answer Type (NAT)'
+                      ? 'Multiple Correct Question (MSQ) — or type @type(MSQ)'
+                      : 'Numerical Answer Type (NAT) — or type @type(NAT)'
                   }
-                  className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                  className={`rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                     active
-                      ? 'bg-blue-600 text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? 'px-2.5 py-0.5 bg-blue-600 text-white shadow-2xs scale-[1.02]'
+                      : 'px-1.5 py-0.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {label}
+                  <TypeIcon size={12} />
+                  {shouldShowLabel(active, true) && <span>{label}</span>}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Right: Marks Override + Quick Question Actions */}
-        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+        {/* Right: Marks Override + Compact Attachment & Action Icons */}
+        <div className="flex items-center gap-1 ml-auto shrink-0 flex-wrap">
           {/* Compact +[4] -[1] Inline Marks with Fraction Support */}
-          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 px-2 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold shrink-0">
+          <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-800/80 px-1.5 py-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold shrink-0">
             <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">+</span>
             <input
               type="text"
@@ -351,8 +484,8 @@ const QuestionEditor = memo(function QuestionEditor({
               }}
               onFocus={onFocusQuestion}
               onBlur={() => setRawMarksStr(null)}
-              className="w-9 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
-              title="Correct Marks (supports fractions like 1/2)"
+              className="w-8 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
+              title="Correct Marks (or type @marks(+4,-1) in question)"
             />
 
             <span className="text-red-500 font-extrabold ml-0.5">-</span>
@@ -368,8 +501,8 @@ const QuestionEditor = memo(function QuestionEditor({
               }}
               onFocus={onFocusQuestion}
               onBlur={() => setRawPenaltyStr(null)}
-              className="w-9 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
-              title="Incorrect Penalty (supports fractions like 1/4)"
+              className="w-8 px-1 py-0.5 text-center font-bold font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none text-xs"
+              title="Incorrect Penalty (or type @marks(+4,-1) in question)"
             />
 
             {(question.marksCorrect !== undefined || question.marksWrong !== undefined) && (
@@ -383,9 +516,68 @@ const QuestionEditor = memo(function QuestionEditor({
                 title="Reset to Section Defaults"
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-0.5"
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={11} />
               </button>
             )}
+          </div>
+
+          {/* Compact Tool Icons: Diagram, Table/Matrix, Solution, LaTeX/Inline Help */}
+          <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <label
+              className={`cursor-pointer p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                question.image
+                  ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-blue-600'
+              }`}
+              title="Attach Diagram / Image"
+            >
+              <ImageIcon size={13} />
+              {showAllTextLabels && <span>Diagram</span>}
+              <input
+                type="file"
+                accept="image/*,.svg,.gif,.png,.jpg,.jpeg,.webp,.bmp"
+                className="hidden"
+                onChange={e => onImageFilePicked(e, 'question')}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => setOpenTable(prev => !prev)}
+              className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                question.table || openTable
+                  ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-purple-600'
+              }`}
+              title="Toggle Table / Matrix Builder (or type | A | B | inline)"
+            >
+              <TableIcon size={13} />
+              {showAllTextLabels && <span>Table</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOpenExplanation(prev => !prev)}
+              className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                localExplanation || openExplanation
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-amber-600'
+              }`}
+              title="Toggle Solution / Explanation (or type @sol: inline)"
+            >
+              <Lightbulb size={13} />
+              {showAllTextLabels && <span>Solution</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenLaTeXGuide}
+              className="p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              title="Inline Commands (@marks, @type, @ans, @sol:) & LaTeX Reference"
+            >
+              <HelpCircle size={13} />
+              {showAllTextLabels && <span>Guide</span>}
+            </button>
           </div>
 
           {/* Quick Reorder / Duplicate / Delete Controls */}
@@ -448,175 +640,35 @@ const QuestionEditor = memo(function QuestionEditor({
         </div>
       </div>
 
-      {/* Context-Aware Math & Formatting Ribbon (Rendered on active card to eliminate DOM bloat across 100+ questions) */}
-      {isActive && (
+      {/* Optional Math Snippet Bar (Hidden by default; shown only when user enables "Icons + Text Always" in Settings) */}
+      {isActive && showAllTextLabels && (
         <div className="bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-1.5 overflow-x-auto scrollbar-none">
           <div className="flex items-center gap-1 shrink-0">
             <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100/80 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
               {activeTargetLabel}
             </span>
-          {mathMode === 'LATEX' ? (
-            <>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$x$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Inline Math ($x$)"
-              >
-                $x$
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$$x = y$$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Display Block Equation ($$...$$)"
-              >
-                $$
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\frac{a}{b}$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Fraction (\frac{a}{b})"
-              >
-                a/b
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\sqrt{x}$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Square Root (\sqrt{x})"
-              >
-                √x
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('^{2}')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Superscript ^{2}"
-              >
-                x²
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('_{i}')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Subscript _{i}"
-              >
-                xᵢ
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\vec{F}$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Vector (\vec{F})"
-              >
-                F⃗
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\int_{a}^{b}$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Definite Integral"
-              >
-                ∫
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\Delta$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Delta (\Delta)"
-              >
-                Δ
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\theta$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Theta (\theta)"
-              >
-                θ
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$\\rightleftharpoons$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Equilibrium (\rightleftharpoons)"
-              >
-                ⇌
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('$^{\\circ}\\text{C}$')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-                title="Degree Celsius"
-              >
-                °C
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('<sup>2</sup>')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-              >
-                x²
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('<sub>2</sub>')}
-                className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-              >
-                x₂
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('√')}
-                className="px-2 py-0.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-              >
-                √
-              </button>
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => insertMathSnippet('⇌')}
-                className="px-2 py-0.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-              >
-                ⇌
-              </button>
-            </>
-          )}
-        </div>
-
-          <button
-            type="button"
-            onClick={onOpenLaTeXGuide}
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg hover:bg-emerald-100 transition-colors shrink-0"
-            title="LaTeX Cheatsheet"
-          >
-            <Info size={12} />
-            <span>LaTeX</span>
-          </button>
+            {mathMode === 'LATEX' ? (
+              <>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('$x$')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">$x$</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('$$x = y$$')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">$$</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('$\\frac{a}{b}$')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">a/b</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('$\\sqrt{x}$')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">√x</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('^{2}')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">x²</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('_{i}')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">xᵢ</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('$\\vec{F}$')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">F⃗</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('$\\int_{a}^{b}$')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-700 dark:text-slate-200">∫</button>
+              </>
+            ) : (
+              <>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('<sup>2</sup>')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800">x²</button>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertMathSnippet('<sub>2</sub>')} className="px-2 py-0.5 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-slate-800">x₂</button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Question Statement Input (No redundant headings) */}
+      {/* Question Statement Input (Supports inline $...$, @marks(+4,-1), @type(NAT), @ans(B), @sol:, and | A | B | tables) */}
       <AutoExpandingTextarea
         value={localText}
         onChange={e => setLocalText(e.target.value)}
@@ -624,16 +676,18 @@ const QuestionEditor = memo(function QuestionEditor({
           setFocusedField('text');
           onFocusQuestion?.();
         }}
-        placeholder={`Question ${questionIndex + 1} statement... ($x^2$ for inline math, $$...$$ for display)`}
-        className="w-full min-h-[76px] p-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
+        onBlur={() => {
+          evaluateInlineExpressions(localText, true);
+        }}
+        placeholder={`Q${questionIndex + 1}: Type statement with $x^2$, or inline commands @marks(+4,-1) @type(NAT) @ans(B) @sol: ...`}
+        className="w-full min-h-[72px] p-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 leading-relaxed"
         minRows={2}
       />
 
-      {/* Auxiliary Tools Row (Diagram, Table, Solution) */}
-      <div className="space-y-2 w-full">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Diagram Attach Button or Base64 Image Guard */}
-          {question.image ? (
+      {/* Attached Diagram or Table Drawer (Shown only when active/populated) */}
+      {(Boolean(question.image) || openTable || Boolean(question.table)) && (
+        <div className="space-y-2 w-full">
+          {question.image && (
             <Base64ImageGuard
               imageSrc={question.image}
               label="Diagram"
@@ -643,57 +697,20 @@ const QuestionEditor = memo(function QuestionEditor({
               onReplaceImage={e => onImageFilePicked(e, 'question')}
               onRemoveImage={() => onUpdateQuestion({ image: '' })}
             />
-          ) : (
-            <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-colors">
-              <ImageIcon size={14} className="text-blue-500" />
-              <span>+ Diagram</span>
-              <input
-                type="file"
-                accept="image/*,.svg,.gif,.png,.jpg,.jpeg,.webp,.bmp"
-                className="hidden"
-                onChange={e => onImageFilePicked(e, 'question')}
-              />
-            </label>
           )}
 
-          {/* Table Match Toggle */}
-          <button
-            type="button"
-            onClick={() => setOpenTable(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border ${
-              question.table || openTable
-                ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <Code size={14} />
-            <span>Table / Matrix {question.table ? '• Active' : ''}</span>
-          </button>
-
-          {/* Solution / Explanation Toggle */}
-          <button
-            type="button"
-            onClick={() => setOpenExplanation(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border ${
-              localExplanation || openExplanation
-                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <Lightbulb size={14} className="text-amber-500" />
-            <span>Solution / Explanation {localExplanation ? '• Added' : ''}</span>
-          </button>
+          {(openTable || Boolean(question.table)) && (
+            <VisualTableEditor
+              initialHtml={question.table || ''}
+              onChange={html => onUpdateQuestion({ table: html })}
+              onClear={() => {
+                setOpenTable(false);
+                onUpdateQuestion({ table: '' });
+              }}
+            />
+          )}
         </div>
-
-        {/* Table Drawer (Visual Grid Mode) */}
-        {(openTable || Boolean(question.table)) && (
-          <VisualTableEditor
-            initialHtml={question.table || ''}
-            onChange={html => onUpdateQuestion({ table: html })}
-            onClear={() => onUpdateQuestion({ table: '' })}
-          />
-        )}
-      </div>
+      )}
 
       {/* Options Section */}
       <div className="space-y-1.5 w-full">
